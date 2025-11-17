@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     DB_NAME: str = config("DB_NAME", default="dbname")
     DATABASE_URL: str = config("DATABASE_URL", default="postgresql://user:password@localhost/dbname")
 
+    #Waitlist Email
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    EMAIL: str
+    SMTP_SERVER: str 
+    SMTP_PORT: int
 
     class Config:
         env_file = ".env"

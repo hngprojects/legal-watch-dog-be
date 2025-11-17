@@ -1,0 +1,21 @@
+from app.api.core.dependencies.send_mail import send_email
+from schemas.email_schema import EmailRequest
+
+async def send_waitlist_email(email_data: EmailRequest) -> bool:
+    """
+    Send welcome email to waitlist applicant
+    """
+    try:
+        context = {
+            "organization_name": email_data.organization_name,
+            "organization_email": email_data.Organization_email
+        }
+        
+        await send_email(context)
+        
+        print(f"Waitlist email sent successfully to {email_data.organization_email}")
+        return True
+        
+    except Exception as e:
+        print(f"Failed to send waitlist email: {str(e)}")
+        return False
