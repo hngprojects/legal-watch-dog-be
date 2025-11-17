@@ -58,17 +58,79 @@ legal-watch-dog-be/
 │   │   ├── utils/                       # Helper utilities shared across API
 │   │   │   └── __init__.py
 │   │   │
-│   │   ├── v1/                          # Version 1 of the API
-│   │       ├── models/                  # SQLModel ORM models
-│   │       │   └── __init__.py
-│   │       ├── routes/                  # API endpoints (routers)
-│   │       │   └── __init__.py
-│   │       ├── schemas/                 # Pydantic request/response schemas
-│   │       │   └── __init__.py
-│   │       ├── services/                # Business logic layer
-│   │       │   └── __init__.py
-│   │       └── utils/                   # v1-specific utility functions
-│   │           └── __init__.py
+│   │   ├── modules/                     # Modules folder for API versions
+│   │       └── v1/                      # Version 1 of the API
+│   │           ├── __init__.py
+│   │           │
+│   │           ├── api_access/          # API Access module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── auth/                 # Authentication module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── jurisdictions/       # Jurisdictions module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── notifications/       # Notifications module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── organization/        # Organization module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── projects/            # Projects module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── scraping/            # Scraping module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── tickets/             # Tickets module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── users/               # Users module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           └── waitlist/            # Waitlist module
+│   │               ├── __init__.py
+│   │               ├── models/
+│   │               ├── routes/
+│   │               ├── schemas/
+│   │               └── service/
 │
 ├── tests/                               # Test suite (pytest)
 │   └── __init__.py
@@ -91,13 +153,25 @@ legal-watch-dog-be/
 
 ## **Setup Instructions**
 
-1. **Create a virtual environment:**
+1. **Install UV (if not already installed)**
+
+```bash
+# Using curl (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv --version
+
+# Or using pip
+pip install uv
+uv --version
+```
+
+2. **Create a virtual environment:**
 
 ```bash
 python3 -m venv .venv
 ```
 
-2. **Activate the virtual environment:**
+3. **Activate the virtual environment:**
 
 * On macOS/Linux:
 
@@ -111,19 +185,22 @@ source .venv/bin/activate
 .venv\Scripts\Activate
 ```
 
-3. **Install project dependencies with UV:**
+4. **Add or install project dependencies (optional)**
+   If you need to add new packages, run:
 
 ```bash
-uv install
+uv add <package_name>
 ```
 
-4. **Create a `.env` file from `.env.sample`:**
+> This updates `uv.lock` automatically.
+
+5. **Create a `.env` file from `.env.sample`:**
 
 ```bash
 cp .env.sample .env
 ```
 
-5. **Run the application locally:**
+6. **Run the application locally:**
 
 ```bash
 uv run python main.py --reload
