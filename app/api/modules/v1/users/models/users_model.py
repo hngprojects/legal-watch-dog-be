@@ -16,7 +16,7 @@ class User(SQLModel, table=True):
         default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
     )
 
-    org_id: uuid.UUID = Field(
+    organization_id: uuid.UUID = Field(
         foreign_key="organizations.id", nullable=False, index=True
     )
 
@@ -25,6 +25,8 @@ class User(SQLModel, table=True):
     email: str = Field(max_length=255, nullable=False, unique=True, index=True)
 
     hashed_password: str = Field(max_length=255, nullable=False)
+
+    name: str = Field(index=True, max_length=255)
 
     # first_name: Optional[str] = Field(
     #     default=None,
