@@ -1,0 +1,14 @@
+from pydantic import BaseModel, EmailStr
+from typing import Dict, Any
+
+class EmailRequest(BaseModel):
+    organization_name: str
+    organization_email: EmailStr
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "organization_name": "Acme Corp",
+                "Organization_email": "john@acme.com",
+            }
+        }
