@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, Column
 from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
-from users_model import User
+
+if TYPE_CHECKING:
+    from app.api.modules.v1.users.models import User
 
 
 class Role(SQLModel, table=True):
