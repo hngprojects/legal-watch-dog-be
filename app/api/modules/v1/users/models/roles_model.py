@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Column
 from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
+from users_model import User
 
 
 class Role(SQLModel, table=True):
@@ -26,3 +27,5 @@ class Role(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
     )
+
+    users: list["User"] = Relationship(back_populates="role")
