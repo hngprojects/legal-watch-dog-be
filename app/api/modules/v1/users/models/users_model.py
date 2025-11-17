@@ -5,6 +5,9 @@ from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
+from roles_model import Role
+from organization.models import Organization
+
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -45,3 +48,6 @@ class User(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
     )
+
+    organization: Organization = Relationship(back_populates="users")
+    role: Role = Relationship(back_populates="users")
