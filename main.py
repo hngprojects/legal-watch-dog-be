@@ -4,10 +4,19 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
+from contextlib import asynccontextmanager
 
 from app.api.core.config import settings
 from app.api import router as api_router
+from app.api.db.database import engine, Base
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
 app = FastAPI(
     title="Legal Watch Dog API",
@@ -15,6 +24,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan, 
 )
 
 
@@ -33,6 +43,7 @@ app.add_middleware(
 
 
 app.include_router(api_router)
+
 
 
 @app.get("/")
