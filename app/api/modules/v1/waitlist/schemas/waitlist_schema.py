@@ -6,7 +6,5 @@ class WaitlistSignup(BaseModel):
 
 
 class WaitlistResponse(BaseModel):
-    success: bool
-    message: str
     organization_email: str
     organization_name: str

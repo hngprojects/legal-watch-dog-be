@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
@@ -6,7 +7,7 @@ from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse
 from app.api.core.dependencies.send_mail import send_email
 
-
+logger = logging.getLogger("app")
 
 class WaitlistService:
     """Business logic for waitlist operations"""
@@ -33,6 +34,7 @@ class WaitlistService:
         
         # Check if exists
         if await self._email_exists(db, organization_email):
+            logger.warning(f"Attempted duplicate signup: {organization_email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered on waitlist"
@@ -43,8 +45,6 @@ class WaitlistService:
         db.add(new_entry)
         await db.flush()
 
-        
-        
         # Log
         self._log_signup(organization_email)
         
@@ -69,14 +69,14 @@ class WaitlistService:
                 "organization_email": email
             }
             await send_email(context)
-            print(f"Waitlist email sent successfully to {email}")
+            logger.info(f"Waitlist email sent successfully to {email}")
         except Exception as e:
-            print(f"Error sending email to {email}: {str(e)}")
+            logger.error(f"Error sending email to {email}: {str(e)}")
 
     
     def _log_signup(self, email: str):
         """Log the signup event"""
-        print(f"New waitlist signup: {email}")
+        logger.info(f"New waitlist signup: {email}")
         
 
 
