@@ -240,6 +240,7 @@ GRANT ALL PRIVILEGES ON DATABASE legal_watch_dog_db TO db_user;
 ```
 
 ---
+\q
 
 ### Step 4: Update `.env` File
 
