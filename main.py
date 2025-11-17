@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from app.api.core.config import settings
 from app.api import router as api_router
 from app.api.db.database import engine, Base
+from app.api.utils.response_payloads import success_response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,9 +20,9 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 app = FastAPI(
-    title="Legal Watch Dog API",
-    description="Legal Watch Dog API for managing projects and endpoints",
-    version="1.0.0",
+    title=f"{settings.APP_NAME} API",
+    description=f"{settings.APP_NAME} API for managing projects and endpoints",
+    version=settings.APP_VERSION,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan, 
@@ -45,19 +46,24 @@ app.add_middleware(
 app.include_router(api_router)
 
 
-
 @app.get("/")
 def read_root():
-    return {
-        "message": f"{settings.APP_NAME} API is running...",
-        "version": settings.APP_VERSION,
-        "environment": "Production" if not settings.DEBUG else "Development"
-    }
+    return success_response(
+        status_code=200,
+        message=f"{settings.APP_NAME} API is running...",
+        data={
+            "version": settings.APP_VERSION,
+            "environment": "Production" if not settings.DEBUG else "Development"
+        }
+    )
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return success_response(
+        status_code=200,
+        message="API is healthy"
+    )
 
 
 if __name__ == "__main__":
