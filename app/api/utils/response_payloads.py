@@ -4,43 +4,48 @@ from fastapi.encoders import jsonable_encoder
 
 
 def success_response(status_code: int, message: str, data: Optional[dict] = None):
-    """Create a standardized JSON response for successful requests.
+    """
+    Create a standardized JSON response for successful requests.
 
     Args:
-        status_code (int): HTTP status code to return (e.g. 200).
+        status_code (int): HTTP status code to return (e.g. 200, 201).
         message (str): Human-readable description of the result.
-        data (Optional[dict]): Optional additional payload data. If omitted,
-        an empty dictionary is used.
+        data (Optional[dict]): Optional payload data. Defaults to an empty dict.
 
     Returns:
-        JSONResponse: A FastAPI JSONResponse instance with status/status_code/
-        message/data keys. The function applies jsonable_encoder to ensure
-        all values are JSON serializable before being sent to the client.
+        JSONResponse: Contains:
+            - status: "success"
+            - status_code: same as HTTP status code
+            - message: same message passed
+            - data: payload object (never null)
     """
 
     response_data = {
         "status": "success",
         "status_code": status_code,
         "message": message,
-        "data": data or {}  # Ensure data is always a dictionary
+        "data": data or {}
     }
 
-    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+    return JSONResponse(
+        status_code=status_code,
+        content=jsonable_encoder(response_data)
+    )
 
 
 def auth_response(status_code: int, message: str, access_token: str, data: Optional[dict] = None):
-    """Create a JSON response for authentication-related successes.
+    """
+    Create a standardized JSON response for authentication-related successes.
 
     Args:
-        status_code (int): HTTP status code to return (e.g. 201).
-        message (str): Human-readable description of the result.
-        access_token (str): The JWT or bearer token string to return.
-        data (Optional[dict]): Optional additional payload data to merge
-            into the data object alongside the token.
+        status_code (int): HTTP status code to return.
+        message (str): Human-readable result message.
+        access_token (str): The JWT/bearer token string.
+        data (Optional[dict]): Additional payload merged into the data block.
 
     Returns:
-        JSONResponse: A FastAPI JSONResponse where the data object contains
-            the access_token plus any additional merged keys from the input data.
+        JSONResponse: Same structure as success_response but with:
+            - access_token added inside the data object
     """
 
     response_data = {
@@ -49,31 +54,41 @@ def auth_response(status_code: int, message: str, access_token: str, data: Optio
         "message": message,
         "data": {
             "access_token": access_token,
-            **(data or {})  # Merge additional data if provided
+            **(data or {})
         }
     }
 
-    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+    return JSONResponse(
+        status_code=status_code,
+        content=jsonable_encoder(response_data)
+    )
 
 
 def fail_response(status_code: int, message: str, data: Optional[dict] = None):
-    """Create a standardized JSON response for failed requests.
+    """
+    Create a standardized JSON response for failed requests.
 
     Args:
-        status_code (int): HTTP status code to return (e.g. 400, 404, 500).
+        status_code (int): HTTP status code (e.g. 400, 404, 500).
         message (str): Human-readable description of the error.
-        data (Optional[dict]): Optional dictionary with extra error details.
+        data (Optional[dict]): Optional details about the failure.
 
     Returns:
-        JSONResponse: A FastAPI JSONResponse with status/status_code/message/
-            data keys representing the failure response.
+        JSONResponse: Contains:
+            - status: "failure"
+            - status_code: error HTTP code
+            - message: description of failure
+            - data: extra error details (always a dict)
     """
 
     response_data = {
         "status": "failure",
         "status_code": status_code,
         "message": message,
-        "data": data or {}  # Ensure data is always a dictionary
+        "data": data or {}
     }
 
-    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+    return JSONResponse(
+        status_code=status_code,
+        content=jsonable_encoder(response_data)
+    )
