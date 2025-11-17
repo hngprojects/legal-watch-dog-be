@@ -25,7 +25,7 @@ async def signup_waitlist(signup: WaitlistSignup,background_tasks:BackgroundTask
         
         # Update message to reflect reality
         return success_response(
-            200, 
+            201, 
             "Successfully added to waitlist. Confirmation email will be sent shortly."
         )
     except HTTPException as e:
