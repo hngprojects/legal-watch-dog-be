@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, Column
 from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
-from roles_model import Role
-from organization.models import Organization
+if TYPE_CHECKING:
+    from app.api.modules.v1.users.models.roles_model import Role
+    from app.api.modules.v1.organization.models import Organization
 
 
 class User(SQLModel, table=True):
@@ -41,7 +42,6 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(default=False, nullable=False)
 
-    last_login: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
@@ -51,5 +51,5 @@ class User(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    organization: Organization = Relationship(back_populates="users")
-    role: Role = Relationship(back_populates="users")
+    organization: "Organization" = Relationship(back_populates="users")
+    role: "Role" = Relationship(back_populates="users")
