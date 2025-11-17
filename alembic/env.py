@@ -6,6 +6,8 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.api.core.config import settings, BASE_DIR
+from app.api.db.database import Base
+from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -32,7 +34,7 @@ config.set_main_option("sqlalchemy.url", db_url)
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
