@@ -10,6 +10,9 @@ from app.api.core.config import settings
 from app.api import router as api_router
 from app.api.db.database import engine, Base
 from app.api.utils.response_payloads import success_response
+from app.api.core.logger import setup_logging
+
+setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
