@@ -1,0 +1,47 @@
+from datetime import datetime, timezone
+from typing import Optional
+from sqlalchemy import DateTime, Column
+from sqlmodel import SQLModel, Field, Relationship, JSON
+from sqlalchemy.dialects.postgresql import JSONB
+import uuid
+
+
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
+
+    org_id: uuid.UUID = Field(
+        foreign_key="organizations.id", nullable=False, index=True
+    )
+
+    role_id: uuid.UUID = Field(foreign_key="roles.id", nullable=False, index=True)
+
+    email: str = Field(max_length=255, nullable=False, unique=True, index=True)
+
+    hashed_password: str = Field(max_length=255, nullable=False)
+
+    # first_name: Optional[str] = Field(
+    #     default=None,
+    #     max_length=100
+    # )
+
+    # last_name: Optional[str] = Field(
+    #     default=None,
+    #     max_length=100
+    # )
+
+    is_active: bool = Field(default=True, nullable=False)
+    is_verified: bool = Field(default=False, nullable=False)
+
+    last_login: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
