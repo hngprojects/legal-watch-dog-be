@@ -17,18 +17,17 @@ async def signup_waitlist(signup: WaitlistSignup,background_tasks:BackgroundTask
     -organization_name: Name of the organization
     """
     try:
-        result = await waitlist_service.add_to_waitlist(db, signup.organization_email, signup.organization_name)
+        result = await waitlist_service.add_to_waitlist(db, signup)
         
         background_tasks.add_task(
             waitlist_service._send_confirmation_email, 
-            signup.organization_email, 
-            signup.organization_name
+            signup 
         )
         
         return success_response(
             201, 
             "Successfully added to waitlist. Confirmation email will be sent shortly.",
-            data=result.dict()
+            data=result
         )
     except HTTPException as e:
         return fail_response(e.status_code, e.detail)
