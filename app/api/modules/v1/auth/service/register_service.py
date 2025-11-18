@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+from typing import Tuple
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import BackgroundTasks
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.models.roles_model import Role
@@ -13,6 +15,7 @@ from app.api.core.dependencies.redis_service import (
 )
 from app.api.utils.permissions import ADMIN_PERMISSIONS
 from app.api.utils.password import hash_password
+from app.api.utils.jwt import create_access_token
 from app.api.core.logger import setup_logging
 import logging
 
@@ -22,12 +25,14 @@ logger = logging.getLogger("app")
 ADMIN_ROLE_NAME = "admin"
 
 
-async def register_organization_user(db: AsyncSession, data: RegisterRequest) -> User:
+async def register_organization(
+    db: AsyncSession,
+    data: RegisterRequest,
+    background_tasks: BackgroundTasks | None = None,
+) -> Tuple[User, str]:
     # 1. Create Organization
-    logger.info(
-        f"Starting registration for company: {data.company_name}, email: {data.email}"
-    )
-    org = Organization(name=data.company_name, industry=data.industry)
+    logger.info(f"Starting registration for company: {data.name}, email: {data.email}")
+    org = Organization(name=data.name, industry=data.industry)
     db.add(org)
     await db.flush()  # get org.id
 
@@ -55,7 +60,8 @@ async def register_organization_user(db: AsyncSession, data: RegisterRequest) ->
         role_id=role.id,
         email=data.email,
         hashed_password=hashed_pw,
-        name=data.company_name,
+        name=data.name,
+        auth_provider="local",  # Explicitly set for consistency
         is_active=True,
         is_verified=False,
     )
@@ -70,15 +76,27 @@ async def register_organization_user(db: AsyncSession, data: RegisterRequest) ->
     await db.commit()
     logger.info(f"Generated OTP for user: {user.email} and stored in Redis")
 
-    # 6. Send OTP email using HTML template
-    await send_email(
-        template_name="otp.html",
-        subject="Your OTP Code - LegalWatchDog",
-        recipient=data.email,
-        context={"user_name": data.company_name, "otp": otp_code, "year": 2025},
+    # 6. Send OTP email using HTML template. Use BackgroundTasks if provided so the
+    # request doesn't block on external IO.
+    # Build context compatible with send_email(context: dict)
+    email_context = {
+        "organization_email": data.email,
+        "organization_name": data.name,
+        "otp": otp_code,
+        "year": 2025,
+    }
+    if background_tasks is not None:
+        # pass the context as the only argument to send_email
+        background_tasks.add_task(send_email, email_context)
+        logger.info(f"Scheduled OTP email to be sent to: {data.email}")
+    else:
+        await send_email(email_context)
+        logger.info(f"Sent OTP email to: {data.email}")
+    # create access token for the new user
+    access_token = create_access_token(
+        user_id=str(user.id), organization_id=str(org.id), role_id=str(role.id)
     )
-    logger.info(f"Sent OTP email to: {data.email}")
-    return user
+    return user, access_token
 
 
 async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:

@@ -120,10 +120,8 @@ def require_permission(permission: Permission):
     Dependency factory for checking specific permissions.
 
     Usage:
-        @app.get(
-            "/projects",
-            dependencies=[Depends(require_permission(Permission.VIEW_PROJECTS))]
-        )
+        @app.get("/projects",
+        dependencies=[Depends(require_permission(Permission.VIEW_PROJECTS))])
 
     Args:
         permission: Permission enum value required
