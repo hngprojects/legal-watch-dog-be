@@ -8,9 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.api.core.config import settings
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.ext.asyncio import async_sessionmaker as _async_sessionmaker
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
@@ -144,7 +142,7 @@ async def pg_async_session(event_loop):
     # convert sync URL to asyncpg format
     async_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_url, echo=False)
-    async_session_maker_local = _async_sessionmaker(
+    async_session_maker_local = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
 
