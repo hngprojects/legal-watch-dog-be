@@ -73,7 +73,6 @@ async def company_signup(
     return auth_response(
         status_code=status.HTTP_201_CREATED,
         message="Registration successful. Verify the OTP sent to your email.",
-        access_token=access_token,
         data={"email": user.email},
     )
 

@@ -1,14 +1,8 @@
 import pytest
-from unittest.mock import AsyncMock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from app.api.modules.v1.auth.service.login_service import (
     authenticate_user,
-    refresh_access_token,
-    check_account_lockout,
-    increment_failed_attempts,
-    reset_failed_attempts,
     MAX_LOGIN_ATTEMPTS,
     LOCKOUT_DURATION_MINUTES,
 )
