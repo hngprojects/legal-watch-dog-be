@@ -5,4 +5,3 @@ from app.api.modules.v1.auth.routes.auth_route import router as auth_router
 router = APIRouter(prefix="/v1")
 router.include_router(waitlist_router)
 router.include_router(auth_router)
-
