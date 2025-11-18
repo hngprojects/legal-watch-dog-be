@@ -6,6 +6,7 @@ import logging
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse, WaitlistSignup
 from app.api.core.dependencies.send_mail import send_email
+from app.api.core.config import settings
 logger = logging.getLogger("app")
 
 class WaitlistService:
@@ -77,9 +78,15 @@ class WaitlistService:
     async def _send_confirmation_email(self, email_data: WaitlistSignup):
         """Send waitlist confirmation email"""
         try:
+            base_url = settings.LEGAL_WATCH_DOG_BASE_URL.strip().rstrip('/')
+            if base_url and not base_url.startswith(('http://', 'https://')):
+                base_url = f"https://{base_url}"
+
             context = {
                 "organization_name": email_data.organization_name,
-                "organization_email": email_data.organization_email
+                "organization_email": email_data.organization_email,
+                "base_url": base_url,
+                "cta_url": base_url 
             }
             await send_email(
                 template_name="waitlist.html",
