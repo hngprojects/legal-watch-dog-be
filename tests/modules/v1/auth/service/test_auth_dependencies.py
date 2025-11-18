@@ -17,20 +17,20 @@ from app.api.utils.permissions import Permission
 
 
 @pytest.mark.asyncio
-async def test_require_permission_grants(pg_sync_session):
-    session = pg_sync_session
+async def test_require_permission_grants(pg_async_session):
+    session = pg_async_session
     try:
         # Create organization
         org = Organization(name="Test Org")
         session.add(org)
-        # sync session: use sync flush
-        session.flush()
+        # async session: use async flush
+        await session.flush()
 
         # Create role with permission
         permissions = {Permission.CREATE_PROJECTS.value: True}
         role = Role(name="admin", organization_id=org.id, permissions=permissions)
         session.add(role)
-        session.flush()
+        await session.flush()
 
         # Create user in the organization with role
         user = User(
@@ -42,7 +42,7 @@ async def test_require_permission_grants(pg_sync_session):
             is_verified=True,
         )
         session.add(user)
-        session.commit()
+        await session.commit()
 
         # Permission checker dependency callable
         checker = require_permission(Permission.CREATE_PROJECTS)
@@ -56,17 +56,17 @@ async def test_require_permission_grants(pg_sync_session):
 
 
 @pytest.mark.asyncio
-async def test_require_permission_denies(pg_sync_session):
-    session = pg_sync_session
+async def test_require_permission_denies(pg_async_session):
+    session = pg_async_session
     try:
         # Create org/role/user, role without permission
         org = Organization(name="Other Org")
         session.add(org)
-        session.flush()
+        await session.flush()
 
         role = Role(name="viewer", organization_id=org.id, permissions={})
         session.add(role)
-        session.flush()
+        await session.flush()
 
         user = User(
             organization_id=org.id,
@@ -77,7 +77,7 @@ async def test_require_permission_denies(pg_sync_session):
             is_verified=True,
         )
         session.add(user)
-        session.commit()
+        await session.commit()
 
         checker = require_permission(Permission.CREATE_PROJECTS)
 
@@ -89,19 +89,19 @@ async def test_require_permission_denies(pg_sync_session):
 
 
 @pytest.mark.asyncio
-async def test_require_any_permission(pg_sync_session):
-    session = pg_sync_session
+async def test_require_any_permission(pg_async_session):
+    session = pg_async_session
     try:
         # Create org and role with one of many permissions
         org = Organization(name="OrgAny")
         session.add(org)
-        # sync session flush
-        session.flush()
+        # async session flush
+        await session.flush()
 
         permissions = {Permission.VIEW_PROJECTS.value: True}
         role = Role(name="viewer", organization_id=org.id, permissions=permissions)
         session.add(role)
-        session.flush()
+        await session.flush()
 
         user = User(
             organization_id=org.id,
@@ -112,7 +112,7 @@ async def test_require_any_permission(pg_sync_session):
             is_verified=True,
         )
         session.add(user)
-        session.commit()
+        await session.commit()
 
         checker = require_any_permission(
             Permission.CREATE_PROJECTS, Permission.VIEW_PROJECTS
@@ -126,17 +126,17 @@ async def test_require_any_permission(pg_sync_session):
 
 
 @pytest.mark.asyncio
-async def test_organization_access_allowed_and_denied(pg_sync_session):
-    session = pg_sync_session
+async def test_organization_access_allowed_and_denied(pg_async_session):
+    session = pg_async_session
     try:
         org = Organization(name="Org1")
         session.add(org)
-        # sync session flush
-        session.flush()
+        # async session flush
+        await session.flush()
 
         role = Role(name="admin", organization_id=org.id, permissions={})
         session.add(role)
-        session.flush()
+        await session.flush()
 
         user = User(
             organization_id=org.id,
@@ -147,7 +147,7 @@ async def test_organization_access_allowed_and_denied(pg_sync_session):
             is_verified=True,
         )
         session.add(user)
-        session.commit()
+        await session.commit()
 
         # Should pass for the same organization
         assert await verify_organization_access(str(org.id), current_user=user)
@@ -162,17 +162,17 @@ async def test_organization_access_allowed_and_denied(pg_sync_session):
 
 
 @pytest.mark.asyncio
-async def test_organization_filter(pg_sync_session):
+async def test_organization_filter(pg_async_session):
     """Test OrganizationFilter dependency class"""
-    session = pg_sync_session
+    session = pg_async_session
     try:
         org = Organization(name="FilterOrg")
         session.add(org)
-        session.flush()
+        await session.flush()
 
         role = Role(name="editor", organization_id=org.id, permissions={})
         session.add(role)
-        session.flush()
+        await session.flush()
 
         user = User(
             organization_id=org.id,
@@ -183,7 +183,7 @@ async def test_organization_filter(pg_sync_session):
             is_verified=True,
         )
         session.add(user)
-        session.commit()
+        await session.commit()
 
         # Test OrganizationFilter
         org_filter = OrganizationFilter(current_user=user)
