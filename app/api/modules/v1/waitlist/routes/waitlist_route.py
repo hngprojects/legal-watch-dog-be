@@ -27,15 +27,9 @@ async def signup_waitlist(
     -organization_name: Name of the organization
     """
     try:
-        result = await waitlist_service.add_to_waitlist(
-            db, signup.organization_email, signup.organization_name
-        )
+        result = await waitlist_service.add_to_waitlist(db, signup)
 
-        background_tasks.add_task(
-            waitlist_service._send_confirmation_email,
-            signup.organization_email,
-            signup.organization_name,
-        )
+        background_tasks.add_task(waitlist_service._send_confirmation_email, signup)
 
         return success_response(
             201,
