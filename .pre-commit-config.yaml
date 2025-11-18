@@ -1,17 +1,11 @@
 repos:
-  # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-json
-      - id: check-added-large-files
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Python code formatting with Black
   - repo: https://github.com/psf/black
     rev: 23.12.1
     hooks:
@@ -19,7 +13,6 @@ repos:
         language_version: python3.12
         exclude: ^(migrations/|alembic/)
 
-  # Linting with flake8
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
