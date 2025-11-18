@@ -26,20 +26,25 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv --version
 
-      - name: Create venv
+      - name: Create virtual environment
         run: python3 -m venv .venv
 
-      - name: Install dependencies with uv
+      - name: Install dependencies using uv
         run: |
           source .venv/bin/activate
           uv sync
 
-      - name: Lint code
+      - name: Format check with Black
         run: |
           source .venv/bin/activate
-          uv run ruff check .
+          uv run black --check .
 
-      - name: Run tests
+      - name: Lint with Flake8
+        run: |
+          source .venv/bin/activate
+          uv run flake8 app/
+
+      - name: Run tests with Pytest
         run: |
           source .venv/bin/activate
           uv run pytest tests/ --verbose
