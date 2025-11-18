@@ -9,10 +9,10 @@ class TestUser(SQLModel, table=True):
 
 
 @pytest.mark.asyncio
-async def test_database_write_and_read(test_session):
+async def test_database_write_and_read(pg_async_session):
     """Test writing and reading a TestUser from the database."""
 
-    session = test_session
+    session = pg_async_session
 
     user = TestUser(name="John Doe")
     session.add(user)
