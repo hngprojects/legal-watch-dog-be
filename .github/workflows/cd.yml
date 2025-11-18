@@ -43,56 +43,32 @@ jobs:
           MAIL_FROM_NAME="LEGAL WATCH DOG"
           EOF
 
-      # Install sshpass for non-interactive SSH
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      # Upload the .env file to the EC2 server
       - name: Upload .env file to server
         run: |
           sshpass -p "${{ secrets.EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no .env.dev ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }}:/home/${{ secrets.EC2_USERNAME }}/backend_env
 
-      # SSH into EC2 and deploy
       - name: SSH into EC2 and deploy
         run: |
           sshpass -p "${{ secrets.EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }} << 'EOF'
             set -e
 
-            echo "${{ secrets.EC2_PASSWORD }}" | sudo -S true
+            cd ~/backend
 
-            # Update system and install essentials
-            sudo apt-get update
-            sudo apt-get install -y python3-pip git tmux
+            git pull origin dev
 
-            # Ensure project directory exists
-            mkdir -p /var/www/backend
-            cd /var/www/backend
-
-            # Clone repo if not already cloned, otherwise pull latest
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }} .
-            else
-              git pull origin dev
-            fi
-
-            # Move environment file into project directory
             mv ~/backend_env .env
 
-            # Install uv if not installed
-            if ! command -v uv >/dev/null 2>&1; then
-              python3 -m pip install --upgrade pip
-              python3 -m pip install uv
-            fi
-
-            # Sync dependencies from pyproject.toml
             uv sync
 
-            # Stop any running backend
-            tmux kill-session -t backend || true
+            pkill -f "uv run" || true
+            sleep 2
 
-            # Load environment variables and start backend in background
             export $(grep -v '^#' .env | xargs)
-            tmux new-session -d -s backend "uv run main:app --host 0.0.0.0 --port $APP_PORT"
 
-            echo "Deployment complete!"
+            nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
+
+            echo "Deployment complete on port $APP_PORT!"
           EOF
