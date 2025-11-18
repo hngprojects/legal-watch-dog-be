@@ -59,7 +59,9 @@ async def pg_async_session(event_loop):
     # convert sync URL to asyncpg format
     async_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_url, echo=False)
-    async_session_maker_local = _async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session_maker_local = _async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     async with engine.begin() as conn:
         # ensure we start with a clean schema for the async Postgres fixture

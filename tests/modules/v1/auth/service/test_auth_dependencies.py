@@ -154,7 +154,9 @@ async def test_organization_access_allowed_and_denied(pg_sync_session):
 
         # Should fail for a different org id
         with pytest.raises(HTTPException):
-            await verify_organization_access("00000000-0000-0000-0000-000000000000", current_user=user)
+            await verify_organization_access(
+                "00000000-0000-0000-0000-000000000000", current_user=user
+            )
     finally:
         pass
 
@@ -195,12 +197,12 @@ async def test_organization_filter(pg_sync_session):
 async def test_get_current_user_with_role(pg_async_session):
     """Test get_current_user_with_role dependency with async session"""
     async_session = pg_async_session
-    
+
     # Create org, role and user in async session
     org = Organization(name="AsyncOrg")
     async_session.add(org)
     await async_session.flush()
-    
+
     role = Role(name="editor", organization_id=org.id, permissions={})
     async_session.add(role)
     await async_session.flush()
@@ -216,6 +218,8 @@ async def test_get_current_user_with_role(pg_async_session):
     async_session.add(user)
     await async_session.commit()
 
-    current_user, loaded_role = await get_current_user_with_role(current_user=user, db=async_session)
+    current_user, loaded_role = await get_current_user_with_role(
+        current_user=user, db=async_session
+    )
     assert current_user.email == user.email
     assert loaded_role.id == role.id
