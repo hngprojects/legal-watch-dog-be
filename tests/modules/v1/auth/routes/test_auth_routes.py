@@ -1,6 +1,5 @@
 import json
 import jwt as pyjwt
-import pytest
 from app.api.utils import jwt as jwt_utils
 from app.api.utils.response_payloads import auth_response
 from app.api.core.config import settings
