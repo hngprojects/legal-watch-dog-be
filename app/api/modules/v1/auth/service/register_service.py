@@ -63,7 +63,7 @@ async def register_organization_user(
 
     # 6. Send OTP email using HTML template
     html_content = render_template(
-        "base.html",
+        "otp.html",
         {
             "subject": "Your OTP Code",
             "user_name": data.company_name,
