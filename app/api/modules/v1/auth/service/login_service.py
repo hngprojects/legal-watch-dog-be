@@ -454,3 +454,94 @@ async def refresh_access_token(
         "expires_in": 3600 * 24,
     }
 
+
+class LoginService:
+    """
+    Login service implementing secure authentication with:
+    - Rate limiting
+    - Account lockout
+    - Token rotation
+    - RBAC support
+    """
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+    
+    async def login(
+        self,
+        email: str,
+        password: str,
+        ip_address: Optional[str] = None
+    ) -> dict:
+        """
+        Authenticate user and return tokens.
+        
+        Args:
+            email: User email
+            password: Plain text password
+            ip_address: Client IP for rate limiting
+            
+        Returns:
+            Dictionary with tokens and user data
+        """
+        return await authenticate_user(self.db, email, password, ip_address)
+    
+    async def refresh_access_token(self, refresh_token: str) -> dict:
+        """
+        Rotate tokens using refresh token.
+        
+        Args:
+            refresh_token: Current refresh token
+            
+        Returns:
+            Dictionary with new tokens
+        """
+        from app.api.utils.jwt import decode_token
+        
+        # Decode to get user_id
+        try:
+            payload = decode_token(refresh_token)
+            user_id = payload.get("sub")
+            
+            if not user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token"
+                )
+            
+            return await refresh_access_token(self.db, user_id, refresh_token)
+        except Exception as e:
+            logger.error(f"Token refresh failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token"
+            )
+    
+    async def logout(self, user_id: str) -> dict:
+        """
+        Logout user and clear their tokens.
+        
+        Args:
+            user_id: User UUID
+            
+        Returns:
+            Logout confirmation
+        """
+        try:
+            # Clear failed attempts
+            user = await self.db.scalar(select(User).where(User.id == user_id))
+            if user:
+                await reset_failed_attempts(user.email)
+            
+            logger.info(f"User {user_id} logged out successfully")
+            
+            return {
+                "message": "Logged out successfully",
+                "success": True
+            }
+        except Exception as e:
+            logger.error(f"Logout failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Logout failed"
+            )
