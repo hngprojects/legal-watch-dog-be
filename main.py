@@ -11,6 +11,7 @@ from app.api import router as api_router
 from app.api.db.database import engine, Base
 from app.api.utils.response_payloads import success_response
 from app.api.core.logger import setup_logging
+from fastapi.staticfiles import StaticFiles
 
 setup_logging()
 
@@ -33,7 +34,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
 email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
