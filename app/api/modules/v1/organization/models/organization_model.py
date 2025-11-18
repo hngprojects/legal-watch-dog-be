@@ -8,6 +8,7 @@ import uuid
 
 if TYPE_CHECKING:
     from app.api.modules.v1.users.models import User
+    from app.api.modules.v1.users.models.roles_model import Role
 
 
 class Organization(SQLModel, table=True):
@@ -18,6 +19,8 @@ class Organization(SQLModel, table=True):
     )
 
     name: str = Field(max_length=255, nullable=False, index=True)
+
+    industry: str = Field(max_length=100, nullable=True)
 
     settings: dict = Field(
         default_factory=dict,
@@ -40,3 +43,4 @@ class Organization(SQLModel, table=True):
     )
 
     users: list["User"] = Relationship(back_populates="organization")
+    roles: list["Role"] = Relationship(back_populates="organization")
