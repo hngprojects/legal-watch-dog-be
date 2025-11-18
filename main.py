@@ -29,7 +29,7 @@ app = FastAPI(
     title=f"{settings.APP_NAME} API",
     description=f"{settings.APP_NAME} API for managing projects and endpoints",
     version=settings.APP_VERSION,
-    docs_url="/docs" if settings.DEBUG else None,
+    docs_url="/docs",
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
