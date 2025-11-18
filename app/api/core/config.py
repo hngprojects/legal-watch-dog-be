@@ -31,6 +31,17 @@ class Settings(BaseSettings):
         "DATABASE_URL", default="postgresql://user:password@localhost/dbname"
     )
 
+    # Redis
+    REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
+
+    # JWT Authentication
+    JWT_SECRET: str = config(
+        "JWT_SECRET", default="your-super-secret-jwt-key-change-in-production"
+    )
+    JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
+    JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
+
+    # Waitlist Email
     # Waitlist Email
     MAIL_USERNAME: str = config("MAIL_USERNAME", default="test_user")
     MAIL_PASSWORD: str = config("MAIL_PASSWORD", default="test_pass")

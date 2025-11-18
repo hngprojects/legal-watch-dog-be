@@ -10,6 +10,39 @@ jobs:
   test_lint_build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: dbname
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/dbname
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,6 +76,11 @@ jobs:
         run: |
           source .venv/bin/activate
           uv run flake8 app/
+
+      - name: Run database migrations
+        run: |
+          source .venv/bin/activate
+          uv run alembic upgrade head
 
       - name: Run tests with Pytest
         run: |
