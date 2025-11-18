@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.api.core.config import settings
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker as _async_sessionmaker
+from unittest.mock import AsyncMock, MagicMock, patch
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
@@ -19,6 +20,78 @@ async_session_maker = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+
+@pytest.fixture(autouse=True, scope="function")
+def mock_redis():
+    """
+    Mock Redis client for all tests to avoid connection errors.
+    This fixture is autouse=True so it applies to all tests automatically.
+    """
+    # Create a simple in-memory store to simulate Redis behavior
+    redis_store = {}
+
+    # Create a mock Redis client with async methods
+    mock_redis_client = AsyncMock()
+
+    async def mock_get(key):
+        return redis_store.get(key)
+
+    async def mock_set(key, value, **kwargs):
+        redis_store[key] = str(value)
+        return True
+
+    async def mock_setex(key, seconds, value):
+        redis_store[key] = str(value)
+        return True
+
+    async def mock_delete(*keys):
+        count = 0
+        for key in keys:
+            if key in redis_store:
+                del redis_store[key]
+                count += 1
+        return count
+
+    async def mock_incr(key):
+        current = int(redis_store.get(key, 0))
+        new_value = current + 1
+        redis_store[key] = str(new_value)
+        return new_value
+
+    async def mock_expire(key, seconds):
+        return True
+
+    async def mock_ttl(key):
+        if key in redis_store:
+            # For lockout keys, return 15 minutes in seconds
+            if "lockout" in key:
+                return 15 * 60  # 900 seconds = 15 minutes
+            return 300
+        return -1
+
+    async def mock_exists(key):
+        return 1 if key in redis_store else 0
+
+    # Configure the mock methods
+    mock_redis_client.get.side_effect = mock_get
+    mock_redis_client.set.side_effect = mock_set
+    mock_redis_client.setex.side_effect = mock_setex
+    mock_redis_client.delete.side_effect = mock_delete
+    mock_redis_client.incr.side_effect = mock_incr
+    mock_redis_client.expire.side_effect = mock_expire
+    mock_redis_client.ttl.side_effect = mock_ttl
+    mock_redis_client.exists.side_effect = mock_exists
+    mock_redis_client.close.return_value = None
+
+    # Patch redis.from_url to return our mock instead of trying to connect
+    with patch("redis.asyncio.from_url", return_value=mock_redis_client):
+        # Reset the global _redis_client before each test
+        import app.api.core.dependencies.redis_service as redis_module
+
+        redis_module._redis_client = None
+        yield mock_redis_client
+        redis_module._redis_client = None
 
 
 @pytest.fixture
