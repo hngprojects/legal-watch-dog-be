@@ -2,6 +2,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 from httpx._transports.asgi import ASGITransport
+import pytest_asyncio
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -11,27 +12,19 @@ from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.db.database import get_db, AsyncSessionLocal, engine
 
 
-# -----------------------------
-# Async test DB session fixture
-# -----------------------------
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_session():
     """Provide a clean test database session for each test."""
-    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
-        yield session  # <-- provide session to test
+        yield session
 
-    # Drop tables after test
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
 
 
-# -----------------------------
-# FastAPI app fixture
-# -----------------------------
 @pytest.fixture
 def app():
     """Provide FastAPI app instance with the waitlist router included."""
@@ -40,9 +33,6 @@ def app():
     return app
 
 
-# -----------------------------
-# Test: successful signup
-# -----------------------------
 @pytest.mark.asyncio
 async def test_signup_waitlist_success(app, test_session):
     """Test that a new email can sign up successfully."""
@@ -66,10 +56,7 @@ async def test_signup_waitlist_success(app, test_session):
     assert "Successfully added to waitlist" in data["message"]
 
 
-# -----------------------------
-# Test: duplicate email signup
-# -----------------------------
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def test_signup_waitlist_duplicate_email(app, test_session):
     """Test that signing up with an existing email returns an error."""
     async def override_get_db():
@@ -77,7 +64,6 @@ async def test_signup_waitlist_duplicate_email(app, test_session):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # Pre-insert a duplicate email
     entry = Waitlist(
         organization_email="dup@company.com",
         organization_name="Dup Company"
