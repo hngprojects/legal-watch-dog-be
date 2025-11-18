@@ -1,6 +1,9 @@
 import pytest
 from app.api.modules.v1.waitlist.service.waitlist_service import WaitlistService
-from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse
+from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
+    WaitlistResponse,
+    WaitlistSignup,
+)
 
 
 @pytest.mark.asyncio
@@ -8,11 +11,11 @@ async def test_add_to_waitlist_success(pg_async_session):
     """Test adding a new email to the waitlist successfully."""
     session = pg_async_session
     service = WaitlistService()
-    response: WaitlistResponse = await service.add_to_waitlist(
-        session,
-        organization_email="new@company.com",
-        organization_name="New Company",
+
+    waitlist_data = WaitlistSignup(
+        organization_email="new@company.com", organization_name="New Company"
     )
+    response: WaitlistResponse = await service.add_to_waitlist(session, waitlist_data)
 
     assert response.organization_email == "new@company.com"
     assert response.organization_name == "New Company"
@@ -24,9 +27,13 @@ async def test_add_to_waitlist_duplicate(pg_async_session):
     session = pg_async_session
     service = WaitlistService()
 
-    await service.add_to_waitlist(session, "dup2@company.com", "Dup2 Company")
+    waitlist_data = WaitlistSignup(
+        organization_email="new@company.com", organization_name="New Company"
+    )
+
+    await service.add_to_waitlist(session, waitlist_data)
 
     with pytest.raises(Exception) as exc_info:
-        await service.add_to_waitlist(session, "dup2@company.com", "Dup2 Company")
+        await service.add_to_waitlist(session, waitlist_data)
 
     assert "Email already registered" in str(exc_info.value)
