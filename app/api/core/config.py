@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 # Base directory for relative paths
 BASE_DIR = Path(__file__).resolve().parent
 
+
 class Settings(BaseSettings):
 
     # App general
@@ -15,7 +16,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = config("ENVIRONMENT", default="dev")
     APP_PORT: int = config("APP_PORT", default=8000, cast=int)
     SECRET_KEY: str = config("SECRET_KEY", default="your-secret-key-for-sessions")
-    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="backend.im")
+    LEGAL_WATCH_DOG_BASE_URL: str = config(
+        "LEGAL_WATCH_DOG_BASE_URL", default="backend.im"
+    )
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
@@ -24,13 +27,15 @@ class Settings(BaseSettings):
     DB_USER: str = config("DB_USER", default="user")
     DB_PASS: str = config("DB_PASS", default="password")
     DB_NAME: str = config("DB_NAME", default="dbname")
-    DATABASE_URL: str = config("DATABASE_URL", default="postgresql://user:password@localhost/dbname")
+    DATABASE_URL: str = config(
+        "DATABASE_URL", default="postgresql://user:password@localhost/dbname"
+    )
 
-    #Waitlist Email
+    # Waitlist Email
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
     EMAIL: str
-    SMTP_SERVER: str 
+    SMTP_SERVER: str
     SMTP_PORT: int
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int)

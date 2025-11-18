@@ -26,6 +26,8 @@ dependencies = [
     "python-multipart>=0.0.6",
     "python-jose[cryptography]>=3.5.0",
     "argon2-cffi>=25.1.0",
+    "flake8>=7.3.0",
+    "black>=25.11.0",
 ]
 
 [dependency-groups]
