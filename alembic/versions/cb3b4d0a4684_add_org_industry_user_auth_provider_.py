@@ -1,7 +1,7 @@
 """add org industry, user.auth_provider, role org_id + unique constraint
 
 Revision ID: cb3b4d0a4684
-Revises: d6fbd06a73d2
+Revises: 7ef99f328402
 Create Date: 2025-11-18 09:19:55.195855
 
 """
@@ -10,11 +10,12 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+import sqlmodel
 
 
 # revision identifiers, used by Alembic.
 revision: str = "cb3b4d0a4684"
-down_revision: Union[str, Sequence[str], None] = "d6fbd06a73d2"
+down_revision: Union[str, Sequence[str], None] = "7ef99f328402"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
