@@ -27,6 +27,10 @@ class User(SQLModel, table=True):
 
     hashed_password: str = Field(max_length=255, nullable=False)
 
+    auth_provider: str = Field(
+        default="local", max_length=20, nullable=False
+    )  # 'local', 'oidc', 'saml'
+
     name: str = Field(index=True, max_length=255)
 
     # first_name: Optional[str] = Field(
