@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Invited to Join {{ org_name }}</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; background: #F4F4F4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 32px; }
+    .header-img { max-width: 180px; margin: 0 auto 24px auto; display: block; }
+    h1 { color: #3C2610; font-size: 28px; margin-bottom: 18px; text-align: center; }
+    p { color: #706C69; font-size: 16px; line-height: 24px; margin-bottom: 16px; }
+    .btn { display: inline-block; padding: 12px 26px; background: #401903; color: #fff; border-radius: 8px; font-weight: 600; text-decoration: none; margin: 24px 0; }
+    .footer { background: #401903; color: #fff; padding: 20px; border-radius: 10px; text-align: center; margin-top: 32px; }
+    .footer-logo { width: 36px; height: 36px; vertical-align: middle; margin-right: 8px; }
+    .footer-title { color: #F2AB6D; font-size: 20px; display: inline-block; vertical-align: middle; }
+    .footer-desc { color: #fff; font-size: 14px; margin: 8px 0 0 0; }
+    .footer-copyright { color: #F2AB6D; font-size: 12px; margin-top: 12px; }
+    .social-icons img { width: 24px; height: 24px; margin: 0 4px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="{{ HEADER_IMAGE_URL | default('/static/email/header_img.png') }}" alt="Invitation Illustration" class="header-img" />
+    <h1>You're invited to join {{ org_name }}</h1>
+    <p><strong>Hello {{ invitee_name }},</strong></p>
+    <p>{{ sender_name }} has invited you to join <strong>{{ org_name }}</strong> on Legal Watchdog.</p>
+    <p>Click the button below to accept the invitation (valid until <strong>{{ expires_at }}</strong> UTC).</p>
+    <div style="text-align:center;">
+      <a href="{{ accept_url }}" target="_blank" rel="noopener noreferrer" class="btn">Accept invitation</a>
+    </div>
+    <p style="color:#999; font-size:14px;">If you did not expect this invitation, you can ignore this email or contact {{ org_name }} support.</p>
+    <div class="footer">
+      <img src="{{ LOGO_URL | default('/static/email/Frame.png') }}" alt="WatchDog" class="footer-logo" />
+      <span class="footer-title">WatchDog</span>
+      <div class="footer-desc">LegalWatchDog helps teams track cross-border regulation updates in hours, not weeks</div>
+      <div class="social-icons">
+        <a href="https://facebook.com"><img src="/static/email/Facebook.png" alt="Facebook" /></a>
+        <a href="https://twitter.com"><img src="/static/email/Twitter.png" alt="Twitter" /></a>
+        <a href="https://instagram.com"><img src="/static/email/Instagram.png" alt="Instagram" /></a>
+        <a href="https://linkedin.com"><img src="/static/email/linkdin.png" alt="LinkedIn" /></a>
+        <a href="https://youtube.com"><img src="/static/email/YouTube.png" alt="YouTube" /></a>
+      </div>
+      <div class="footer-copyright">© {{ now.year if now else '' }} {{ org_name }}. All Rights Reserved</div>
+    </div>
+  </div>
+</body>
+</html>
+
