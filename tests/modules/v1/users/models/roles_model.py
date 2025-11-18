@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, Column, UniqueConstraint
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
