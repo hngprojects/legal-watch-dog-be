@@ -31,7 +31,9 @@ def pg_sync_session():
     if not settings.DATABASE_URL:
         pytest.skip("Postgres DB not configured for tests")
 
-    engine = create_engine(settings.DATABASE_URL, echo=False)
+    # Convert async URL to sync URL for sync engine
+    sync_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    engine = create_engine(sync_url, echo=False)
 
     # Drop any existing tables first to ensure schema is recreated with the
     # current SQLModel definitions (this is important when tests run against
