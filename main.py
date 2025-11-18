@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    root_path="/api",
     title=f"{settings.APP_NAME} API",
     description=f"{settings.APP_NAME} API for managing projects and endpoints",
     version=settings.APP_VERSION,
@@ -41,7 +42,7 @@ email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://minamoto.emerj.net", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
