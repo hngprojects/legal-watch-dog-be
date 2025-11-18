@@ -83,6 +83,38 @@ refactor: simplify formData handling
    git push origin <your-branch>
    ```
 
+#### Pre-Commit Hooks
+
+To maintain code quality and consistency, this project uses pre-commit hooks for linting and formatting. These hooks automatically run checks before each commit to catch errors early and ensure the codebase stays clean.
+
+**Setup Instructions:**
+
+1. Install the pre-commit package (if not already installed):
+
+   ```sh
+   pip install -r -requirements.txt
+   ````
+   or
+
+   ```sh
+   uv add pre-commit
+   ````
+
+2. Install the hooks defined in the repository:
+
+   ```sh
+   pre-commit install
+   ```
+
+3. Optional: Run all hooks against all files manually to check your code before committing:
+
+   ```sh
+   pre-commit run --all-files
+   ```
+
+ After this setup, pre-commit will automatically run linting and formatting checks before each commit.
+
+
 #### Submitting Pull Requests
 
 1. Ensure your branch is up to date with the remote repository:
