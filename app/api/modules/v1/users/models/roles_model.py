@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, Column, UniqueConstraint
-from sqlmodel import SQLModel, Field, Relationship, JSON
+from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class Role(SQLModel, table=True):
     __tablename__ = "roles"
     __table_args__ = (
-        UniqueConstraint('organization_id', 'name', name='uq_org_role_name'),
+        UniqueConstraint("organization_id", "name", name="uq_org_role_name"),
     )
 
     id: uuid.UUID = Field(

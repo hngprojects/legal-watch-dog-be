@@ -5,6 +5,7 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.auth.schemas.role import RoleCreateRequest
 from typing import Optional
 
+
 async def create_role(db: AsyncSession, org_id, data: RoleCreateRequest) -> Role:
     role = Role(
         name=data.name,
@@ -16,6 +17,7 @@ async def create_role(db: AsyncSession, org_id, data: RoleCreateRequest) -> Role
     await db.commit()
     await db.refresh(role)
     return role
+
 
 async def assign_role_to_user(db: AsyncSession, user_id, role_id) -> Optional[User]:
     user = await db.scalar(select(User).where(User.id == user_id))
