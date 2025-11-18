@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 # Base directory for relative paths
 BASE_DIR = Path(__file__).resolve().parent
 
+
 class Settings(BaseSettings):
 
     # App general
@@ -15,7 +16,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = config("ENVIRONMENT", default="dev")
     APP_PORT: int = config("APP_PORT", default=8000, cast=int)
     SECRET_KEY: str = config("SECRET_KEY", default="your-secret-key-for-sessions")
-    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="backend.im")
+    LEGAL_WATCH_DOG_BASE_URL: str = config(
+        "LEGAL_WATCH_DOG_BASE_URL", default="backend.im"
+    )
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
@@ -24,7 +27,9 @@ class Settings(BaseSettings):
     DB_USER: str = config("DB_USER", default="user")
     DB_PASS: str = config("DB_PASS", default="password")
     DB_NAME: str = config("DB_NAME", default="dbname")
-    DATABASE_URL: str = config("DATABASE_URL", default="postgresql://user:password@localhost/dbname")
+    DATABASE_URL: str = config(
+        "DATABASE_URL", default="postgresql://user:password@localhost/dbname"
+    )
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
@@ -34,12 +39,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
-    #Waitlist Email
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    EMAIL: str
-    SMTP_SERVER: str 
-    SMTP_PORT: int
+    # Waitlist Email
+    MAIL_USERNAME: str = config("MAIL_USERNAME", default="test_user")
+    MAIL_PASSWORD: str = config("MAIL_PASSWORD", default="test_pass")
+    EMAIL: str = config("EMAIL", default="test@example.com")
+    SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
+    SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
+
 
     class Config:
         env_file = ".env"
