@@ -4,9 +4,9 @@ from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse
 
 
 @pytest.mark.asyncio
-async def test_add_to_waitlist_success(test_session):
+async def test_add_to_waitlist_success(pg_async_session):
     """Test adding a new email to the waitlist successfully."""
-    session = test_session
+    session = pg_async_session
     service = WaitlistService()
     response: WaitlistResponse = await service.add_to_waitlist(
         session,
@@ -19,9 +19,9 @@ async def test_add_to_waitlist_success(test_session):
 
 
 @pytest.mark.asyncio
-async def test_add_to_waitlist_duplicate(test_session):
+async def test_add_to_waitlist_duplicate(pg_async_session):
     """Test adding a duplicate email to the waitlist raises an error."""
-    session = test_session
+    session = pg_async_session
     service = WaitlistService()
 
     await service.add_to_waitlist(session, "dup2@company.com", "Dup2 Company")

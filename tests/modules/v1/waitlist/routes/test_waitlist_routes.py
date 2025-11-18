@@ -10,13 +10,13 @@ from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 
 
 @pytest.fixture
-def app(test_session: AsyncSession):
+def app(pg_async_session: AsyncSession):
     """FastAPI app with test DB dependency override."""
     app = FastAPI()
     app.include_router(waitlist_router, prefix="/api/v1")
 
     async def override_get_db():
-        yield test_session
+        yield pg_async_session
 
     from app.api.db.database import get_db
 
@@ -26,7 +26,7 @@ def app(test_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_signup_waitlist_success(app, test_session):
+async def test_signup_waitlist_success(app, pg_async_session):
     """Test successful waitlist signup."""
     payload = WaitlistSignup(
         organization_email="success@company.com", organization_name="Success Company"
@@ -45,14 +45,14 @@ async def test_signup_waitlist_success(app, test_session):
 
 
 @pytest.mark.asyncio
-async def test_signup_waitlist_duplicate_email(app, test_session):
+async def test_signup_waitlist_duplicate_email(app, pg_async_session):
     """Test signing up with an existing email returns error."""
 
     entry = Waitlist(
         organization_email="dup@company.com", organization_name="Dup Company"
     )
-    test_session.add(entry)
-    await test_session.commit()
+    pg_async_session.add(entry)
+    await pg_async_session.commit()
 
     payload = WaitlistSignup(
         organization_email="dup@company.com", organization_name="Dup Company"
