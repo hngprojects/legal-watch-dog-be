@@ -3,7 +3,7 @@ from app.api.utils.validators import is_company_email, is_strong_password
 
 
 class RegisterRequest(BaseModel):
-    company_name: str = Field(..., max_length=255)
+    name: str = Field(..., max_length=255)
     email: EmailStr
     password: str = Field(..., min_length=8)
     confirm_password: str
