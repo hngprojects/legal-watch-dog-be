@@ -1,18 +1,7 @@
-{% extends "base.html" %}
-
-{% block title %}{{ subject or "Your One-Time Password" }}{% endblock %}
-
-{% block header_image_alt %}One-Time Password Verification{% endblock %}
-
-{% block content %}
+<!DOCTYPE html>
+<html>
 <!-- Main Heading -->
-<tr>
-  <td style="padding: 0 20px 32px; text-align: center;">
-    <h1 class="main-heading" style="margin: 0; font-size: 36px; font-weight: 700; color: #121110; line-height: 44px;">
-      {{ subject or "Your One-Time Password" }}
-    </h1>
-  </td>
-</tr>
+
 <!-- Content Body -->
 <tr>
   <td class="content-padding" style="padding: 0 40px 40px;">
@@ -20,14 +9,14 @@
       <tr>
         <td style="padding-bottom: 20px;">
           <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
-            Hello {{ user_name or organization_name or "there" }},
+            Hello {{ organization_name }},
           </p>
         </td>
       </tr>
       <tr>
         <td style="padding-bottom: 16px;">
           <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
-            Your One-Time Password (OTP) is:
+            Your One-Time Password (OTP) is: {{ otp }}. Please use this code to complete your registration process.
           </p>
         </td>
       </tr>
@@ -49,4 +38,4 @@
     </table>
   </td>
 </tr>
-{% endblock %}
+</html>

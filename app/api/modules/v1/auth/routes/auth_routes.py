@@ -5,7 +5,7 @@ from fastapi import APIRouter, status, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.modules.v1.auth.service.register_service import (
     register_organization,
-    verify_otp as service_verify_otp,
+    verify_otp as service_verify_otp, get_organisation_by_email
 )
 from app.api.modules.v1.auth.schemas.register import (
     RegisterRequest,
@@ -20,6 +20,7 @@ from app.api.utils.response_payloads import (
     fail_response,
 )
 from app.api.db.database import get_db
+
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -43,6 +44,16 @@ async def company_signup(
     """
     logger.info("Starting company signup for email=%s", payload.email)
     try:
+        organization = await get_organisation_by_email(db, payload.email)
+        if organization:
+            logger.warning(
+                "Registration attempt with existing organization email=%s",
+                payload.email,
+            )
+            return fail_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="An organization with this email already exists.",
+            )
         user, access_token = await register_organization(
             db, payload, background_tasks=background_tasks
         )
@@ -74,6 +85,7 @@ async def company_signup(
         status_code=status.HTTP_201_CREATED,
         message="Registration successful. Verify the OTP sent to your email.",
         data={"email": user.email},
+        access_token=access_token,
     )
 
 

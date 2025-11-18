@@ -74,23 +74,27 @@ async def register_organization(
     await store_otp(str(user.id), otp_code, ttl_minutes=10)
 
     await db.commit()
-    logger.info(f"Generated OTP for user: {user.email} and stored in Redis")
+    logger.info(f"Generated OTP for user: {user.email} and stored in Redis {otp_code}")
 
     # 6. Send OTP email using HTML template. Use BackgroundTasks if provided so the
     # request doesn't block on external IO.
     # Build context compatible with send_email(context: dict)
-    email_context = {
+    context = {
         "organization_email": data.email,
         "organization_name": data.name,
         "otp": otp_code,
         "year": 2025,
     }
+    subject = "Your OTP Code for Legal Watch Dog Registration"
+    recepient = data.email
+    template_name = "otp.html"
+
     if background_tasks is not None:
         # pass the context as the only argument to send_email
-        background_tasks.add_task(send_email, email_context)
+        background_tasks.add_task(send_email, template_name, subject, recepient, context)
         logger.info(f"Scheduled OTP email to be sent to: {data.email}")
     else:
-        await send_email(email_context)
+        await send_email(template_name, subject, recepient, context)
         logger.info(f"Sent OTP email to: {data.email}")
     # create access token for the new user
     access_token = create_access_token(
@@ -131,3 +135,8 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
 
     logger.info(f"OTP verified for user: {user.email}")
     return True
+
+async def get_organisation_by_email(db: AsyncSession, user_email: str) -> User | None:
+    """Fetch organization by email."""
+
+    return await db.scalar(select(User).where(User.email == user_email))
