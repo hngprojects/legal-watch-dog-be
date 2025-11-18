@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     SMTP_SERVER: str 
     SMTP_PORT: int
 
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int)
+    ALGORITHM: str = config("ALGORITHM", default="HS256")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=7, cast=int)
+
     class Config:
         env_file = ".env"
         extra = "allow"

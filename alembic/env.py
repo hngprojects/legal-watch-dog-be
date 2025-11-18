@@ -8,6 +8,7 @@ from alembic import context
 from app.api.core.config import settings, BASE_DIR
 from app.api.db.database import Base
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
+from app.api.modules.v1.auth.models.login_models import User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
