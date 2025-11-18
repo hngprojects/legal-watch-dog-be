@@ -2,10 +2,11 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
-import logging
+
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
-from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse, WaitlistSignup
+from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistResponse
 from app.api.core.dependencies.send_mail import send_email
+
 logger = logging.getLogger("app")
 
 class WaitlistService:
@@ -14,7 +15,8 @@ class WaitlistService:
     async def add_to_waitlist(
         self, 
         db: AsyncSession, 
-        waitlist_data: WaitlistSignup,
+        organization_email: str, 
+        organization_name:str,
     ) -> WaitlistResponse:
         """
         Add an email to the waitlist.
@@ -26,8 +28,8 @@ class WaitlistService:
         - Email notification
         - Logging
         """
-        organization_email = waitlist_data.organization_email.lower().strip()
-        organization_name = waitlist_data.organization_name.strip()
+        organization_email = organization_email.lower().strip()
+        organization_name = organization_name.strip()
         
         
         # Check if exists
@@ -38,61 +40,39 @@ class WaitlistService:
                 detail="Email already registered on waitlist"
             )
         
-        try:
-            # Create entry
-            new_entry = Waitlist(organization_email=organization_email, organization_name=organization_name)
-            db.add(new_entry)
-            await db.commit()
+        # Create entry
+        new_entry = Waitlist(organization_email=organization_email, organization_name=organization_name)
+        db.add(new_entry)
+        await db.flush()
 
-            logger.info(f"Successfully added to database: {organization_email}")
-
-            await self._send_confirmation_email(waitlist_data)
+        # Log
+        self._log_signup(organization_email)
         
-            self._log_signup(organization_email)
-            
-            return WaitlistResponse(
-                success=True,
-                message="Successfully added to waitlist.",
-                organization_email=organization_email,
-                organization_name=organization_name
-            )
-        
-        except Exception as e:
-            await db.rollback()  # ✅ Rollback on any error
-            logger.error(f"Failed to add to waitlist: {str(e)}", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to process waitlist signup"
-            )
+        return WaitlistResponse(
+            success=True,
+            message="Successfully added to waitlist.",
+            organization_email=organization_email,
+            organization_name=organization_name
+        )
     
     async def _email_exists(self, db: AsyncSession, email: str) -> bool:
         """Check if email already exists"""
         stmt = select(Waitlist).where(Waitlist.organization_email == email.lower())
         result = await db.execute(stmt)
-        exists = result.scalar_one_or_none() is not None
-        if exists:
-            logger.debug(f"Email found in database: {email}")
-        return exists
+        return result.scalar_one_or_none() is not None
     
-    async def _send_confirmation_email(self, email_data: WaitlistSignup):
-        """Send waitlist confirmation email"""
+    async def _send_confirmation_email(self, email: str, name: str):
+        """Send confirmation email (implement with your email service)"""
         try:
             context = {
-                "organization_name": email_data.organization_name,
-                "organization_email": email_data.organization_email
+                "organization_name": name,
+                "organization_email": email
             }
-            await send_email(
-                template_name="waitlist.html",
-                subject="You're on the Waitlist for Legal Watchdog!",
-                recipient=email_data.organization_email,
-                context=context
-            )
-            logger.info(f"Waitlist email sent successfully to {email_data.organization_email}")
+            await send_email(context)
+            logger.info(f"Waitlist email sent successfully to {email}")
         except Exception as e:
-             logger.error(
-                f"Failed to send confirmation email to {email_data.organization_email}: {str(e)}",
-                exc_info=True 
-            )
+            logger.error(f"Error sending email to {email}: {str(e)}")
+
     
     def _log_signup(self, email: str):
         """Log the signup event"""
