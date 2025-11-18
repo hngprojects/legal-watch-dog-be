@@ -1,6 +1,7 @@
 import pytest
 from sqlmodel import SQLModel, Field, select
 
+
 class TestUser(SQLModel, table=True):
     __test__ = False
     id: int | None = Field(default=None, primary_key=True)
@@ -20,4 +21,3 @@ async def test_database_write_and_read(test_session):
 
         assert saved_user is not None
         assert saved_user.name == "John Doe"
-

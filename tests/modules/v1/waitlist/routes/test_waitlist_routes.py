@@ -36,14 +36,14 @@ def app():
 @pytest.mark.asyncio
 async def test_signup_waitlist_success(app, test_session):
     """Test that a new email can sign up successfully."""
+
     async def override_get_db():
         yield test_session
 
     app.dependency_overrides[get_db] = override_get_db
 
     payload = WaitlistSignup(
-        organization_email="success@company.com",
-        organization_name="Success Company"
+        organization_email="success@company.com", organization_name="Success Company"
     )
 
     transport = ASGITransport(app=app)
@@ -59,21 +59,20 @@ async def test_signup_waitlist_success(app, test_session):
 @pytest_asyncio.fixture
 async def test_signup_waitlist_duplicate_email(app, test_session):
     """Test that signing up with an existing email returns an error."""
+
     async def override_get_db():
         yield test_session
 
     app.dependency_overrides[get_db] = override_get_db
 
     entry = Waitlist(
-        organization_email="dup@company.com",
-        organization_name="Dup Company"
+        organization_email="dup@company.com", organization_name="Dup Company"
     )
     test_session.add(entry)
     await test_session.commit()
 
     payload = WaitlistSignup(
-        organization_email="dup@company.com",
-        organization_name="Dup Company"
+        organization_email="dup@company.com", organization_name="Dup Company"
     )
 
     transport = ASGITransport(app=app)
