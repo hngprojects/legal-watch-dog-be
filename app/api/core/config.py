@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     DB_NAME: str = config("DB_NAME", default="dbname")
     DATABASE_URL: str = config("DATABASE_URL", default="postgresql://user:password@localhost/dbname")
 
+    # JWT Settings
+    JWT_SECRET_KEY: str = config("JWT_SECRET_KEY", default=config("SECRET_KEY", default="your-secret-key-for-jwt"))
+    JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=30, cast=int)
+
+    # Redis Settings
+    REDIS_HOST: str = config("REDIS_HOST", default="localhost")
+    REDIS_PORT: int = config("REDIS_PORT", default=6379, cast=int)
+    REDIS_DB: int = config("REDIS_DB", default=0, cast=int)
+    REDIS_PASSWORD: str = config("REDIS_PASSWORD", default="")
+    REDIS_URL: str = config("REDIS_URL", default="")
+
     #Waitlist Email
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
