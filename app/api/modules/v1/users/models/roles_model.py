@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, Column, UniqueConstraint
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON
 import uuid
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.users.models import User
-    from app.api.modules.v1.organization.models import Organization
+    from app.api.modules.v1.users.models.users_model import User
+    from app.api.modules.v1.organization.models.organization_model import Organization
 
 
 class Role(SQLModel, table=True):
@@ -30,7 +30,7 @@ class Role(SQLModel, table=True):
 
     permissions: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
     )
 
     created_at: datetime = Field(
