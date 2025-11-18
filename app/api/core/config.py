@@ -32,6 +32,23 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int)
     REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=30, cast=int)
 
+    # Cookie Settings for HttpOnly Cookies
+    COOKIE_NAME_ACCESS: str = config("COOKIE_NAME_ACCESS", default="access_token")
+    COOKIE_NAME_REFRESH: str = config("COOKIE_NAME_REFRESH", default="refresh_token")
+    COOKIE_DOMAIN: str = config("COOKIE_DOMAIN", default=None)
+    COOKIE_SECURE: bool = config("COOKIE_SECURE", default=True, cast=bool)  # Set to True in production (HTTPS only)
+    COOKIE_SAMESITE: str = config("COOKIE_SAMESITE", default="lax")  # 'lax', 'strict', or 'none'
+
+    @property
+    def COOKIE_MAX_AGE_ACCESS(self) -> int:
+        """Convert access token expiry to seconds for cookie max_age"""
+        return self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+    @property
+    def COOKIE_MAX_AGE_REFRESH(self) -> int:
+        """Convert refresh token expiry to seconds for cookie max_age"""
+        return self.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
     # Redis Settings
     REDIS_HOST: str = config("REDIS_HOST", default="localhost")
     REDIS_PORT: int = config("REDIS_PORT", default=6379, cast=int)

@@ -2,12 +2,13 @@
 Authentication routes - login, refresh token, and logout endpoints.
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Header, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Header, Body, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
 from app.api.db.database import get_db
 from app.api.core.redis_client import get_redis
+from app.api.core.config import settings
 from app.api.core.dependencies.auth_dependencies import get_current_user, get_client_ip
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.auth.schemas.auth_schemas import (
@@ -52,22 +53,26 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 )
 async def login(
     request: Request,
+    response: Response,
     login_data: LoginRequest,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """
-    Login endpoint - obtain JWT tokens.
+    Login endpoint - obtain JWT tokens via HttpOnly cookies.
 
     **Request Body:**
     - email: User's email address
     - password: User's password
 
     **Response:**
-    - access_token: JWT access token (60 minutes expiry)
-    - refresh_token: JWT refresh token (30 days expiry)
-    - token_type: "bearer"
+    - message: Success message
     - user: User information including id, email, name, role, organisation_id
+
+    **Security:**
+    - Tokens are set in HttpOnly cookies (not accessible via JavaScript)
+    - Access token cookie expires in 60 minutes
+    - Refresh token cookie expires in 30 days
 
     **Error Codes:**
     - VALIDATION_ERROR: Missing or invalid input
@@ -90,7 +95,33 @@ async def login(
         status_code = result.pop("status_code", 400)
         raise HTTPException(status_code=status_code, detail=result)
 
-    return result
+    # Set access token in HttpOnly cookie
+    response.set_cookie(
+        key=settings.COOKIE_NAME_ACCESS,
+        value=result["access_token"],
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.COOKIE_MAX_AGE_ACCESS,
+        domain=settings.COOKIE_DOMAIN
+    )
+
+    # Set refresh token in HttpOnly cookie
+    response.set_cookie(
+        key=settings.COOKIE_NAME_REFRESH,
+        value=result["refresh_token"],
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.COOKIE_MAX_AGE_REFRESH,
+        domain=settings.COOKIE_DOMAIN
+    )
+
+    # Return response without tokens
+    return {
+        "message": "Login successful",
+        "user": result["user"]
+    }
 
 
 @router.post(
@@ -112,32 +143,45 @@ async def login(
                 "Implements token rotation - old refresh token is invalidated."
 )
 async def refresh_token(
-    refresh_data: RefreshTokenRequest,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """
-    Refresh token endpoint - obtain new JWT tokens.
+    Refresh token endpoint - obtain new JWT tokens via HttpOnly cookies.
 
-    **Request Body:**
-    - refresh_token: Valid refresh token
+    **Request:**
+    - Reads refresh_token from HttpOnly cookie
 
     **Response:**
-    - access_token: New JWT access token (60 minutes expiry)
-    - refresh_token: New JWT refresh token (30 days expiry)
+    - message: Success message
 
-    **Notes:**
+    **Security:**
+    - New tokens are set in HttpOnly cookies (not accessible via JavaScript)
     - Old refresh token is automatically invalidated (token rotation)
     - Blacklisted tokens cannot be reused
 
     **Error Codes:**
-    - VALIDATION_ERROR: Missing refresh token
+    - VALIDATION_ERROR: Missing refresh token cookie
     - INVALID_TOKEN: Token is invalid, expired, or revoked
     """
+    # Get refresh token from cookie
+    refresh_token = request.cookies.get(settings.COOKIE_NAME_REFRESH)
+    
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "VALIDATION_ERROR",
+                "message": "Refresh token cookie not found"
+            }
+        )
+
     result = await AuthService.refresh_access_token(
         db=db,
         redis_client=redis_client,
-        refresh_token=refresh_data.refresh_token
+        refresh_token=refresh_token
     )
 
     # Handle error responses
@@ -145,7 +189,30 @@ async def refresh_token(
         status_code = result.pop("status_code", 400)
         raise HTTPException(status_code=status_code, detail=result)
 
-    return result
+    # Set new access token in HttpOnly cookie
+    response.set_cookie(
+        key=settings.COOKIE_NAME_ACCESS,
+        value=result["access_token"],
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.COOKIE_MAX_AGE_ACCESS,
+        domain=settings.COOKIE_DOMAIN
+    )
+
+    # Set new refresh token in HttpOnly cookie
+    response.set_cookie(
+        key=settings.COOKIE_NAME_REFRESH,
+        value=result["refresh_token"],
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.COOKIE_MAX_AGE_REFRESH,
+        domain=settings.COOKIE_DOMAIN
+    )
+
+    # Return response without tokens
+    return {"message": "Token refreshed successfully"}
 
 
 @router.post(
@@ -163,32 +230,49 @@ async def refresh_token(
                 "Requires authentication via access token."
 )
 async def logout(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
-    redis_client: redis.Redis = Depends(get_redis),
-    refresh_token: Optional[str] = Body(None, embed=True)
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """
-    Logout endpoint - invalidate current token.
+    Logout endpoint - invalidate current token and clear cookies.
 
-    **Authentication:** Required (Bearer token in Authorization header)
-
-    **Request Body (optional):**
-    - refresh_token: Refresh token to invalidate
+    **Authentication:** Required (access token from HttpOnly cookie)
 
     **Response:**
     - message: "Logged out successfully"
 
-    **Notes:**
-    - Access token is validated via Authorization header
-    - If refresh_token is provided in body, it will be blacklisted
-    - Blacklisted tokens cannot be used to refresh access tokens
+    **Security:**
+    - Reads refresh_token from HttpOnly cookie
+    - Blacklists refresh token in Redis
+    - Clears both access and refresh token cookies
 
     **Error Codes:**
     - UNAUTHORIZED: Missing or invalid access token
     """
+    # Get refresh token from cookie
+    refresh_token = request.cookies.get(settings.COOKIE_NAME_REFRESH)
+    
     result = await AuthService.logout(
         redis_client=redis_client,
         refresh_token=refresh_token
+    )
+
+    # Clear access token cookie
+    response.delete_cookie(
+        key=settings.COOKIE_NAME_ACCESS,
+        domain=settings.COOKIE_DOMAIN,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE
+    )
+
+    # Clear refresh token cookie
+    response.delete_cookie(
+        key=settings.COOKIE_NAME_REFRESH,
+        domain=settings.COOKIE_DOMAIN,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE
     )
 
     return result

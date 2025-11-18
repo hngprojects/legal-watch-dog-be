@@ -27,26 +27,26 @@ class TokenData(BaseModel):
 class LoginResponse(BaseModel):
     """
     Response schema for successful login.
+    Tokens are now set in HttpOnly cookies, not returned in response body.
     """
-    access_token: str = Field(..., description="JWT access token")
-    refresh_token: str = Field(..., description="JWT refresh token")
-    token_type: str = Field(default="bearer", description="Token type")
+    message: str = Field(default="Login successful", description="Success message")
     user: dict = Field(..., description="User information")
 
 
 class RefreshTokenRequest(BaseModel):
     """
     Request schema for token refresh.
+    Refresh token is now read from HttpOnly cookie, not from request body.
     """
-    refresh_token: str = Field(..., description="Valid refresh token")
+    pass
 
 
 class RefreshTokenResponse(BaseModel):
     """
     Response schema for successful token refresh.
+    Tokens are now set in HttpOnly cookies, not returned in response body.
     """
-    access_token: str = Field(..., description="New JWT access token")
-    refresh_token: str = Field(..., description="New JWT refresh token")
+    message: str = Field(default="Token refreshed successfully", description="Success message")
 
 
 class LogoutResponse(BaseModel):

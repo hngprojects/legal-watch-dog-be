@@ -11,21 +11,22 @@ import uuid
 from app.api.db.database import get_db
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt_utils import JWTManager
+from app.api.core.config import settings
 
 
-# OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# OAuth2 scheme for token authentication (kept for OpenAPI docs compatibility)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Dependency to get current authenticated user from JWT token.
+    Dependency to get current authenticated user from JWT token in HttpOnly cookie.
 
     Args:
-        token: JWT access token from Authorization header
+        request: FastAPI request object (to access cookies)
         db: Database session
 
     Returns:
@@ -39,6 +40,16 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # Get token from HttpOnly cookie
+    token = request.cookies.get(settings.COOKIE_NAME_ACCESS)
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Access token not found in cookies. Please login.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # Verify and decode token
     payload = JWTManager.verify_access_token(token)
