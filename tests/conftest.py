@@ -33,6 +33,7 @@ def test_session(event_loop):
     Synchronous fixture that runs async DB setup/teardown manually
     for pytest 9 strict mode compatibility.
     """
+
     async def _get_session():
         # create tables
         async with engine.begin() as conn:
