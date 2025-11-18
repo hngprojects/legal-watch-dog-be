@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Column
-from sqlmodel import SQLModel, Field, Relationship, JSON
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import SQLModel, Field, Relationship
 import uuid
 
 if TYPE_CHECKING:
@@ -32,16 +31,6 @@ class User(SQLModel, table=True):
     )  # 'local', 'oidc', 'saml'
 
     name: str = Field(index=True, max_length=255)
-
-    # first_name: Optional[str] = Field(
-    #     default=None,
-    #     max_length=100
-    # )
-
-    # last_name: Optional[str] = Field(
-    #     default=None,
-    #     max_length=100
-    # )
 
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(default=False, nullable=False)
