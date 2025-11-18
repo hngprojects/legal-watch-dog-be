@@ -59,7 +59,8 @@ if pyjwt is not None and not hasattr(pyjwt, "encode"):
 
 if pyjwt is None:  # pragma: no cover - environment misconfiguration
     raise RuntimeError(
-        "No 'jwt' package is importable. Install 'PyJWT' or 'python-jwt' in the virtualenv."
+        "No 'jwt' package is importable."
+        "Install 'PyJWT' or 'python-jwt' in the virtualenv."
     )
 
 
