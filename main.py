@@ -11,9 +11,9 @@ from app.api import router as api_router
 from app.api.db.database import engine, Base
 from app.api.utils.response_payloads import success_response
 from app.api.core.logger import setup_logging
-from fastapi.staticfiles import StaticFiles
 
 setup_logging()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,19 +23,21 @@ async def lifespan(app: FastAPI):
     yield
     await engine.dispose()
 
+
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
     description=f"{settings.APP_NAME} API for managing projects and endpoints",
     version=settings.APP_VERSION,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
-    lifespan=lifespan, 
+    lifespan=lifespan,
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
 email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,23 +58,15 @@ def read_root():
         message=f"{settings.APP_NAME} API is running...",
         data={
             "version": settings.APP_VERSION,
-            "environment": "Production" if not settings.DEBUG else "Development"
-        }
+            "environment": "Production" if not settings.DEBUG else "Development",
+        },
     )
 
 
 @app.get("/health")
 def health_check():
-    return success_response(
-        status_code=200,
-        message="API is healthy"
-    )
+    return success_response(status_code=200, message="API is healthy")
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=settings.APP_PORT,
-        reload=False
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.APP_PORT, reload=False)

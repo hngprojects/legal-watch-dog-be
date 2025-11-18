@@ -1,5 +1,8 @@
 import logging
-from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistSignup, WaitlistResponse
+from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
+    WaitlistSignup,
+    WaitlistResponse,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status, Depends, APIRouter, HTTPException, BackgroundTasks
 from app.api.db.database import get_db
@@ -9,25 +12,35 @@ from app.api.utils.response_payloads import success_response, fail_response
 router = APIRouter(prefix="/waitlist", tags=["Waitlist"])
 logger = logging.getLogger("app")
 
-@router.post("/signup",response_model=WaitlistResponse,status_code=status.HTTP_201_CREATED)
-async def signup_waitlist(signup: WaitlistSignup,background_tasks:BackgroundTasks, db: AsyncSession = Depends(get_db),):
+
+@router.post(
+    "/signup", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED
+)
+async def signup_waitlist(
+    signup: WaitlistSignup,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     """
     Add a user to the waitlist.
     -organization_email: Valid organization email address to add to waitlist
     -organization_name: Name of the organization
     """
     try:
-        result = await waitlist_service.add_to_waitlist(db, signup)
-        
-        background_tasks.add_task(
-            waitlist_service._send_confirmation_email, 
-            signup 
+        result = await waitlist_service.add_to_waitlist(
+            db, signup.organization_email, signup.organization_name
         )
-        
+
+        background_tasks.add_task(
+            waitlist_service._send_confirmation_email,
+            signup.organization_email,
+            signup.organization_name,
+        )
+
         return success_response(
-            201, 
+            201,
             "Successfully added to waitlist. Confirmation email will be sent shortly.",
-            data=result
+            data=result.dict(),
         )
     except HTTPException as e:
         return fail_response(e.status_code, e.detail)

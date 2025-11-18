@@ -35,11 +35,12 @@ class Settings(BaseSettings):
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
     #Waitlist Email
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    EMAIL: str
-    SMTP_SERVER: str 
-    SMTP_PORT: int
+    # Waitlist Email
+    MAIL_USERNAME: str = config("MAIL_USERNAME", default="test_user")
+    MAIL_PASSWORD: str = config("MAIL_PASSWORD", default="test_pass")
+    EMAIL: str = config("EMAIL", default="test@example.com")
+    SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
+    SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
     class Config:
         env_file = ".env"

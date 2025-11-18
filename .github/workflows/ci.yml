@@ -1,0 +1,55 @@
+name: Backend CI - Test, Lint and Build
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  test_lint_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv --version
+
+      - name: Create virtual environment
+        run: python3 -m venv .venv
+
+      - name: Install dependencies using uv
+        run: |
+          source .venv/bin/activate
+          uv sync
+
+      - name: Format check with Black
+        run: |
+          source .venv/bin/activate
+          uv run black --check .
+
+      - name: Lint with Flake8
+        run: |
+          source .venv/bin/activate
+          uv run flake8 app/
+
+      - name: Run tests with Pytest
+        run: |
+          source .venv/bin/activate
+          uv run pytest tests/ --verbose
+
+      - name: Build project
+        run: |
+          source .venv/bin/activate
+          uv build
