@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 import pytest_asyncio
+import sqlalchemy
 from sqlmodel import SQLModel
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -35,7 +36,12 @@ def pg_sync_session():
     # Drop any existing tables first to ensure schema is recreated with the
     # current SQLModel definitions (this is important when tests run against
     # a database that may already have old schema from Alembic migrations).
-    SQLModel.metadata.drop_all(engine)
+    # Use raw SQL to drop tables with CASCADE to handle foreign key constraints
+    with engine.connect() as conn:
+        conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
+        conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
+        conn.commit()
+
     SQLModel.metadata.create_all(engine)
 
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -44,7 +50,11 @@ def pg_sync_session():
         yield session
     finally:
         session.close()
-        SQLModel.metadata.drop_all(engine)
+        # Clean up with CASCADE
+        with engine.connect() as conn:
+            conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
+            conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
+            conn.commit()
 
 
 @pytest_asyncio.fixture
@@ -59,18 +69,24 @@ async def pg_async_session(event_loop):
     # convert sync URL to asyncpg format
     async_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_url, echo=False)
-    async_session_maker_local = _async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session_maker_local = _async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     async with engine.begin() as conn:
         # ensure we start with a clean schema for the async Postgres fixture
-        await conn.run_sync(SQLModel.metadata.drop_all)
+        # Use CASCADE to handle foreign key constraints
+        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async with async_session_maker_local() as session:
         yield session
 
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+        # Clean up with CASCADE
+        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
 
 
 @pytest.fixture(scope="session")

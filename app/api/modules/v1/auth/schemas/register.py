@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
 from app.api.utils.validators import is_company_email, is_strong_password
+
 
 class RegisterRequest(BaseModel):
     company_name: str = Field(..., max_length=255)
@@ -9,14 +9,12 @@ class RegisterRequest(BaseModel):
     confirm_password: str
     industry: str
 
-
     @field_validator("email")
     @classmethod
     def email_must_be_company(cls, v):
         if not is_company_email(v):
             raise ValueError("Only company email addresses are allowed.")
         return v
-
 
     @field_validator("password")
     @classmethod
@@ -25,22 +23,28 @@ class RegisterRequest(BaseModel):
             raise ValueError("Password does not meet strength requirements.")
         return v
 
-
     @field_validator("confirm_password")
     @classmethod
     def passwords_match(cls, v, values):
-        password = values.data.get("password") if hasattr(values, 'data') else values.get("password")
+        password = (
+            values.data.get("password")
+            if hasattr(values, "data")
+            else values.get("password")
+        )
         if password is not None and v != password:
             raise ValueError("Passwords do not match.")
         return v
+
 
 class RegisterResponse(BaseModel):
     message: str
     email: EmailStr
 
+
 class OTPVerifyRequest(BaseModel):
     email: EmailStr
     code: str = Field(..., min_length=6, max_length=6)
+
 
 class OTPVerifyResponse(BaseModel):
     message: str

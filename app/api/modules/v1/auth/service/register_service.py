@@ -7,8 +7,10 @@ from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.auth.models.otp_model import OTP
 from app.api.modules.v1.auth.schemas.register import RegisterRequest
 from app.api.core.dependencies.send_mail import send_email
-from app.api.core.dependencies.redis_service import store_otp, verify_otp as verify_otp_redis
-from app.api.utils.template_utils import render_template
+from app.api.core.dependencies.redis_service import (
+    store_otp,
+    verify_otp as verify_otp_redis,
+)
 from app.api.utils.permissions import ADMIN_PERMISSIONS
 from app.api.utils.password import hash_password
 from app.api.core.logger import setup_logging
@@ -19,24 +21,27 @@ logger = logging.getLogger("app")
 
 ADMIN_ROLE_NAME = "admin"
 
-async def register_organization_user(
-    db: AsyncSession, data: RegisterRequest
-) -> User:
+
+async def register_organization_user(db: AsyncSession, data: RegisterRequest) -> User:
     # 1. Create Organization
-    logger.info(f"Starting registration for company: {data.company_name}, email: {data.email}")
+    logger.info(
+        f"Starting registration for company: {data.company_name}, email: {data.email}"
+    )
     org = Organization(name=data.company_name, industry=data.industry)
     db.add(org)
     await db.flush()  # get org.id
 
     # 2. Create Admin Role if not exists
-    role = await db.scalar(select(Role).where(Role.name == ADMIN_ROLE_NAME, Role.organization_id == org.id))
+    role = await db.scalar(
+        select(Role).where(Role.name == ADMIN_ROLE_NAME, Role.organization_id == org.id)
+    )
     if not role:
         logger.info(f"Creating admin role for organization: {org.id}")
         role = Role(
-            name=ADMIN_ROLE_NAME, 
-            description="Organization Administrator", 
-            organization_id=org.id, 
-            permissions=ADMIN_PERMISSIONS
+            name=ADMIN_ROLE_NAME,
+            description="Organization Administrator",
+            organization_id=org.id,
+            permissions=ADMIN_PERMISSIONS,
         )
         db.add(role)
         await db.flush()
@@ -61,7 +66,7 @@ async def register_organization_user(
     # 5. Generate OTP and store in Redis
     otp_code = OTP.generate_code()
     await store_otp(str(user.id), otp_code, ttl_minutes=10)
-    
+
     await db.commit()
     logger.info(f"Generated OTP for user: {user.email} and stored in Redis")
 
@@ -70,14 +75,11 @@ async def register_organization_user(
         template_name="otp.html",
         subject="Your OTP Code - LegalWatchDog",
         recipient=data.email,
-        context={
-            "user_name": data.company_name,
-            "otp": otp_code,
-            "year": 2025
-        }
+        context={"user_name": data.company_name, "otp": otp_code, "year": 2025},
     )
     logger.info(f"Sent OTP email to: {data.email}")
     return user
+
 
 async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
     """Verify OTP from Redis and mark user as verified in DB."""
@@ -85,14 +87,16 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
     if not user:
         logger.warning(f"OTP verification failed: user not found for email {email}")
         return False
-    
+
     # Verify OTP from Redis
     is_valid = await verify_otp_redis(str(user.id), code)
-    
+
     if not is_valid:
-        logger.warning(f"OTP verification failed: invalid or expired OTP for user {user.email}")
+        logger.warning(
+            f"OTP verification failed: invalid or expired OTP for user {user.email}"
+        )
         return False
-    
+
     # Save OTP to database for audit trail
     otp = OTP(
         user_id=user.id,
@@ -101,11 +105,11 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
         is_used=True,
     )
     db.add(otp)
-    
+
     # Mark user as verified
     user.is_verified = True
     db.add(user)
     await db.commit()
-    
+
     logger.info(f"OTP verified for user: {user.email}")
     return True
