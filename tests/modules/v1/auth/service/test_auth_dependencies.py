@@ -1,5 +1,4 @@
 import pytest
-from sqlmodel import SQLModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
@@ -10,9 +9,9 @@ from app.api.core.dependencies.auth import (
     OrganizationFilter,
     get_current_user_with_role,
 )
-from app.api.modules.v1.users.models import User
+from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.modules.v1.organization.models import Organization
+from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.utils.permissions import Permission
 
 

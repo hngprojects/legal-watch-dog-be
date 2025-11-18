@@ -1,13 +1,12 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, Column
+from sqlalchemy import DateTime, Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.users.models import User
+    from app.api.modules.v1.users.models.users_model import User
     from app.api.modules.v1.users.models.roles_model import Role
 
 
@@ -24,12 +23,12 @@ class Organization(SQLModel, table=True):
 
     settings: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
     )
 
     billing_info: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
     )
 
     is_active: bool = Field(default=True, nullable=False)

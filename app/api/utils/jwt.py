@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
-import jwt
 import uuid
 from app.api.core.config import settings
 from app.api.core.logger import setup_logging
@@ -8,6 +7,60 @@ import logging
 
 setup_logging()
 logger = logging.getLogger("app")
+
+
+try:
+    import jwt as pyjwt  # type: ignore
+except Exception:  # pragma: no cover - extremely unlikely
+    pyjwt = None  # type: ignore
+
+if pyjwt is not None and not hasattr(pyjwt, "encode"):
+    try:
+        # python-jwt: JWT class and JWK helpers
+        from jwt import JWT as _JWTClass  # type: ignore
+        from jwt.jwk import OctetJWK as _OctetJWK  # type: ignore
+
+        _jwt_client = _JWTClass()
+
+        def _module_encode(payload, key, algorithm=None):
+
+            secret_bytes = key.encode() if isinstance(key, str) else key
+            jwk = _OctetJWK(secret_bytes)
+
+            return _jwt_client.encode(payload, jwk, alg=algorithm)
+
+        def _module_decode(token, key=None, algorithms=None, **kwargs):
+            # Support PyJWT-style `options={"verify_signature": False}`
+            options = kwargs.get("options") or {}
+            verify_signature = options.get("verify_signature", True)
+
+            secret_bytes = key.encode() if isinstance(key, str) else key
+            jwk = _OctetJWK(secret_bytes) if key is not None else None
+            algs_set = set(algorithms) if algorithms is not None else None
+
+            if not verify_signature:
+                return _jwt_client.decode(token, None, do_verify=False, algorithms=None)
+
+            # do_verify True path
+            return _jwt_client.decode(token, jwk, do_verify=True, algorithms=algs_set)
+
+        def _module_decode_no_verify(token, **kwargs):
+            # decode without verifying signature (used to extract jti/exp)
+            return _jwt_client.decode(token, None, do_verify=False, algorithms=None)
+
+        # Attach adapter functions to the module object so callers using the
+        # PyJWT-style API (module.encode/module.decode) continue to work.
+        setattr(pyjwt, "encode", _module_encode)
+        setattr(pyjwt, "decode", _module_decode)
+        setattr(pyjwt, "_decode_no_verify", _module_decode_no_verify)
+    except Exception:
+        # If adaptation fails, leave pyjwt as-is and let callers handle errors.
+        pass
+
+if pyjwt is None:  # pragma: no cover - environment misconfiguration
+    raise RuntimeError(
+        "No 'jwt' package is importable. Install 'PyJWT' or 'python-jwt' in the virtualenv."
+    )
 
 
 def create_access_token(
@@ -45,7 +98,7 @@ def create_access_token(
         "jti": jti,  # JWT ID for revocation
     }
 
-    encoded_jwt = jwt.encode(
+    encoded_jwt = pyjwt.encode(
         payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
     )
     logger.info(f"Created JWT for user {user_id}, org {organization_id}, jti: {jti}")
@@ -67,15 +120,15 @@ def decode_token(token: str) -> Dict[str, Any]:
         jwt.InvalidTokenError: If token is invalid
     """
     try:
-        payload = jwt.decode(
+        payload = pyjwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
-    except jwt.ExpiredSignatureError:
-        logger.warning("Attempted to decode expired JWT token")
-        raise
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid JWT token: {str(e)}")
+    except Exception as e:
+        # Could be PyJWT's ExpiredSignatureError / InvalidTokenError or
+        # python-jwt's JWTDecodeError; log generically and re-raise so
+        # callers can handle specific types if desired.
+        logger.warning(f"Invalid or expired JWT token: {str(e)}")
         raise
 
 
@@ -92,7 +145,7 @@ def get_token_jti(token: str) -> Optional[str]:
     """
     try:
         # Decode without verification to get jti even for expired tokens
-        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        unverified_payload = pyjwt.decode(token, options={"verify_signature": False})
         return unverified_payload.get("jti")
     except Exception as e:
         logger.error(f"Failed to extract jti from token: {str(e)}")
@@ -111,7 +164,7 @@ def calculate_token_ttl(token: str) -> int:
         TTL in seconds, or default if calculation fails
     """
     try:
-        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        unverified_payload = pyjwt.decode(token, options={"verify_signature": False})
         exp = unverified_payload.get("exp")
         if exp:
             ttl = exp - datetime.now(timezone.utc).timestamp()
