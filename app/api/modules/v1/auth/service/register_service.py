@@ -30,6 +30,8 @@ async def register_organization(
     data: RegisterRequest,
     background_tasks: BackgroundTasks | None = None,
 ) -> Tuple[User, str]:
+    """Register a new organization, create its admin user, generate an OTP, send verification email, and return the user plus access token."""
+
     logger.info(f"Starting registration for company: {data.name}, email: {data.email}")
     org = Organization(name=data.name, industry=data.industry)
     db.add(org)
@@ -94,7 +96,6 @@ async def register_organization(
         user_id=str(user.id), organization_id=str(org.id), role_id=str(role.id)
     )
     return user, access_token
-
 
 async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
     """Verify OTP from Redis and mark user as verified in DB."""
