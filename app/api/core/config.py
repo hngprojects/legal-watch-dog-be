@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 # Base directory for relative paths
 BASE_DIR = Path(__file__).resolve().parent
 
+
 class Settings(BaseSettings):
     # App general
     DEBUG: bool = config("DEBUG", default=False, cast=bool)

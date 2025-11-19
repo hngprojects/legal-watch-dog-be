@@ -15,17 +15,6 @@ def app(pg_async_session: AsyncSession):
     app = FastAPI()
     app.include_router(waitlist_router, prefix="/api/v1")
 
-<<<<<<< HEAD
-
-# -----------------------------
-# Test: successful signup
-# -----------------------------
-@pytest.mark.asyncio
-async def test_signup_waitlist_success(app, test_session):
-    """Test that a new email can sign up successfully."""
-
-=======
->>>>>>> 3e5fb572ee703478e954d7f18b1da18227832267
     async def override_get_db():
         yield pg_async_session
 
@@ -56,16 +45,8 @@ async def test_signup_waitlist_success(app, pg_async_session):
 
 
 @pytest.mark.asyncio
-<<<<<<< HEAD
-async def test_signup_waitlist_duplicate_email(app, test_session):
-    """Test that signing up with an existing email returns an error."""
-
-    async def override_get_db():
-        yield test_session
-=======
 async def test_signup_waitlist_duplicate_email(app, pg_async_session):
     """Test signing up with an existing email returns error."""
->>>>>>> 3e5fb572ee703478e954d7f18b1da18227832267
 
     entry = Waitlist(
         organization_email="dup@company.com", organization_name="Dup Company"

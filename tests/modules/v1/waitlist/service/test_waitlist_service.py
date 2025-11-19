@@ -6,18 +6,7 @@ from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
 )
 
 
-
 @pytest.mark.asyncio
-<<<<<<< HEAD
-async def test_add_to_waitlist_success(test_session):
-    async for session in test_session:
-        service = WaitlistService()
-        response: WaitlistResponse = await service.add_to_waitlist(
-            session,
-            organization_email="new@company.com",
-            organization_name="New Company",
-        )
-=======
 async def test_add_to_waitlist_success(pg_async_session):
     """Test adding a new email to the waitlist successfully."""
     session = pg_async_session
@@ -30,8 +19,6 @@ async def test_add_to_waitlist_success(pg_async_session):
 
     assert response.organization_email == "new@company.com"
     assert response.organization_name == "New Company"
->>>>>>> 3e5fb572ee703478e954d7f18b1da18227832267
-
 
 
 @pytest.mark.asyncio
