@@ -2,7 +2,7 @@ import re
 
 # List of common public email domains to block
 PUBLIC_EMAIL_DENYLIST = {
-    "gmail.com",
+    # "gmail.com",
     "yahoo.com",
     "hotmail.com",
     "outlook.com",

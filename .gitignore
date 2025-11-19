@@ -18,15 +18,13 @@ build/
 *.swo
 *.DS_Store
 __pypackages__/
-uv.lock
-requirements.txt
+
 # Virtual environments
 .venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+
 .env
 
 # VSCode
