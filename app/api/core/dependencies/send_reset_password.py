@@ -37,7 +37,7 @@ async def send_password_reset_email(context: dict):
         template_name=template_name,
         subject=subject,
         recipient=recipient,
-        context=template_context
+        context=template_context,
     )
 
     if success:
