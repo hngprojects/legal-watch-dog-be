@@ -1,3 +1,3 @@
-from .team_invitation import TeamInvitation, InvitationStatus
+from .team_invitation import TeamInvitation
 
 __all__ = ["TeamInvitation"]

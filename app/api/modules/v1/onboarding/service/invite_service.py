@@ -1,18 +1,29 @@
 import logging
 from typing import Optional, List
-from datetime import timezone
+from datetime import timezone, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.api.modules.v1.onboarding.utils.token_generator import make_token, hash_token
+from app.api.modules.v1.onboarding.utils.token_generator import (
+    make_token,
+    hash_token,
+)
 from app.api.core.dependencies.send_mail import send_email
 from app.api.core.config import settings
-from app.api.modules.v1.onboarding.models.team_invitation import TeamInvitation
-from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.onboarding.models.team_invitation import (
+    TeamInvitation,
+    InvitationStatus,
+)
+from app.api.modules.v1.organization.models.organization_model import (
+    Organization,
+)
 import asyncio
 
 logger = logging.getLogger("app")
 
 
+# --------------------------------------------------------------------
+# 🔹 Single Invite
+# --------------------------------------------------------------------
 async def create_and_send_invite(
     db: AsyncSession,
     current_user,
@@ -22,41 +33,59 @@ async def create_and_send_invite(
 ):
     """Create TeamInvitation record and send invite email.
 
-    - Generates a secure token and stores only its hash in `TeamInvitation.token`.
-    - Commits the DB row and then sends email using the existing
-      `send_email(template_name, subject, recipient, context)` function.
-
-    Returns the raw token (useful for tests). Do NOT return this token to the
-    API caller in production; it should be delivered via email only.
+    - Prevents duplicate pending unexpired invites.
+    - Generates a secure token (stores only hash).
+    - Sends structured HTML email.
     """
-    # derive organization and sender from the currently logged-in user
+
     org_id = getattr(current_user, "organization_id", None)
     sender_id = getattr(current_user, "id", None)
-    org_name = getattr(current_user, "organization", None)
-    sender_name = getattr(current_user, "name", None) or getattr(
-        current_user, "email", None
+
+    # Check for existing pending invite
+    stmt = select(TeamInvitation).where(
+        TeamInvitation.org_id == org_id,
+        TeamInvitation.team_email == team_email,
+        TeamInvitation.status == InvitationStatus.PENDING,
+        TeamInvitation.expires_at > datetime.now(timezone.utc),
     )
-    # attempt to resolve organization name if not present on current_user
+    res = await db.execute(stmt)
+    existing = res.scalar_one_or_none()
+
+    if existing:
+        logger.info(
+            "Duplicate invite blocked for %s in org %s", team_email, org_id
+        )
+        return {
+            "email": team_email,
+            "status": "duplicate",
+            "message": "An active invitation already exists.",
+        }
+
+    org_name = getattr(current_user, "organization", None)
+    sender_name = (
+        getattr(current_user, "name", None)
+        or getattr(current_user, "email", None)
+    )
+
     if not org_name and org_id:
         try:
-            org_stmt = select(Organization).where(Organization.id == org_id)
-            org_res = await db.execute(org_stmt)
-            org = org_res.scalar_one_or_none()
+            stmt = select(Organization).where(Organization.id == org_id)
+            result = await db.execute(stmt)
+            org = result.scalar_one_or_none()
             if org:
                 org_name = org.name
         except Exception:
-            logger.exception("Failed to load organization for invite context")
+            logger.exception("Failed to load organization name")
 
-    # generate token and persist hashed token
-    token = make_token()
-    stored_hash = hash_token(token)
+    raw_token = make_token()
+    token_hash = hash_token(raw_token)
 
     invite = TeamInvitation(
         org_id=org_id,
         sender_id=sender_id,
         role=role,
         team_email=team_email,
-        token=stored_hash,
+        token=token_hash,
     )
 
     try:
@@ -65,20 +94,22 @@ async def create_and_send_invite(
         await db.refresh(invite)
     except Exception:
         await db.rollback()
-        logger.exception("Failed to create TeamInvitation record")
+        logger.exception("Failed to create TeamInvitation")
         raise
 
-    # build accept url and email context
-    accept_url = f"{settings.LEGAL_WATCH_DOG_BASE_URL}/onboarding/accept?invitation_id={invite.id}&token={token}"
+    accept_url = (
+        f"{settings.LEGAL_WATCH_DOG_BASE_URL}/onboarding/accept"
+        f"?invitation_id={invite.id}&token={raw_token}"
+    )
+
     context = {
         "invitee_name": invitee_name or team_email,
         "org_name": org_name or settings.APP_NAME,
-        "sender_name": sender_name or "",
+        "sender_name": sender_name,
         "accept_url": accept_url,
         "expires_at": invite.expires_at.astimezone(timezone.utc).isoformat(),
     }
 
-    # use existing dependency to send email
     try:
         sent = await send_email(
             template_name="invite.html",
@@ -87,47 +118,73 @@ async def create_and_send_invite(
             context=context,
         )
         if not sent:
-            logger.warning("send_email returned False for invite to %s", team_email)
+            logger.warning("send_email returned False for %s", team_email)
     except Exception:
-        logger.exception("Failed to send invite email to %s", team_email)
+        logger.exception("Failed to send email to %s", team_email)
 
-    return token
+    return {
+        "email": team_email,
+        "status": "sent",
+        "invitation_id": invite.id,
+    }
 
 
+# --------------------------------------------------------------------
+# 🔹 Bulk Invite
+# --------------------------------------------------------------------
 async def create_and_send_bulk_invites(
     db: AsyncSession,
     current_user,
     invites: List[dict],
 ):
-    """Create and send multiple TeamInvitation records and emails.
-
-    Args:
-        db: AsyncSession for database operations.
-        current_user: The user initiating the invites.
-        invites: A list of dictionaries, each containing 'role', 'team_email', and optional 'invitee_name'.
+    """
+    Process multiple invitations in bulk.
 
     Returns:
-        A summary dictionary with counts of successes and failures.
+        {
+            "summary": { "success": X, "failure": Y, "duplicate": Z },
+            "results": [ ...individual invite results... ]
+        }
     """
-    results = {"success": 0, "failure": 0}
 
-    async def process_invite(invite):
+    summary = {"success": 0, "failure": 0, "duplicate": 0}
+    results = []
+
+    async def process(invite):
         try:
-            token = await create_and_send_invite(
+            res = await create_and_send_invite(
                 db=db,
                 current_user=current_user,
                 role=invite["role"],
                 team_email=invite["team_email"],
                 invitee_name=invite.get("invitee_name"),
             )
-            results["success"] += 1
+
+            results.append(res)
+
+            # count summary
+            if res["status"] == "sent":
+                summary["success"] += 1
+            elif res["status"] == "duplicate":
+                summary["duplicate"] += 1
+            else:
+                summary["failure"] += 1
+
         except Exception as e:
             logger.error(
-                "Failed to process invite for %s: %s", invite["team_email"], str(e)
+                "Failed bulk-process invite for %s: %s",
+                invite["team_email"],
+                str(e),
             )
-            results["failure"] += 1
+            summary["failure"] += 1
+            results.append(
+                {
+                    "email": invite["team_email"],
+                    "status": "error",
+                    "message": str(e),
+                }
+            )
 
-    # Process all invites concurrently
-    await asyncio.gather(*(process_invite(invite) for invite in invites))
+    await asyncio.gather(*(process(inv) for inv in invites))
 
-    return results
+    return {"summary": summary, "results": results}
