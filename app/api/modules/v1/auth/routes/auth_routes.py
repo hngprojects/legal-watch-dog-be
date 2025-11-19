@@ -15,10 +15,9 @@ from app.api.modules.v1.auth.schemas.register import (
 )
 from sqlmodel import select
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.jwt import create_access_token
 from app.api.utils.response_payloads import (
-    auth_response,
     fail_response,
+    success_response,
 )
 from app.api.db.database import get_db
 
@@ -54,7 +53,7 @@ async def company_signup(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="An organization with this email already exists.",
             )
-        user, access_token = await register_organization(
+        user = await register_organization(
             db, payload, background_tasks=background_tasks
         )
     except Exception:
@@ -64,28 +63,15 @@ async def company_signup(
             message="Registration failed. Please contact support.",
         )
 
-    if not user or not access_token:
-        logger.error(
-            "Registration did not return user/token for email=%s (user=%s, token=%s)",
-            payload.email,
-            bool(user),
-            bool(access_token),
-        )
-        return fail_response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Registration failed. Missing account data.",
-        )
-
     logger.info(
         "Registration succeeded for email=%s, user_id=%s",
         payload.email,
         getattr(user, "id", None),
     )
-    return auth_response(
+    return success_response(
         status_code=status.HTTP_201_CREATED,
-        message="Registration successful. Verify the OTP sent to your email.",
+        message="Registration successful. Verify your email and log in.",
         data={"email": user.email},
-        access_token=access_token,
     )
 
 
@@ -115,19 +101,11 @@ async def verify_otp_endpoint(
             message="Verification succeeded but user record missing. Contact support.",
         )
 
-    # Create a final access token now that the user is verified
-    access_token = create_access_token(
-        user_id=str(user.id),
-        organization_id=str(user.organization_id),
-        role_id=str(user.role_id),
-    )
-
     logger.info(
         "OTP verification succeeded for email=%s, user_id=%s", payload.email, user.id
     )
-    return auth_response(
+    return success_response(
         status_code=status.HTTP_200_OK,
-        message="Email verified",
-        access_token=access_token,
+        message="Email verified successfully. You can now log in.",
         data={"email": user.email},
     )
