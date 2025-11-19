@@ -7,6 +7,7 @@ import uuid
 if TYPE_CHECKING:
     from app.api.modules.v1.users.models.roles_model import Role
     from app.api.modules.v1.organization.models import Organization
+    from app.api.modules.v1.tickets.models.ticket import Ticket
 
 
 class User(SQLModel, table=True):
@@ -46,3 +47,11 @@ class User(SQLModel, table=True):
 
     organization: "Organization" = Relationship(back_populates="users")
     role: "Role" = Relationship(back_populates="users")
+    created_tickets: list["Ticket"] = Relationship(
+        back_populates="creator",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.created_by]"},
+    )
+    assigned_tickets: list["Ticket"] = Relationship(
+        back_populates="assignee",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to]"},
+    )
