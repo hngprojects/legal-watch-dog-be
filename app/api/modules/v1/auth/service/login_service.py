@@ -304,7 +304,7 @@ async def authenticate_user(
     )
 
     # Generate refresh token (longer lived, 30 days)
-    refresh_token_jti = str(uuid.uuid4())
+    # refresh_token_jti = str(uuid.uuid4())
     refresh_token = create_access_token(
         user_id=str(user.id),
         organization_id=str(user.organization_id),
@@ -312,6 +312,7 @@ async def authenticate_user(
         expires_delta=timedelta(days=30),
     )
 
+    refresh_token_jti = get_token_jti(refresh_token)
     # Store refresh token in Redis for rotation
     await store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
@@ -485,7 +486,7 @@ class LoginService:
             if not user_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid refresh token",
+                    detail="Unauthorized",
                 )
 
             return await refresh_access_token(self.db, user_id, refresh_token)

@@ -30,13 +30,11 @@ async def register_organization(
     data: RegisterRequest,
     background_tasks: BackgroundTasks | None = None,
 ) -> Tuple[User, str]:
-    # 1. Create Organization
     logger.info(f"Starting registration for company: {data.name}, email: {data.email}")
     org = Organization(name=data.name, industry=data.industry)
     db.add(org)
-    await db.flush()  # get org.id
+    await db.flush()
 
-    # 2. Create Admin Role if not exists
     role = await db.scalar(
         select(Role).where(Role.name == ADMIN_ROLE_NAME, Role.organization_id == org.id)
     )
@@ -51,17 +49,15 @@ async def register_organization(
         db.add(role)
         await db.flush()
 
-    # 3. Hash password
     hashed_pw = hash_password(data.password)
 
-    # 4. Create User (admin)
     user = User(
         organization_id=org.id,
         role_id=role.id,
         email=data.email,
         hashed_password=hashed_pw,
         name=data.name,
-        auth_provider="local",  # Explicitly set for consistency
+        auth_provider="local",
         is_active=True,
         is_verified=False,
     )
@@ -69,16 +65,12 @@ async def register_organization(
     await db.flush()
     logger.info(f"Created admin user: {user.email} for organization: {org.id}")
 
-    # 5. Generate OTP and store in Redis
     otp_code = OTP.generate_code()
     await store_otp(str(user.id), otp_code, ttl_minutes=10)
 
     await db.commit()
     logger.info(f"Generated OTP for user: {user.email} and stored in Redis {otp_code}")
 
-    # 6. Send OTP email using HTML template. Use BackgroundTasks if provided so the
-    # request doesn't block on external IO.
-    # Build context compatible with send_email(context: dict)
     context = {
         "organization_email": data.email,
         "organization_name": data.name,
@@ -90,13 +82,14 @@ async def register_organization(
     template_name = "otp.html"
 
     if background_tasks is not None:
-        # pass the context as the only argument to send_email
-        background_tasks.add_task(send_email, template_name, subject, recepient, context)
+        background_tasks.add_task(
+            send_email, template_name, subject, recepient, context
+        )
         logger.info(f"Scheduled OTP email to be sent to: {data.email}")
     else:
         await send_email(template_name, subject, recepient, context)
         logger.info(f"Sent OTP email to: {data.email}")
-    # create access token for the new user
+
     access_token = create_access_token(
         user_id=str(user.id), organization_id=str(org.id), role_id=str(role.id)
     )
@@ -123,7 +116,12 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
     otp = OTP(
         user_id=user.id,
         code=code,
-        expires_at=datetime.now(timezone.utc),  # Already expired/used
+        expires_at=datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ),  # Already expired/used
+        created_at=datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ),  # Already expired/used
         is_used=True,
     )
     db.add(otp)
@@ -135,6 +133,7 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
 
     logger.info(f"OTP verified for user: {user.email}")
     return True
+
 
 async def get_organisation_by_email(db: AsyncSession, user_email: str) -> User | None:
     """Fetch organization by email."""

@@ -1,0 +1,2 @@
+class PasswordReuseError(Exception):
+    pass
