@@ -7,13 +7,10 @@ from alembic import context
 
 from app.api.core.config import settings, BASE_DIR
 from app.api.db.database import Base
-from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
-
-# new models
+from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.organization.models.organization_model import Organization
-from app.api.modules.v1.users.models import User
-from app.api.modules.v1.users.models import Role
-
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.auth.models.otp_model import OTP
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,7 +24,10 @@ if config.config_file_name is not None:
 # Override sqlalchemy.url with the URL from your application settings
 # This ensures migrations use the same database as your application
 if settings.DB_TYPE == "postgresql":
-    db_url = f"postgresql://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    db_url = (
+        f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
+        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    )
 elif hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
     db_url = settings.DATABASE_URL
 else:

@@ -1,0 +1,74 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate environment file
+        run: |
+          cat <<EOF > .env.dev
+          DEBUG=False
+          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
+          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8000' }}"
+          ENVIRONMENT="${{ vars.ENVIRONMENT || 'production' }}"
+          SECRET_KEY="${{ secrets.SECRET_KEY || vars.SECRET_KEY }}"
+          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.LEGAL_WATCH_DOG_BASE_URL || vars.LEGAL_WATCH_DOG_BASE_URL }}"
+
+          DB_TYPE="${{ vars.DB_TYPE || 'postgresql' }}"
+          DB_HOST="${{ secrets.DB_HOST || vars.DB_HOST }}"
+          DB_PORT="${{ vars.DB_PORT || '5432' }}"
+          DB_USER="${{ secrets.DB_USER || vars.DB_USER }}"
+          DB_PASS="${{ secrets.DB_PASS || vars.DB_PASS }}"
+          DB_NAME="${{ secrets.DB_NAME || vars.DB_NAME }}"
+          DATABASE_URL="postgresql://${{ secrets.DB_USER || vars.DB_USER }}:${{ secrets.DB_PASS || vars.DB_PASS }}@${{ secrets.DB_HOST || vars.DB_HOST }}/${{ secrets.DB_NAME || vars.DB_NAME }}"
+
+          MAIL_MAILER="smtp"
+          SMTP_SERVER="${{ vars.SMTP_SERVER || 'smtp.gmail.com' }}"
+          SMTP_PORT="${{ vars.SMTP_PORT || '587' }}"
+          MAIL_USERNAME="${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME }}"
+          MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD || vars.MAIL_PASSWORD }}"
+          MAIL_ENCRYPTION="TLS"
+          EMAIL="${{ secrets.EMAIL || vars.EMAIL }}"
+          MAIL_FROM_NAME="LEGAL WATCH DOG"
+          EOF
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Upload .env file to server
+        run: |
+          sshpass -p "${{ secrets.EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no .env.dev ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }}:/home/${{ secrets.EC2_USERNAME }}/backend_env
+
+      - name: SSH into EC2 and deploy
+        run: |
+          sshpass -p "${{ secrets.EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }} << 'EOF'
+            set -e
+
+            cd ~/backend
+
+            git pull origin dev
+
+            mv ~/backend_env .env
+
+            uv sync
+
+            pkill -f "uv run" || true
+            sleep 2
+
+            export $(grep -v '^#' .env | xargs)
+
+            nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
+
+            echo "Deployment complete on port $APP_PORT!"
+          EOF

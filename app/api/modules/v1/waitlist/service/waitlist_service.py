@@ -1,4 +1,3 @@
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
@@ -99,7 +98,7 @@ class WaitlistService:
             )
         except Exception as e:
             logger.error(
-                f"Failed to send confirmation email to {email_data.organization_email}: {str(e)}",
+                f"Failed to send email to {email_data.organization_email}:{str(e)}",
                 exc_info=True,
             )
 

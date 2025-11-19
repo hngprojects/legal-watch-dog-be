@@ -34,7 +34,7 @@ async def signup_waitlist(
         return success_response(
             201,
             "Successfully added to waitlist. Confirmation email will be sent shortly.",
-            data=result,
+            data=result.dict(),
         )
     except HTTPException as e:
         return fail_response(e.status_code, e.detail)

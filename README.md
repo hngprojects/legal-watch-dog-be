@@ -296,6 +296,32 @@ pytest --cov=api
 
 ---
 
+## **Code Quality & Linting**
+
+### Running Linters
+
+1. **Format code with Black:**
+
+```bash
+uv run black .
+```
+
+2. **Check code style with Flake8:**
+
+```bash
+uv run flake8 app/
+```
+
+3. **Run both linters together:**
+
+```bash
+uv run black . && uv run flake8 app/
+```
+
+> Ensure your code passes both Black formatting and Flake8 checks before committing.
+
+---
+
 ## **Pre-Commit Hooks (Code Quality)**
 
 1. **Install pre-commit hooks:**

@@ -13,6 +13,7 @@ from app.api.utils.response_payloads import success_response
 from app.api.core.logger import setup_logging
 from fastapi.staticfiles import StaticFiles
 
+
 setup_logging()
 
 
@@ -26,10 +27,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    root_path="/api",
     title=f"{settings.APP_NAME} API",
     description=f"{settings.APP_NAME} API for managing projects and endpoints",
     version=settings.APP_VERSION,
-    docs_url="/docs" if settings.DEBUG else None,
+    docs_url="/docs",
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
@@ -38,10 +40,12 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
 email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
+APP_URL = settings.APP_URL
+DEV_URL = settings.DEV_URL
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[APP_URL, DEV_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,78 +1,47 @@
-<template>
-  <div class="w-full min-h-screen  flex justify-center py-10 px-4">
-    <div class="max-w-xl w-full rounded-lg p-6 sm:p-10 bg-[#F4F4F4]">
-      <!-- Top Image -->
-      <div
-        class="w-full flex flex-col justify-center mb-6 bg-linear-to-br from-[#f8d9c5e3] to-white"
-      >
-        <img :src="TopImage" alt="Waitlist Illustration" class="w-60 h-auto mx-auto" />
-        <h1 class="text-2xl font-bold text-center text-[#3C2610] mb-4">You're on the Waitlist</h1>
-      </div>
-      <!-- Heading -->
-      <!-- Message -->
-      <p class="text-gray-700 leading-relaxed mb-6">
-        <strong>Hello Alicia,</strong><br /><br />
-        Thanks for joining the Legal Watchdog waitlist. Your request has been received and you're
-        now in line for early access.
-        <br /><br />
-        We're building a dedicated compliance platform that helps teams monitor regulatory changes,
-        manage jurisdictions, and strengthen oversight across their organization. You'll be among
-        the first to try it when we open access.
-        <br /><br />
-        We'll share updates, early release dates, and onboarding details as we get closer.
-        <br /><br />
-        If you have any questions, reply directly to this email. We'd love to hear from you.
-      </p>
-      <!-- Button -->
-      <div class="text-center mb-10">
-        <a href="#" class="bg-[#3C2610] text-white px-6 py-2 rounded-md font-medium inline-block">
-          Visit Website
-        </a>
-      </div>
-      <!-- Footer Section -->
-      <div class="w-full bg-[#401903] text-center text-white py-8 rounded-md">
-        <!-- Footer Logo -->
-        <div class="flex justify-center items-center gap-2 mb-3">
-          <img :src="Logo" alt="WatchDog" class="w-6 h-6" />
-          <h2 class="text-lg font-bold text-[#F2AB6D]">WatchDog</h2>
-        </div>
-        <p class="text-sm text-gray-300 mb-6">
-          LegalWatchDog helps us track cross-border regulation updates in hours, not weeks
-        </p>
-        <!-- Social Icons -->
-        <div class="flex justify-center gap-4 mb-6 text-[#F2AB6D]">
-          <img :src="Facebook" class="w-4 text-[#F2AB6D] object-contain"  style="filter: invert(68%) sepia(47%) saturate(1189%) hue-rotate(335deg) brightness(102%) contrast(101%);
-            " />
-          <img :src="Twitter" class="w-4 text-[#F2AB6D] object-contain"  style="filter: invert(68%) sepia(47%) saturate(1189%) hue-rotate(335deg) brightness(102%) contrast(101%);
-            " />
-          <img :src="Instagram" class="w-4 text-[#F2AB6D] object-contain"  style="filter: invert(68%) sepia(47%) saturate(1189%) hue-rotate(335deg) brightness(102%) contrast(101%);
-            " />
-          <img :src="LinkedIn" class="w-4 text-[#F2AB6D] object-contain"  style="filter: invert(68%) sepia(47%) saturate(1189%) hue-rotate(335deg) brightness(102%) contrast(101%);
-            " />
-          <img
-            :src="YouTube"
-            class="w-4 object-contain"
-          style="filter: invert(68%) sepia(47%) saturate(1189%) hue-rotate(335deg) brightness(102%) contrast(101%);
-            "
-          />
-        </div>
-        <p class="text-xs text-[#F2AB6D]">Copyright © 2025 LegalWatchDog | All Rights Reserved</p>
-      </div>
-    </div>
-  </div>
-</template>
-<script setup>
-import TopImage from '@/assets/emailframe.png' // replace with your image
-import Logo from '@/assets/FrameBottom.png' // replace with your logo
-import Facebook from '@/assets/Facebook.png'
-import Twitter from '@/assets/Twitter.png'
-import Instagram from '@/assets/Instagram.png'
-import LinkedIn from '@/assets/linkdin.png'
-import YouTube from '@/assets/YouTube.png'
-</script>
-<style scoped>
-/* Optional: remove default outlines in email preview */
-a {
-  text-decoration: none;
-}
-</style>
+{% extends "base.html" %}
+
+{% block title %}You're on the Waitlist - Legal Watchdog{% endblock %}
+
+{% block preheader %}Thanks for joining the Legal Watchdog waitlist. You're now in line for early access.{% endblock %}
+
+{% block header_image_alt %}Waitlist confirmation{% endblock %}
+
+{% block main_heading %}You're on the Waitlist{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      Hello {{ organization_name | default('there') }},
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Thanks for joining the Legal Watchdog waitlist. Your request has been received and you're now in line for early access.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      We're building a dedicated compliance platform that helps teams monitor regulatory changes, manage jurisdictions, and strengthen oversight across their organization. You'll be among the first to try it when we open access.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      We'll share updates, early release dates, and onboarding details as we get closer.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td>
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      If you have any questions, reply directly to this email. We'd love to hear from you.
+    </p>
+  </td>
+</tr>
+{% endblock %}

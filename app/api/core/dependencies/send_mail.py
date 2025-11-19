@@ -2,10 +2,8 @@ import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.api.core.config import settings
-from fastapi.templating import Jinja2Templates
-import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 logger = logging.getLogger("app")
 
@@ -17,7 +15,6 @@ async def send_email(
     from main import email_templates
 
     try:
-
         sender_email = settings.MAIL_USERNAME
         sender_display_email = settings.EMAIL
         password = settings.MAIL_PASSWORD
