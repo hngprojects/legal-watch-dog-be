@@ -11,12 +11,9 @@ logger = logging.getLogger("app")
 
 
 async def send_email(
-    template_name: str,
-    subject: str,
-    recipient: str,
-    context: Dict[str, Any]
+    template_name: str, subject: str, recipient: str, context: Dict[str, Any]
 ) -> bool:
-    
+
     from main import email_templates
 
     try:
@@ -27,22 +24,19 @@ async def send_email(
         port = settings.SMTP_PORT
         smtp_server = settings.SMTP_SERVER
 
-
-        if not recipient or recipient == 'None':
+        if not recipient or recipient == "None":
             logger.error(f"Invalid recipient email: {recipient}")
             return False
-        
 
         template = email_templates.get_template(template_name)
         html_content = template.render(**context)
 
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = sender_display_email
+        msg["To"] = recipient
 
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = sender_display_email
-        msg['To'] = recipient
-
-        msg.attach(MIMEText(html_content, 'html'))
+        msg.attach(MIMEText(html_content, "html"))
 
         await aiosmtplib.send(
             msg,
@@ -50,12 +44,12 @@ async def send_email(
             port=port,
             username=sender_email,
             password=password,
-            start_tls=True
+            start_tls=True,
         )
 
         logger.info(f"Email sent successfully to {recipient}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Failed to send email to {recipient}: {str(e)}", exc_info=True)
         return False

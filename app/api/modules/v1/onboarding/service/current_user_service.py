@@ -6,7 +6,6 @@ from sqlmodel import Session
 from app.api.modules.v1.users.models.users_model import User
 
 
-
 def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
     """Return a `User` by its id, or `None` when not found.
 

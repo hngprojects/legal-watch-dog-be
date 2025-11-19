@@ -33,7 +33,9 @@ async def create_and_send_invite(
     org_id = getattr(current_user, "organization_id", None)
     sender_id = getattr(current_user, "id", None)
     org_name = getattr(current_user, "organization", None)
-    sender_name = getattr(current_user, "name", None) or getattr(current_user, "email", None)
+    sender_name = getattr(current_user, "name", None) or getattr(
+        current_user, "email", None
+    )
     # attempt to resolve organization name if not present on current_user
     if not org_name and org_id:
         try:
@@ -120,7 +122,9 @@ async def create_and_send_bulk_invites(
             )
             results["success"] += 1
         except Exception as e:
-            logger.error("Failed to process invite for %s: %s", invite["team_email"], str(e))
+            logger.error(
+                "Failed to process invite for %s: %s", invite["team_email"], str(e)
+            )
             results["failure"] += 1
 
     # Process all invites concurrently

@@ -8,7 +8,6 @@ from sqlalchemy.orm import relationship, backref
 from sqlmodel import SQLModel, Field, Relationship
 
 
-
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.users.models import User
@@ -48,7 +47,9 @@ class TeamInvitation(SQLModel, table=True):
         UniqueConstraint("org_id", "team_email", name="uq_org_team_email"),
     )
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
+    id: UUID = Field(
+        default_factory=uuid4, primary_key=True, index=True, nullable=False
+    )
 
     # FK to organizations.id
     org_id: UUID = Field(foreign_key="organizations.id", index=True, nullable=False)
@@ -61,9 +62,15 @@ class TeamInvitation(SQLModel, table=True):
     team_email: str = Field(index=True, nullable=False, description="Email invited")
 
     # store a token (prefer hashed)
-    token: str = Field(index=True, nullable=False, description="Invitation token (store hashed for security)")
+    token: str = Field(
+        index=True,
+        nullable=False,
+        description="Invitation token (store hashed for security)",
+    )
 
-    status: InvitationStatus = Field(default=InvitationStatus.PENDING, index=True, nullable=False)
+    status: InvitationStatus = Field(
+        default=InvitationStatus.PENDING, index=True, nullable=False
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
@@ -81,10 +88,5 @@ class TeamInvitation(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
-  
-
     # organization: Optional["Organization"] = Relationship(back_populates="invitations")
     # sender: Optional["User"] = Relationship(back_populates="sent_invitations")
-
-    
-
