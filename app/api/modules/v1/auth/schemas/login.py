@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -6,6 +6,20 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str = Field(..., min_length=8)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("Email cannot be empty")
+        return v
+
+    @field_validator("password", mode="before")
+    @classmethod
+    def validate_password(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("Password cannot be empty")
+        return v
 
 
 class LoginResponse(BaseModel):
