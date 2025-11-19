@@ -50,23 +50,6 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_table(
-        "otps",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("code", sqlmodel.sql.sqltypes.AutoString(length=6), nullable=False),
-        sa.Column("expires_at", sa.DateTime(), nullable=False),
-        sa.Column("is_used", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_otps_code"), "otps", ["code"], unique=False)
-    op.create_index(op.f("ix_otps_id"), "otps", ["id"], unique=False)
-    op.create_index(op.f("ix_otps_user_id"), "otps", ["user_id"], unique=False)
-    op.create_table(
         "tickets",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("organization_id", sa.Uuid(), nullable=False),
@@ -212,10 +195,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_tickets_created_by"), table_name="tickets")
     op.drop_index(op.f("ix_tickets_assigned_to"), table_name="tickets")
     op.drop_table("tickets")
-    op.drop_index(op.f("ix_otps_user_id"), table_name="otps")
-    op.drop_index(op.f("ix_otps_id"), table_name="otps")
-    op.drop_index(op.f("ix_otps_code"), table_name="otps")
-    op.drop_table("otps")
     op.drop_index(op.f("ix_projects_organization_id"), table_name="projects")
     op.drop_index(op.f("ix_projects_name"), table_name="projects")
     op.drop_index(op.f("ix_projects_id"), table_name="projects")
