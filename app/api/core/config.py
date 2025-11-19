@@ -8,7 +8,6 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 class Settings(BaseSettings):
-
     # App general
     DEBUG: bool = config("DEBUG", default=False, cast=bool)
     APP_NAME: str = config("APP_NAME", default="LEGAL WATCH DOG")
@@ -19,6 +18,8 @@ class Settings(BaseSettings):
     LEGAL_WATCH_DOG_BASE_URL: str = config(
         "LEGAL_WATCH_DOG_BASE_URL", default="backend.im"
     )
+    APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
+    DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
