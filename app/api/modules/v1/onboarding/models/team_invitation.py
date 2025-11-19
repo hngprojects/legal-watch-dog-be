@@ -28,12 +28,8 @@ class TeamInvitation(SQLModel, table=True):
     id: UUID = Field(
         default_factory=uuid4, primary_key=True, index=True, nullable=False
     )
-    org_id: UUID = Field(
-        foreign_key="organizations.id", index=True, nullable=False
-    )
-    sender_id: UUID = Field(
-        foreign_key="users.id", index=True, nullable=False
-    )
+    org_id: UUID = Field(foreign_key="organizations.id", index=True, nullable=False)
+    sender_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
 
     role: str = Field(nullable=False)
     team_email: str = Field(index=True, nullable=False)
@@ -56,9 +52,7 @@ class TeamInvitation(SQLModel, table=True):
     )
 
     expires_at: Optional[datetime] = Field(
-        default_factory=lambda: (
-            datetime.now(timezone.utc) + timedelta(days=7)
-        ),
+        default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=7)),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
@@ -67,9 +61,5 @@ class TeamInvitation(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
-    organization: Optional["Organization"] = Relationship(
-        back_populates="invitations"
-    )
-    sender: Optional["User"] = Relationship(
-        back_populates="sent_invitations"
-    )
+    organization: Optional["Organization"] = Relationship(back_populates="invitations")
+    sender: Optional["User"] = Relationship(back_populates="sent_invitations")

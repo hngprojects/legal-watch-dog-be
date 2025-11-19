@@ -6,7 +6,10 @@ from app.api.modules.v1.onboarding.service.invite_service import (
     create_and_send_invite,
     create_and_send_bulk_invites,
 )
-from app.api.modules.v1.onboarding.models.team_invitation import TeamInvitation, InvitationStatus
+from app.api.modules.v1.onboarding.models.team_invitation import (
+    TeamInvitation,
+    InvitationStatus,
+)
 
 
 def _mock_db_with_query_result(result):
@@ -38,7 +41,7 @@ async def test_create_and_send_invite():
 
     with patch(
         "app.api.modules.v1.onboarding.service.invite_service.send_email",
-        new_callable=AsyncMock
+        new_callable=AsyncMock,
     ) as mock_send_email:
 
         mock_send_email.return_value = True
@@ -53,7 +56,7 @@ async def test_create_and_send_invite():
 
             with patch(
                 "app.api.modules.v1.onboarding.service.invite_service.TeamInvitation",
-                return_value=invite_instance
+                return_value=invite_instance,
             ):
 
                 token = await create_and_send_invite(
@@ -107,14 +110,18 @@ async def test_create_and_send_bulk_invites():
     mock_user.name = "TestUser"
 
     invites = [
-        {"role": "admin", "team_email": "user1@example.com", "invitee_name": "User One"},
+        {
+            "role": "admin",
+            "team_email": "user1@example.com",
+            "invitee_name": "User One",
+        },
         {"role": "member", "team_email": "user2@example.com"},
         {"role": "viewer", "team_email": "invalid-email"},
     ]
 
     with patch(
         "app.api.modules.v1.onboarding.service.invite_service.create_and_send_invite",
-        side_effect=["token1", "token2", Exception("Invalid email")]
+        side_effect=["token1", "token2", Exception("Invalid email")],
     ):
 
         results = await create_and_send_bulk_invites(mock_db, mock_user, invites)

@@ -52,9 +52,7 @@ async def create_and_send_invite(
     existing = res.scalar_one_or_none()
 
     if existing:
-        logger.info(
-            "Duplicate invite blocked for %s in org %s", team_email, org_id
-        )
+        logger.info("Duplicate invite blocked for %s in org %s", team_email, org_id)
         return {
             "email": team_email,
             "status": "duplicate",
@@ -62,9 +60,8 @@ async def create_and_send_invite(
         }
 
     org_name = getattr(current_user, "organization", None)
-    sender_name = (
-        getattr(current_user, "name", None)
-        or getattr(current_user, "email", None)
+    sender_name = getattr(current_user, "name", None) or getattr(
+        current_user, "email", None
     )
 
     if not org_name and org_id:
