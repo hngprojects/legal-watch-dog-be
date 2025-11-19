@@ -23,7 +23,6 @@ if pyjwt is not None and not hasattr(pyjwt, "encode"):
         _jwt_client = _JWTClass()
 
         def _module_encode(payload, key, algorithm=None):
-
             secret_bytes = key.encode() if isinstance(key, str) else key
             jwk = _OctetJWK(secret_bytes)
 
