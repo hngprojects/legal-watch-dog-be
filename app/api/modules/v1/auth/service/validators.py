@@ -1,36 +1,20 @@
 import re
 
-# List of common public email domains to block
-PUBLIC_EMAIL_DENYLIST = {
-    # "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "aol.com",
-    "icloud.com",
-    "mail.com",
-    "protonmail.com",
-    "zoho.com",
-    "gmx.com",
-    "yandex.com",
-    "msn.com",
-    "live.com",
-    "ymail.com",
-    "inbox.com",
-    "me.com",
-    "fastmail.com",
-    "hushmail.com",
-}
-
-
-def is_company_email(email: str) -> bool:
-    """Return True if email is not from a public provider."""
-    domain = email.split("@")[-1].lower()
-    return domain not in PUBLIC_EMAIL_DENYLIST
+__all__ = ["is_strong_password"]
 
 
 def is_strong_password(password: str) -> bool:
-    """Check if password meets industry standard requirements."""
+    """Return True when a password meets strength requirements.
+
+    The function checks for minimum length (8), presence of uppercase and
+    lowercase characters, at least one digit and at least one special character.
+
+    Args:
+        password: Plaintext password to validate.
+
+    Returns:
+        True if password satisfies all checks; False otherwise.
+    """
     if len(password) < 8:
         return False
     if not re.search(r"[A-Z]", password):

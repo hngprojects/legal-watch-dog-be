@@ -1,36 +1,43 @@
 import re
+import logging
+from app.api.utils.email_verifier import BusinessEmailVerifier, EmailType
 
-# List of common public email domains to block
-PUBLIC_EMAIL_DENYLIST = {
-    # "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "aol.com",
-    "icloud.com",
-    "mail.com",
-    "protonmail.com",
-    "zoho.com",
-    "gmx.com",
-    "yandex.com",
-    "msn.com",
-    "live.com",
-    "ymail.com",
-    "inbox.com",
-    "me.com",
-    "fastmail.com",
-    "hushmail.com",
-}
+logger = logging.getLogger(__name__)
 
 
 def is_company_email(email: str) -> bool:
-    """Return True if email is not from a public provider."""
-    domain = email.split("@")[-1].lower()
-    return domain not in PUBLIC_EMAIL_DENYLIST
+    """Return True if an email appears to be from a business/enterprise.
+
+    This function is a small wrapper around :class:`BusinessEmailVerifier`
+    used by registration to block free and disposable addresses.
+
+    Args:
+        email: The email address to check.
+
+    Returns:
+        True if the email is classified as `EmailType.BUSINESS` or `EmailType.ROLE_BASED`
+        and not disposable.
+    """
+    verifier = BusinessEmailVerifier()
+    result = verifier.verify_email(email)
+    return (
+        result.email_type in (EmailType.BUSINESS, EmailType.ROLE_BASED)
+        and result.is_valid
+    )
 
 
 def is_strong_password(password: str) -> bool:
-    """Check if password meets industry standard requirements."""
+    """Validate password strength using simple heuristics.
+
+    The check verifies the password length and the presence of at least one
+    uppercase character, lowercase character, number, and special symbol.
+
+    Args:
+        password: The plaintext password to check.
+
+    Returns:
+        True when requirements are satisfied, False otherwise.
+    """
     if len(password) < 8:
         return False
     if not re.search(r"[A-Z]", password):
