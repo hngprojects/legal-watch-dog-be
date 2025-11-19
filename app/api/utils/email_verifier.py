@@ -100,7 +100,8 @@ class BusinessEmailVerifier:
         """
         # Resolver configuration
         self.resolver = dns.resolver.Resolver()
-        self.resolver.nameservers = ["8.8.8.8", "8.8.4.4"]  # Use Google DNS
+        # Use Google DNS servers
+        self.resolver.nameservers = ["8.8.8.8", "8.8.4.4"]  
         self.resolver.timeout = dns_timeout
         self.resolver.lifetime = dns_timeout
         self.rate_limit_delay = rate_limit_delay
