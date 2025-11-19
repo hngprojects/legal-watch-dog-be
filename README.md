@@ -187,22 +187,29 @@ source .venv/bin/activate
 .venv\Scripts\Activate
 ```
 
-4. **Add or install project dependencies (optional)**
+4. **Add project dependencies**
    If you need to add new packages, run:
 
 ```bash
 uv add <package_name>
 ```
-
 > This updates `uv.lock` automatically.
 
-5. **Create a `.env` file from `.env.sample`:**
+
+5. **Install project dependencies**
+
+```bash
+uv sync
+
+
+
+6. **Create a `.env` file from `.env.sample`:**
 
 ```bash
 cp .env.sample .env
 ```
 
-6. **Run the application locally:**
+7. **Run the application locally:**
 
 ```bash
 uv run python main.py --reload
