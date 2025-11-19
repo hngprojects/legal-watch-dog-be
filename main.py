@@ -1,8 +1,11 @@
 import os
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.core.exception_handler import custom_validation_exception_handler
 from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 
@@ -35,6 +38,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+app.add_exception_handler(RequestValidationError, custom_validation_exception_handler)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
