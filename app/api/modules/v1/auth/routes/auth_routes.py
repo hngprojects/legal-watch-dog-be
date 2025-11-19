@@ -5,7 +5,8 @@ from fastapi import APIRouter, status, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.modules.v1.auth.service.register_service import (
     register_organization,
-    verify_otp as service_verify_otp, get_organisation_by_email
+    verify_otp as service_verify_otp,
+    get_organisation_by_email,
 )
 from app.api.modules.v1.auth.schemas.register import (
     RegisterRequest,
@@ -20,7 +21,6 @@ from app.api.utils.response_payloads import (
     fail_response,
 )
 from app.api.db.database import get_db
-
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
