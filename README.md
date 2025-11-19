@@ -166,10 +166,21 @@ uv --version
 ```
 
 2. **Create a virtual environment:**
+   To isolate project dependencies, create a virtual environment inside the project directory.
+
+* On macOS/Linux:
 
 ```bash
 python3 -m venv .venv
-python -m venv .venv    #Use for Windows
+```
+
+* On Windows(PowerShell or CMD):
+
+```bash
+python -m venv .venv 
+
+
+   
 
 ```
 
