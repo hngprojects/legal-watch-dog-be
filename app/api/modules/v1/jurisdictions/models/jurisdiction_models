@@ -1,0 +1,29 @@
+from sqlmodel import SQLModel, Field, Relationship
+from datetime import datetime,timezone
+from typing import Optional, List
+import uuid
+
+
+def generate_uuid():
+    return str(uuid.uuid4())
+
+
+class JurisdictionBase(SQLModel):
+    name: str
+    ai_prompt: Optional[str] = None
+    parent_id: Optional[str] = Field(default=None, foreign_key="jurisdiction.id")
+
+
+class Jurisdiction(JurisdictionBase, table=True):
+    id: str = Field(default_factory=generate_uuid, primary_key=True)
+    project_id: str = Field(foreign_key="project.id")
+    created_at: datetime = Field(default_factory= lambda: datetime.now(timezone.utc))
+
+    project: "Project" = Relationship(back_populates="jurisdictions")
+    parent: Optional["Jurisdiction"] = Relationship(
+        sa_relationship_kwargs={"remote_side": "Jurisdiction.id"}
+    )
+    children: List["Jurisdiction"] = Relationship()
+
+
+from app.api.modules.v1.projects.models.projects_models import Project
