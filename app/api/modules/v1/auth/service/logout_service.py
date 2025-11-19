@@ -37,3 +37,25 @@ async def logout_user(token: str) -> bool:
         logger.error(f"Failed to denylist token {jti} during logout")
 
     return success
+
+
+async def logout_all_sessions(user_id: str) -> bool:
+    """
+    Logout user from all devices/sessions.
+    Note: This requires tracking all active sessions per user,
+    which is not implemented in the current simple JWT approach.
+
+    For full implementation, you would need to:
+    1. Store all active JTI values per user in Redis
+    2. On logout_all, retrieve all JTIs for user
+    3. Add all to denylist
+
+    Args:
+        user_id: User UUID
+
+    Returns:
+        True if successful
+    """
+    # TODO: Implement session tracking for logout_all functionality
+    logger.warning(f"logout_all_sessions not fully implemented for user {user_id}")
+    return False
