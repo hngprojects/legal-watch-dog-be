@@ -13,6 +13,7 @@ from app.api.utils.response_payloads import success_response
 from app.api.core.logger import setup_logging
 from fastapi.staticfiles import StaticFiles
 
+
 setup_logging()
 
 
@@ -39,11 +40,12 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
 email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
-
+APP_URL = settings.APP_URL
+DEV_URL = settings.DEV_URL
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://minamoto.emerj.net", "http://localhost:3000"],
+    allow_origins=[APP_URL, DEV_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

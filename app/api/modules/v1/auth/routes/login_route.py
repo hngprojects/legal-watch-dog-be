@@ -13,7 +13,7 @@ from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.users.models.users_model import User
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post(

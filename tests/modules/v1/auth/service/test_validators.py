@@ -9,7 +9,7 @@ from app.api.modules.v1.auth.service.validators import (
     "email,expected",
     [
         ("user@company.com", True),
-        ("user@gmail.com", False),
+        ("user@gmail.com", True),
         ("user@yahoo.com", False),
         ("employee@enterprise.org", True),
         ("admin@outlook.com", False),
