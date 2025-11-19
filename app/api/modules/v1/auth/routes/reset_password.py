@@ -45,9 +45,9 @@ async def request_password_reset(
             logger.warning(
                 "Password reset requested for non-existent email=%s", payload.email
             )
-            return success_response(
-                status_code=status.HTTP_200_OK,
-                message="Reset code sent if email exists.",
+            return fail_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Email not found, please confirm your email!.",
             )
 
         if not user.is_active:
@@ -66,7 +66,7 @@ async def request_password_reset(
         )
         return success_response(
             status_code=status.HTTP_200_OK,
-            message="Reset code sent if email exists.",
+            message="Reset code sent to email.",
         )
 
     except Exception:
