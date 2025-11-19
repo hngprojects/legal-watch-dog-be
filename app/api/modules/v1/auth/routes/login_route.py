@@ -73,26 +73,4 @@ async def refresh_token(
     return result
 
 
-@router.post(
-    "/logout",
-    response_model=LogoutResponse,
-    status_code=status.HTTP_200_OK,
-    summary="User Logout",
-    description="Logout user and blacklist their tokens",
-)
-async def logout(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
-    """
-    Logout endpoint:
-    - Blacklists access token
-    - Blacklists refresh token
-    - Clears rate limiting data
-    """
-    login_service = LoginService(db)
 
-    # Note: We'll need to get the token from the request
-    # For now, just blacklist based on user
-    result = await login_service.logout(user_id=str(current_user.id))
-
-    return result
