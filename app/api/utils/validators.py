@@ -32,7 +32,7 @@ def is_company_email(email: str) -> bool:
 def is_strong_password(password: str) -> str:
     """
     Check if password meets industry standard requirements.
-    
+
     Returns an error message if validation fails, otherwise an empty string.
     """
     errors = []
@@ -45,9 +45,7 @@ def is_strong_password(password: str) -> str:
     if not re.search(r"[0-9]", password):
         errors.append("one digit")
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        errors.append("one special character (!@#$%^&*(),.?\":{}|<>)")
+        errors.append('one special character (!@#$%^&*(),.?":{}|<>)')
     if errors:
-        return (
-            "Password must contain: " + ", ".join(errors) + "."
-        )
+        return "Password must contain: " + ", ".join(errors) + "."
     return ""
