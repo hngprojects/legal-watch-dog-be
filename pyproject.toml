@@ -8,7 +8,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "alembic>=1.17.2",
     "asyncpg>=0.30.0",
-    "bcrypt>=4.0.0",
+    "bcrypt>=5.0.0",
     "fastapi>=0.121.2",
     "httpx>=0.28.1",
     "jinja2>=3.1.6",
@@ -19,7 +19,6 @@ dependencies = [
     "python-decouple>=3.8",
     "python-dotenv>=1.2.1",
     "redis>=5.0.0",
-    "bcrypt>=5.0.0",
     "sqlalchemy>=2.0.44",
     "sqlmodel>=0.0.27",
     "uvicorn[standard]>=0.38.0",
@@ -28,7 +27,6 @@ dependencies = [
     "PyJWT>=2.8.0",
     "flake8>=7.3.0",
     "black>=25.11.0",
-    "redis>=4.5.0",
 ]
 
 [dependency-groups]
