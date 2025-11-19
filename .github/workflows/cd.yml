@@ -52,10 +52,12 @@ jobs:
 
       - name: SSH into EC2 and deploy
         run: |
-          sshpass -p "${{ secrets.EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }} << 'EOF'
+          sshpass -p "${{ secrets.EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }} << 'ENDSSH'
             set -e
 
             cd ~/backend
+
+            git config core.sshCommand "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
 
             git pull origin dev
 
@@ -71,4 +73,4 @@ jobs:
             nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
 
             echo "Deployment complete on port $APP_PORT!"
-          EOF
+          ENDSSH
