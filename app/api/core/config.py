@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
-    class Config:
+    class ConfigDict:
         env_file = ".env"
         extra = "allow"
 
