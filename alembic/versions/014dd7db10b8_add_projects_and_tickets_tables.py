@@ -102,37 +102,6 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_tickets_status"), "tickets", ["status"], unique=False)
     op.create_index(op.f("ix_tickets_title"), "tickets", ["title"], unique=False)
-    op.add_column(
-        "organizations",
-        sa.Column(
-            "industry", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True
-        ),
-    )
-    op.alter_column(
-        "organizations",
-        "settings",
-        existing_type=postgresql.JSONB(astext_type=sa.Text()),
-        type_=sa.JSON(),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
-    op.alter_column(
-        "organizations",
-        "billing_info",
-        existing_type=postgresql.JSONB(astext_type=sa.Text()),
-        type_=sa.JSON(),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
-    op.add_column("roles", sa.Column("organization_id", sa.Uuid(), nullable=False))
-    op.alter_column(
-        "roles",
-        "permissions",
-        existing_type=postgresql.JSONB(astext_type=sa.Text()),
-        type_=sa.JSON(),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
     op.drop_index(op.f("ix_roles_name"), table_name="roles")
     op.create_index(op.f("ix_roles_name"), "roles", ["name"], unique=False)
     op.create_index(
@@ -160,32 +129,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_roles_organization_id"), table_name="roles")
     op.drop_index(op.f("ix_roles_name"), table_name="roles")
     op.create_index(op.f("ix_roles_name"), "roles", ["name"], unique=True)
-    op.alter_column(
-        "roles",
-        "permissions",
-        existing_type=sa.JSON(),
-        type_=postgresql.JSONB(astext_type=sa.Text()),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
-    op.drop_column("roles", "organization_id")
-    op.alter_column(
-        "organizations",
-        "billing_info",
-        existing_type=sa.JSON(),
-        type_=postgresql.JSONB(astext_type=sa.Text()),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
-    op.alter_column(
-        "organizations",
-        "settings",
-        existing_type=sa.JSON(),
-        type_=postgresql.JSONB(astext_type=sa.Text()),
-        existing_nullable=False,
-        existing_server_default=sa.text("'{}'::jsonb"),
-    )
-    op.drop_column("organizations", "industry")
     op.drop_index(op.f("ix_tickets_title"), table_name="tickets")
     op.drop_index(op.f("ix_tickets_status"), table_name="tickets")
     op.drop_index(op.f("ix_tickets_project_id"), table_name="tickets")
