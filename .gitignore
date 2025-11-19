@@ -80,5 +80,4 @@ alembic/versions/*.pyc
 # Poetry/UV
 pyproject.toml.lock
 poetry.lock
-uv.lock
 __pypackages__/
