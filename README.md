@@ -169,7 +169,7 @@ uv --version
 
 ```bash
 python3 -m venv .venv
-
+python -m venv .venv    #Use for Windows
 
 ```
 
