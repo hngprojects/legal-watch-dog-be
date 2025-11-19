@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     )
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
+    FRONTEND_URL: str = config("FRONTEND_URL", default="http://localhost:3000")
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
