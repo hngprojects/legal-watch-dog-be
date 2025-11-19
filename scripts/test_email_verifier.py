@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 if __name__ == "__main__":
     from app.api.utils.email_verifier import BusinessEmailVerifier, EmailType
 
@@ -12,7 +17,7 @@ if __name__ == "__main__":
         "invalid-email",  # Invalid syntax
         "admin@startup.io",  # Role-based
         "contact@microsoft.com",  # Role-based business
-        "admin@colemancables.com",  # Test this domain
+        "admin@hng.tech",  # Test this domain
     ]
 
     print("=" * 80)
