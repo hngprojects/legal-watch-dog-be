@@ -89,12 +89,15 @@ def create_access_token(
     # Generate unique JWT ID for revocation tracking
     jti = str(uuid.uuid4())
 
+    # Convert datetime to timestamp for JSON serialization
+    iat = datetime.now(timezone.utc)
+
     payload = {
         "sub": str(user_id),  # Subject (user ID)
         "org_id": str(organization_id),
         "role_id": str(role_id),
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "exp": int(expire.timestamp()),
+        "iat": int(iat.timestamp()),
         "jti": jti,  # JWT ID for revocation
     }
 
