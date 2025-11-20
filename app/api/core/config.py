@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = config("ENVIRONMENT", default="dev")
     APP_PORT: int = config("APP_PORT", default=8000, cast=int)
     SECRET_KEY: str = config("SECRET_KEY", default="your-secret-key-for-sessions")
-    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="backend.im")
+    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net")
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
 
