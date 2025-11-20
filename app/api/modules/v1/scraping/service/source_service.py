@@ -55,7 +55,7 @@ class SourceService:
             SourceRead: The created source with sanitized fields.
 
         Raises:
-            HTTPException: If validation fails or database error occurs.
+            HTTPException: 400 if source URL already exists, 500 if creation fails.
 
         Examples:
             >>> service = SourceService()
@@ -64,6 +64,16 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
+            # Check if source URL already exists
+            existing_source = await db.scalar(
+                select(Source).where(Source.url == str(source_data.url))
+            )
+            if existing_source:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Source with this URL already exists",
+                )
+
             # Handle encryption of auth details
             encrypted_auth = None
             if source_data.auth_details:
@@ -90,6 +100,8 @@ class SourceService:
             # Return sanitized response
             return self._to_read_schema(db_source)
 
+        except HTTPException:
+            raise
         except Exception as e:
             await db.rollback()
             logger.error(f"Failed to create source: {str(e)}", exc_info=True)
