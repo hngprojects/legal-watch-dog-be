@@ -54,7 +54,7 @@ async def create_project_service(
         title=data.title,
         description=data.description,
         master_prompt=data.master_prompt,
-        organization_id=organization_id,
+        org_id=organization_id,
     )
 
     db.add(project)
@@ -68,7 +68,9 @@ async def create_project_service(
     await db.commit()
     await db.refresh(project)
 
-    logger.info(f"Added creator to project, project_id={project.id}, user_id={creator_id}")
+    logger.info(
+        f"Added creator to project, project_id={project.id}, user_id={creator_id}"
+    )
 
     return project
 
@@ -117,7 +119,9 @@ async def list_projects_service(
     logger.info(f"Found {total} projects matching criteria")
 
     offset = (page - 1) * limit
-    statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
+    statement = (
+        statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
+    )
 
     result = await db.execute(statement)
     projects = result.scalars().all()
@@ -141,7 +145,9 @@ async def get_project_service(
     Returns:
         Project object if found and accessible, None otherwise
     """
-    logger.info(f"Fetching project_id={project_id} for organization_id={organization_id}")
+    logger.info(
+        f"Fetching project_id={project_id} for organization_id={organization_id}"
+    )
 
     project = await get_project_by_id(db, project_id, organization_id)
 
@@ -196,7 +202,9 @@ async def update_project_service(
     return project
 
 
-async def delete_project_service(db: AsyncSession, project_id: UUID, organization_id: UUID) -> bool:
+async def delete_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
     """
     Delete/archive project.
 
@@ -282,14 +290,18 @@ async def add_user_to_project_service(
         return False, "User not found in your organization"
 
     if await check_project_user_exists(db, project_id, user_id):
-        logger.warning(f"User already in project: user_id={user_id}, project_id={project_id}")
+        logger.warning(
+            f"User already in project: user_id={user_id}, project_id={project_id}"
+        )
         return False, "User already added to project"
 
     project_user = ProjectUser(project_id=project_id, user_id=user_id)
     db.add(project_user)
     await db.commit()
 
-    logger.info(f"User added to project successfully: user_id={user_id}, project_id={project_id}")
+    logger.info(
+        f"User added to project successfully: user_id={user_id}, project_id={project_id}"
+    )
 
     return True, "User successfully added to project"
 
@@ -323,7 +335,9 @@ async def remove_user_from_project_service(
     project_user = result.scalar_one_or_none()
 
     if not project_user:
-        logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
+        logger.warning(
+            f"User not in project: user_id={user_id}, project_id={project_id}"
+        )
         return False, "User is not a member of this project"
 
     await db.delete(project_user)
