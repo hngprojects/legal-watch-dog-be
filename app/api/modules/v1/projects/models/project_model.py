@@ -44,4 +44,4 @@ class Project(SQLModel, table=True):
 
     project_users: List["ProjectUser"] = Relationship(back_populates="projects")
     
-    jurisdictions: list["Jurisdiction"] = Relationship(back_populates="project")
+    jurisdictions: list["Jurisdiction"] = Relationship(back_populates="projects")
