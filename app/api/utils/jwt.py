@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+import logging
 import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
+
 from app.api.core.config import settings
 from app.api.core.logger import setup_logging
-import logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -58,8 +59,7 @@ if pyjwt is not None and not hasattr(pyjwt, "encode"):
 
 if pyjwt is None:  # pragma: no cover - environment misconfiguration
     raise RuntimeError(
-        "No 'jwt' package is importable."
-        "Install 'PyJWT' or 'python-jwt' in the virtualenv."
+        "No 'jwt' package is importable.Install 'PyJWT' or 'python-jwt' in the virtualenv."
     )
 
 
@@ -98,9 +98,7 @@ def create_access_token(
         "jti": jti,  # JWT ID for revocation
     }
 
-    encoded_jwt = pyjwt.encode(
-        payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
-    )
+    encoded_jwt = pyjwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     logger.info(f"Created JWT for user {user_id}, org {organization_id}, jti: {jti}")
     return encoded_jwt
 
@@ -120,9 +118,7 @@ def decode_token(token: str) -> Dict[str, Any]:
         jwt.InvalidTokenError: If token is invalid
     """
     try:
-        payload = pyjwt.decode(
-            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = pyjwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         return payload
     except Exception as e:
         # Could be PyJWT's ExpiredSignatureError / InvalidTokenError or

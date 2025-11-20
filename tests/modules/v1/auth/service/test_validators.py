@@ -1,6 +1,9 @@
 import pytest
-from app.api.utils.validators import is_company_email
-from app.api.modules.v1.auth.service.validators import is_strong_password
+
+from app.api.modules.v1.auth.service.validators import (
+    is_company_email,
+    is_strong_password,
+)
 
 
 @pytest.mark.parametrize(

@@ -1,13 +1,13 @@
 from pathlib import Path
-from sqlmodel import SQLModel
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    create_async_engine,
     async_sessionmaker,
+    create_async_engine,
 )
+from sqlmodel import SQLModel
 
 from app.api.core.config import settings
-
 
 BASE_DIR = Path(__file__).resolve().parent
 
