@@ -107,7 +107,7 @@ async def list_projects(
             status_code=status.HTTP_200_OK,
             message="Projects retrieved successfully",
             data=ProjectListResponse(
-                data=[ProjectResponse.model_validate(p) for p in result["data"]],
+                projects=[ProjectResponse.model_validate(p) for p in result["data"]],
                 total=result["total"],
                 page=result["page"],
                 limit=result["limit"],
