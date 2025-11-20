@@ -58,11 +58,13 @@ app.add_middleware(
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = {err["loc"][-1]: [err["msg"]] for err in exc.errors()}
     trace_id = str(uuid.uuid4())
-    logging.getLogger("app").error(f"Validation error: {exc.errors()}, trace_id: {trace_id}")
+    logging.getLogger("app").error(
+        f"Validation error: {exc.errors()}, trace_id: {trace_id}"
+    )
     return fail_response(
         status_code=400,
         message="Validation failed",
-        data={"errors": errors, "trace_id": trace_id}
+        data={"errors": errors, "trace_id": trace_id},
     )
 
 
@@ -70,22 +72,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def http_exception_handler(request: Request, exc: HTTPException):
     trace_id = str(uuid.uuid4())
     logger = logging.getLogger("app")
-    logger.error(f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}")
+    logger.error(
+        f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}"
+    )
     return fail_response(
-        status_code=exc.status_code,
-        message=exc.detail,
-        data={"trace_id": trace_id}
+        status_code=exc.status_code, message=exc.detail, data={"trace_id": trace_id}
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     trace_id = str(uuid.uuid4())
-    logging.getLogger("app").exception(f"Unhandled exception: {exc}, trace_id: {trace_id}")
+    logging.getLogger("app").exception(
+        f"Unhandled exception: {exc}, trace_id: {trace_id}"
+    )
     return fail_response(
-        status_code=500,
-        message="Internal server error",
-        data={"trace_id": trace_id}
+        status_code=500, message="Internal server error", data={"trace_id": trace_id}
     )
 
 

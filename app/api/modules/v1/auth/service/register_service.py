@@ -86,7 +86,9 @@ async def register_organization(
     template_name = "otp.html"
 
     if background_tasks is not None:
-        background_tasks.add_task(send_email, template_name, subject, recepient, context)
+        background_tasks.add_task(
+            send_email, template_name, subject, recepient, context
+        )
         logger.info(f"Scheduled OTP email to be sent to: {data.email}")
     else:
         await send_email(template_name, subject, recepient, context)
@@ -109,15 +111,21 @@ async def verify_otp(db: AsyncSession, email: str, code: str) -> bool:
     is_valid = await verify_otp_redis(str(user.id), code)
 
     if not is_valid:
-        logger.warning(f"OTP verification failed: invalid or expired OTP for user {user.email}")
+        logger.warning(
+            f"OTP verification failed: invalid or expired OTP for user {user.email}"
+        )
         return False
 
     # Save OTP to database for audit trail
     otp = OTP(
         user_id=user.id,
         code=code,
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None),  # Already expired/used
-        created_at=datetime.now(timezone.utc).replace(tzinfo=None),  # Already expired/used
+        expires_at=datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ),  # Already expired/used
+        created_at=datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ),  # Already expired/used
         is_used=True,
     )
     db.add(otp)
