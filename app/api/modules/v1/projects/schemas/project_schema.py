@@ -50,5 +50,3 @@ class ProjectListResponse(BaseModel):
     total: int
     page: int
     limit: int
-
-
