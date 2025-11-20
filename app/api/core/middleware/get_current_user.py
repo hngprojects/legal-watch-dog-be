@@ -29,7 +29,6 @@ async def get_current_user(
     )
 
     try:
-
         payload = decode_token(token)
         user_id: str = payload.get("sub")
         jti: str = payload.get("jti")
