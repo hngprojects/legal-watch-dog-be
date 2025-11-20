@@ -102,7 +102,7 @@ async def list_projects_service(
         f"q={q}, owner={owner}, page={page}, limit={limit}"
     )
 
-    statement = select(Project).where(Project.organization_id == organization_id)
+    statement = select(Project).where(Project.org_id == organization_id)
 
     if q:
         statement = statement.where(Project.title.ilike(f"%{q}%"))
