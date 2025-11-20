@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
 from app.api.utils.validators import is_company_email, is_strong_password
 
 
@@ -28,9 +29,7 @@ class RegisterRequest(BaseModel):
     @classmethod
     def passwords_match(cls, v, values):
         password = (
-            values.data.get("password")
-            if hasattr(values, "data")
-            else values.get("password")
+            values.data.get("password") if hasattr(values, "data") else values.get("password")
         )
         if password is not None and v != password:
             raise ValueError("Passwords do not match.")

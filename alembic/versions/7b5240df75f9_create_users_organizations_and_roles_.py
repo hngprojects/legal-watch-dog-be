@@ -8,10 +8,11 @@ Create Date: 2025-11-18 18:18:03.168073
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "7b5240df75f9"
@@ -27,9 +28,7 @@ def upgrade() -> None:
         "organizations",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
-        sa.Column(
-            "industry", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True
-        ),
+        sa.Column("industry", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
         sa.Column(
             "settings",
             postgresql.JSONB(astext_type=sa.Text()),
@@ -48,17 +47,13 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_organizations_id"), "organizations", ["id"], unique=False)
-    op.create_index(
-        op.f("ix_organizations_name"), "organizations", ["name"], unique=False
-    )
+    op.create_index(op.f("ix_organizations_name"), "organizations", ["name"], unique=False)
     op.create_table(
         "roles",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("organization_id", sa.Uuid(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
-        sa.Column(
-            "description", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True
-        ),
+        sa.Column("description", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
         sa.Column(
             "permissions",
             postgresql.JSONB(astext_type=sa.Text()),
@@ -75,25 +70,19 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_roles_id"), "roles", ["id"], unique=False)
     op.create_index(op.f("ix_roles_name"), "roles", ["name"], unique=False)
-    op.create_index(
-        op.f("ix_roles_organization_id"), "roles", ["organization_id"], unique=False
-    )
+    op.create_index(op.f("ix_roles_organization_id"), "roles", ["organization_id"], unique=False)
     op.create_table(
         "users",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("organization_id", sa.Uuid(), nullable=False),
         sa.Column("role_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "email", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False
-        ),
+        sa.Column("email", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
         sa.Column(
             "hashed_password",
             sqlmodel.sql.sqltypes.AutoString(length=255),
             nullable=False,
         ),
-        sa.Column(
-            "auth_provider", sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False
-        ),
+        sa.Column("auth_provider", sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("is_verified", sa.Boolean(), nullable=False),
@@ -112,9 +101,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
     op.create_index(op.f("ix_users_id"), "users", ["id"], unique=False)
     op.create_index(op.f("ix_users_name"), "users", ["name"], unique=False)
-    op.create_index(
-        op.f("ix_users_organization_id"), "users", ["organization_id"], unique=False
-    )
+    op.create_index(op.f("ix_users_organization_id"), "users", ["organization_id"], unique=False)
     op.create_index(op.f("ix_users_role_id"), "users", ["role_id"], unique=False)
     # ### end Alembic commands ###
 

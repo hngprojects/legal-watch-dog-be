@@ -1,4 +1,5 @@
 import pytest
+
 from app.api.modules.v1.auth.service.validators import (
     is_company_email,
     is_strong_password,
