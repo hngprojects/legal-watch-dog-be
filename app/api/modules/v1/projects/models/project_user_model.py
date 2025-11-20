@@ -1,6 +1,6 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
-from uuid import UUID
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -17,8 +17,8 @@ class ProjectUser(SQLModel, table=True):
 
     __tablename__ = "project_users"
 
-    user_id: UUID = Field(foreign_key="users.id", primary_key=True)
-    project_id: UUID = Field(foreign_key="projects.id", primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
+    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
