@@ -111,16 +111,17 @@ async def list_projects_service(
         logger.info(f"Applied owner filter: owner={owner}")
 
     count_statement = select(func.count()).select_from(statement.subquery())
-    total_result = await db.execute(count_statement)
-    total = total_result.scalar()
+    total_result = await db.exec(count_statement)
+    # ScalarResult from db.exec(); use one() to retrieve the single scalar count
+    total = total_result.one()
 
     logger.info(f"Found {total} projects matching criteria")
 
     offset = (page - 1) * limit
     statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
 
-    result = await db.execute(statement)
-    projects = result.scalars().all()
+    result = await db.exec(statement)
+    projects = result.all()
 
     pagination = calculate_pagination(total, page, limit)
 
@@ -246,8 +247,8 @@ async def get_project_users_service(
         return None
 
     statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
-    result = await db.execute(statement)
-    user_ids = result.scalars().all()
+    result = await db.exec(statement)
+    user_ids = result.all()
 
     logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
 
@@ -319,8 +320,9 @@ async def remove_user_from_project_service(
     statement = select(ProjectUser).where(
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
-    result = await db.execute(statement)
-    project_user = result.scalar_one_or_none()
+    # prefer SQLModel AsyncSession.exec which returns a ScalarResult
+    result = await db.exec(statement)
+    project_user = result.one_or_none()
 
     if not project_user:
         logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
