@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
     name: str = Field(max_length=255, nullable=False, index=True)
 

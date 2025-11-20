@@ -28,7 +28,9 @@ class RegisterRequest(BaseModel):
     @classmethod
     def passwords_match(cls, v, values):
         password = (
-            values.data.get("password") if hasattr(values, "data") else values.get("password")
+            values.data.get("password")
+            if hasattr(values, "data")
+            else values.get("password")
         )
         if password is not None and v != password:
             raise ValueError("Passwords do not match.")
