@@ -27,7 +27,7 @@ def get_db_url(test_mode: bool = False) -> str:
         db_file = "test.db" if test_mode else "db.sqlite3"
         return f"sqlite+aiosqlite:///{BASE_DIR}/{db_file}"
 
-    return f"postgresql+asyncpg://{DB_USER}:{DB_PASS}" f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    return f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
 DATABASE_URL = get_db_url()
