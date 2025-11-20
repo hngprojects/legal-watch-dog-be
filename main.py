@@ -1,22 +1,20 @@
+import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 
-from app.api.core.config import settings
-from app.api import router as api_router
-from app.api.db.database import engine, Base
-from app.api.utils.response_payloads import success_response, fail_response
-from app.api.core.logger import setup_logging
-from fastapi.staticfiles import StaticFiles
-from fastapi import Request, HTTPException
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-import uuid
-import logging
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.api import router as api_router
 from app.api.core.config import settings
 from app.api.core.logger import setup_logging
 from app.api.db.database import Base, engine
-from app.api.utils.response_payloads import success_response
+from app.api.utils.response_payloads import fail_response, success_response
 
 setup_logging()
 
@@ -71,7 +69,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     trace_id = str(uuid.uuid4())
-    logging.getLogger("app").error(f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}")
+    logger = logging.getLogger("app")
+    logger.error(f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}")
     return fail_response(
         status_code=exc.status_code,
         message=exc.detail,
