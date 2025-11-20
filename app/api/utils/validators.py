@@ -37,13 +37,15 @@ def is_strong_password(password: str) -> bool:
         True when requirements are satisfied, False otherwise.
     """
     if len(password) < 8:
-        return False
+        errors.append("at least 8 characters")
     if not re.search(r"[A-Z]", password):
-        return False
+        errors.append("one uppercase letter")
     if not re.search(r"[a-z]", password):
-        return False
+        errors.append("one lowercase letter")
     if not re.search(r"[0-9]", password):
-        return False
+        errors.append("one digit")
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return False
-    return True
+        errors.append('one special character (!@#$%^&*(),.?":{}|<>)')
+    if errors:
+        return "Password must contain: " + ", ".join(errors) + "."
+    return ""
