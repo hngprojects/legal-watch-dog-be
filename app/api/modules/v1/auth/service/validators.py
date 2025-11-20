@@ -1,6 +1,6 @@
 import re
 
-__all__ = ["is_strong_password"]
+__all__ = ["is_strong_password", "is_company_email"]
 
 
 def is_strong_password(password: str) -> bool:
@@ -26,3 +26,39 @@ def is_strong_password(password: str) -> bool:
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return False
     return True
+
+
+def is_company_email(email: str) -> bool:
+    """Return True if the email appears to be from a company domain.
+
+    This function checks if the email domain is not from common personal
+    or disposable email providers.
+
+    Args:
+        email: Email address to validate.
+
+    Returns:
+        True if email appears to be from a company; False otherwise.
+    """
+    # List of common personal/disposable email domains
+    personal_domains = {
+        "gmail.com",
+        "yahoo.com",
+        "hotmail.com",
+        "outlook.com",
+        "aol.com",
+        "icloud.com",
+        "mailinator.com",
+        "10minutemail.com",
+        "guerrillamail.com",
+        "temp-mail.org",
+        "yopmail.com",
+    }
+
+    try:
+        # Extract domain from email
+        domain = email.split("@")[1].lower()
+        return domain not in personal_domains
+    except IndexError:
+        # Invalid email format
+        return False
