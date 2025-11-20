@@ -1,13 +1,15 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from fastapi import HTTPException, status
 import logging
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
     WaitlistResponse,
     WaitlistSignup,
 )
-from app.api.core.dependencies.send_mail import send_email
 
 logger = logging.getLogger("app")
 
@@ -93,9 +95,7 @@ class WaitlistService:
                 recipient=email_data.organization_email,
                 context=context,
             )
-            logger.info(
-                f"Waitlist email sent successfully to {email_data.organization_email}"
-            )
+            logger.info(f"Waitlist email sent successfully to {email_data.organization_email}")
         except Exception as e:
             logger.error(
                 f"Failed to send email to {email_data.organization_email}:{str(e)}",
