@@ -162,7 +162,7 @@ class TestCreateSourceEndpoint:
         )
 
         # Assert
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
     async def test_create_source_unauthorized(self, client, test_session, sample_jurisdiction_id):

@@ -40,3 +40,4 @@ def test_fail_response():
     body = _get_json(resp)
     assert body["status"] == "failure"
     assert body["message"] == "Bad Request"
+    assert "error" in body

@@ -35,6 +35,23 @@ class SourceCreate(BaseModel):
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = {}
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Supreme Court Opinions",
+                "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
+                "source_type": "web",
+                "scrape_frequency": "DAILY",
+                "auth_details": None,
+                "scraping_rules": {
+                    "title_selector": ".opinion-title",
+                    "content_selector": ".opinion-content",
+                    "date_selector": ".opinion-date",
+                },
+            }
+        }
+
 
 class SourceUpdate(BaseModel):
     """

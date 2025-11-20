@@ -63,7 +63,7 @@ def fail_response(status_code: int, message: str, error: Optional[dict] = None):
     Args:
         status_code (int): HTTP status code (e.g. 400, 404, 500).
         message (str): Human-readable description of the error.
-        data (Optional[dict]): Optional details about the failure.
+        error (Optional[dict]): Optional details about the failure.
 
     Returns:
         JSONResponse: Contains:
