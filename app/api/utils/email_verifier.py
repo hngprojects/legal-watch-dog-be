@@ -24,6 +24,7 @@ class EmailVerificationResult:
     has_mx_records: bool
     is_free_provider: bool
     is_disposable: bool
+    is_reserved: bool
     is_role_based: bool
     confidence_score: float
     details: Dict[str, any]
@@ -33,12 +34,13 @@ class EmailVerificationResult:
 
     Attributes:
         email: Original email passed to the verifier.
-        is_valid: Whether the email passes a minimal 'valid' check (MX and not disposable).
+        is_valid: Whether the email passes a minimal 'valid' check (MX and not disposable/reserved).
         email_type: One of EmailType values.
         domain: Domain extracted from the email.
         has_mx_records: Whether the domain returned MX records.
         is_free_provider: Whether the domain is in the free providers list.  # noqa: E501
         is_disposable: Whether the domain is known disposable.
+        is_reserved: Whether the domain is reserved/example.
         is_role_based: Whether the local-part looks like a role-based address.
         confidence_score: A heuristic confidence score (0.0 - 1.0).
         details: A dictionary with additional details.
@@ -78,6 +80,17 @@ class BusinessEmailVerifier:
         "guerrillamail.com",
         "temp-mail.org",
         "10minutemail.com",
+    }
+
+    # Reserved/example domains that should not be considered valid business emails
+    RESERVED_DOMAINS = {
+        "example.com",
+        "example.org",
+        "example.net",
+        "test.com",
+        "test.org",
+        "localhost",
+        "invalid",
     }
 
     ROLE_BASED_PREFIXES = {
@@ -135,6 +148,7 @@ class BusinessEmailVerifier:
                 False,
                 False,
                 False,
+                False,
                 0.0,
                 {},
                 error_message=err,
@@ -142,6 +156,7 @@ class BusinessEmailVerifier:
 
         local_part, domain = email.rsplit("@", 1)
         is_disposable = self._is_disposable_email(domain)
+        is_reserved = self._is_reserved_domain(domain)
         is_free_provider = self._is_free_email_provider(domain)
         is_role_based = self._is_role_based_email(local_part)
         has_mx_records = self._verify_mx_records(domain)
@@ -149,6 +164,7 @@ class BusinessEmailVerifier:
         email_type, confidence = self._classify_email(
             is_free_provider=is_free_provider,
             is_disposable=is_disposable,
+            is_reserved=is_reserved,
             is_role_based=is_role_based,
             has_mx_records=has_mx_records,
         )
@@ -158,7 +174,7 @@ class BusinessEmailVerifier:
             "syntax_valid": True,
             "dns_verified": has_mx_records,
         }
-        is_valid = has_mx_records and not is_disposable
+        is_valid = has_mx_records and not is_disposable and not is_reserved
 
         return EmailVerificationResult(
             email=email,
@@ -168,6 +184,7 @@ class BusinessEmailVerifier:
             has_mx_records=has_mx_records,
             is_free_provider=is_free_provider,
             is_disposable=is_disposable,
+            is_reserved=is_reserved,
             is_role_based=is_role_based,
             confidence_score=confidence,
             details=details,
@@ -221,7 +238,32 @@ class BusinessEmailVerifier:
         """
         return domain in self.DISPOSABLE_EMAIL_DOMAINS
 
+    def _is_reserved_domain(self, domain: str) -> bool:
+        """Check whether domain is a reserved/example domain.
+
+        Args:
+            domain: Domain portion of an email address.
+
+        Returns:
+            True if domain is reserved and should not be considered valid.
+        """
+        return domain in self.RESERVED_DOMAINS
+
     def _is_role_based_email(self, local_part: str) -> bool:
+        """Detect if the local part corresponds to a role-based address.
+
+        Role-based addresses are like 'support@company.com' or
+        'support+tag@company.com'. Those addresses commonly represent shared
+        inboxes and are often not acceptable for user registration.
+
+        Args:
+            local_part: Local part of an email address.
+
+        Returns:
+            True when local_part is role-like.
+        """
+        low = local_part.lower()
+        return any(low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES)
         """Detect if the local part corresponds to a role-based address.
 
         Role-based addresses are like 'support@company.com' or
@@ -265,6 +307,7 @@ class BusinessEmailVerifier:
         self,
         is_free_provider: bool,
         is_disposable: bool,
+        is_reserved: bool,
         is_role_based: bool,
         has_mx_records: bool,
     ) -> Tuple[EmailType, float]:
@@ -273,6 +316,7 @@ class BusinessEmailVerifier:
         Args:
             is_free_provider: Whether the domain is a known free provider.
             is_disposable: Whether the domain is known disposable.
+            is_reserved: Whether the domain is reserved/example.
             is_role_based: Whether the local part is role-based.
             has_mx_records: Whether MX records were found for the domain.
 
@@ -281,6 +325,8 @@ class BusinessEmailVerifier:
         """
         if is_disposable:
             return EmailType.DISPOSABLE, 1.0
+        if is_reserved:
+            return EmailType.INVALID, 1.0
         if not has_mx_records:
             return EmailType.INVALID, 0.0
         if is_free_provider:
