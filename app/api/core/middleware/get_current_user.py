@@ -1,4 +1,3 @@
-# app/api/core/auth.py
 import logging
 
 from fastapi import Depends, HTTPException, status
@@ -12,7 +11,7 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import decode_token
 
 logger = logging.getLogger("app")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_current_user(
