@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.api.modules.v1.users.schemas.user_schema import UserResponse
 
@@ -31,23 +31,21 @@ class ProjectResponse(ProjectBase):
     updated_at: datetime
     assigned_users: List[UserResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-class UserResponse(BaseModel):
+class ProjectUserResponse(BaseModel):
     id: UUID
     email: str
     name: str
     role_id: UUID
     is_active: bool
 
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class ProjectListResponse(BaseModel):
     projects: List[ProjectResponse]
     total: int
     page: int
     limit: int
+    total_pages: Optional[int] = None
