@@ -1,6 +1,8 @@
-import bcrypt
-from app.api.core.logger import setup_logging
 import logging
+
+import bcrypt
+
+from app.api.core.logger import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -32,9 +34,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         True if password matches, False otherwise
     """
     try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
     except Exception as e:
         logger.error(f"Password verification failed: {str(e)}")
         return False

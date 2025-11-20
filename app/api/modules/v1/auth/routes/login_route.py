@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status, Request
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.login import (
     LoginRequest,
@@ -10,8 +11,10 @@ from app.api.modules.v1.auth.schemas.login import (
     RefreshTokenResponse,
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
-from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.response_payloads import (
+    success_response,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -22,13 +25,10 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     status_code=status.HTTP_200_OK,
     summary="User Login",
     description=(
-        "Authenticate user and return access/refresh tokens "
-        "with rate limiting protection"
+        "Authenticate user and return access/refresh tokens with rate limiting protection"
     ),
 )
-async def login(
-    request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)
-):
+async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
     Login endpoint with security features:
     - Rate limiting (5 failed attempts, 15-minute lockout)
@@ -45,7 +45,11 @@ async def login(
         email=login_data.email, password=login_data.password, ip_address=client_ip
     )
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Login successful",
+        data={"user": result},
+    )
 
 
 @router.post(
@@ -55,9 +59,7 @@ async def login(
     summary="Refresh Access Token",
     description="Refresh access token using a valid refresh token with token rotation",
 )
-async def refresh_token(
-    refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)
-):
+async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
     """
     Refresh token endpoint:
     - Validates refresh token
@@ -66,11 +68,13 @@ async def refresh_token(
     """
     login_service = LoginService(db)
 
-    result = await login_service.refresh_access_token(
-        refresh_token=refresh_data.refresh_token
-    )
+    result = await login_service.refresh_access_token(refresh_token=refresh_data.refresh_token)
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="New token",
+        data={"token": result},
+    )
 
 
 @router.post(
@@ -95,4 +99,8 @@ async def logout(
     # For now, just blacklist based on user
     result = await login_service.logout(user_id=str(current_user.id))
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Logged out",
+        data={"user": result},
+    )

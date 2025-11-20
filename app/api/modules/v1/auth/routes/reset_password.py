@@ -1,25 +1,31 @@
 import logging
-from fastapi import APIRouter, status, Depends, BackgroundTasks
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.api.modules.v1.users.models.users_model import User
 
+from app.api.core.exceptions import PasswordReuseError
+from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.reset_password import (
+    PasswordResetConfirm,
     PasswordResetRequest,
     PasswordResetVerify,
-    PasswordResetConfirm,
 )
 from app.api.modules.v1.auth.service.reset_password import (
     request_password_reset as service_request_reset,
-    verify_reset_code as service_verify_code,
+)
+from app.api.modules.v1.auth.service.reset_password import (
     reset_password as service_reset_password,
 )
-from app.api.utils.response_payloads import (
-    success_response,
-    fail_response,
+from app.api.modules.v1.auth.service.reset_password import (
+    verify_reset_code as service_verify_code,
 )
-from app.api.db.database import get_db
-from app.api.core.exceptions import PasswordReuseError
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.response_payloads import (
+    fail_response,
+    success_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,40 +48,45 @@ async def request_password_reset(
         user = await db.scalar(select(User).where(User.email == payload.email))
 
         if not user:
-            logger.warning(
-                "Password reset requested for non-existent email=%s", payload.email
-            )
+            logger.warning("Password reset requested for non-existent email=%s", payload.email)
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Email not found, please confirm your email!.",
+                data={
+                    "errors": {"email": ["Email not found"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         if not user.is_active:
-            logger.warning(
-                "Password reset requested for inactive user: email=%s", payload.email
-            )
+            logger.warning("Password reset requested for inactive user: email=%s", payload.email)
             return fail_response(
                 status_code=status.HTTP_403_FORBIDDEN,
                 message="Account is inactive. Please contact support.",
+                data={
+                    "errors": {"email": ["Inactive email"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         await service_request_reset(db, user, background_tasks)
 
-        logger.info(
-            "Password reset code sent for email=%s, user_id=%s", payload.email, user.id
-        )
+        logger.info("Password reset code sent for email=%s, user_id=%s", payload.email, user.id)
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Reset code sent to email.",
+            data={"email": user.email},
         )
 
     except Exception:
-        logger.exception(
-            "Error during password reset request for email=%s", payload.email
-        )
+        logger.exception("Error during password reset request for email=%s", payload.email)
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset request failed. Please try again later.",
+            data={
+                "errors": {"password": ["Request failed"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
 
@@ -98,6 +109,10 @@ async def verify_reset_code(
             return fail_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired reset code.",
+                data={
+                    "errors": {"code": ["Invalid or expired code"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         logger.info("Reset code verified for email=%s", payload.email)
@@ -112,6 +127,10 @@ async def verify_reset_code(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Verification failed. Please try again.",
+            data={
+                "errors": {"code": ["Code not verified"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
 
@@ -123,26 +142,27 @@ async def confirm_password_reset(
     """
     Reset user password using the temporary reset token.
     """
-    logger.info(
-        "Confirming password reset for reset_token=%s", payload.reset_token[:10]
-    )
+    logger.info("Confirming password reset for reset_token=%s", payload.reset_token[:10])
 
     try:
-        success = await service_reset_password(
-            db, payload.reset_token, payload.new_password
-        )
+        success = await service_reset_password(db, payload.reset_token, payload.new_password)
 
         if not success:
             logger.warning("Invalid or expired reset token")
             return fail_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired reset token.",
+                data={
+                    "errors": {"token": ["Invalid or expired token"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         logger.info("Password reset completed successfully")
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Password reset successful.",
+            data={"password": success},
         )
 
     except PasswordReuseError as e:
@@ -150,6 +170,10 @@ async def confirm_password_reset(
         return fail_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
+            data={
+                "errors": {"password": ["Don't reuse old password"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
     except Exception:
@@ -157,4 +181,8 @@ async def confirm_password_reset(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset failed. Please try again.",
+            data={
+                "errors": {"password": ["Reset failed"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )

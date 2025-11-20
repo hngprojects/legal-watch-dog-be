@@ -1,6 +1,7 @@
 import logging
-from app.api.core.logger import setup_logging
+
 from app.api.core.dependencies.send_mail import send_email
+from app.api.core.logger import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")

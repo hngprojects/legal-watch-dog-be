@@ -1,9 +1,11 @@
-import aiosmtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from app.api.core.config import settings
 import logging
-from typing import Dict, Any
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any, Dict
+
+import aiosmtplib
+
+from app.api.core.config import settings
 
 logger = logging.getLogger("app")
 
