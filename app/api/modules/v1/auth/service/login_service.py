@@ -1,22 +1,23 @@
+import logging
+import uuid
 from datetime import timedelta
 from typing import Optional
+
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from fastapi import HTTPException, status
-import uuid
 
-from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.password import verify_password
-from app.api.utils.jwt import create_access_token, get_token_jti, calculate_token_ttl
 from app.api.core.dependencies.redis_service import (
-    check_rate_limit,
-    reset_rate_limit,
     add_token_to_denylist,
+    check_rate_limit,
     get_redis_client,
+    reset_rate_limit,
 )
 from app.api.core.logger import setup_logging
-import logging
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.jwt import calculate_token_ttl, create_access_token, get_token_jti
+from app.api.utils.password import verify_password
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -75,9 +76,7 @@ async def increment_failed_attempts(email: str) -> int:
         # Lock account if max attempts exceeded
         if attempts >= MAX_LOGIN_ATTEMPTS:
             lockout_key = f"login:lockout:{email}"
-            await redis_client.setex(
-                lockout_key, LOCKOUT_DURATION_MINUTES * 60, str(attempts)
-            )
+            await redis_client.setex(lockout_key, LOCKOUT_DURATION_MINUTES * 60, str(attempts))
             logger.warning(
                 f"Account locked for {email}: {attempts} failed attempts. "
                 f"Locked for {LOCKOUT_DURATION_MINUTES} minutes."
@@ -114,9 +113,7 @@ async def reset_failed_attempts(email: str) -> bool:
         return False
 
 
-async def store_refresh_token(
-    user_id: str, refresh_token: str, ttl_days: int = 30
-) -> bool:
+async def store_refresh_token(user_id: str, refresh_token: str, ttl_days: int = 30) -> bool:
     """
     Store refresh token in Redis for token rotation.
 
@@ -316,9 +313,7 @@ async def authenticate_user(
     # Store refresh token in Redis for rotation
     await store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
-    logger.info(
-        f"Successful login: {user.email} (org: {user.organization_id}, role: {role.name})"
-    )
+    logger.info(f"Successful login: {user.email} (org: {user.organization_id}, role: {role.name})")
 
     return {
         "access_token": access_token,
@@ -339,9 +334,7 @@ async def authenticate_user(
     }
 
 
-async def refresh_access_token(
-    db: AsyncSession, user_id: str, old_refresh_token: str
-) -> dict:
+async def refresh_access_token(db: AsyncSession, user_id: str, old_refresh_token: str) -> dict:
     """
     Token rotation: Generate new access + refresh tokens, revoke old refresh token.
     Implements automatic token rotation for enhanced security.
@@ -381,15 +374,11 @@ async def refresh_access_token(
 
     if not user:
         logger.warning(f"Token refresh failed: user {user_id} not found")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if not user.is_active:
         logger.warning(f"Token refresh blocked: user {user.email} is inactive")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
 
     # Fetch role for context
     role = await db.scalar(select(Role).where(Role.id == user.role_id))
@@ -426,9 +415,7 @@ async def refresh_access_token(
     # Store new refresh token
     await store_refresh_token(str(user.id), new_refresh_token_jti, ttl_days=30)
 
-    logger.info(
-        f"Token rotated for user: {user.email} (old jti: {old_token_jti[:8]}...)"
-    )
+    logger.info(f"Token rotated for user: {user.email} (old jti: {old_token_jti[:8]}...)")
 
     return {
         "access_token": new_access_token,
@@ -450,9 +437,7 @@ class LoginService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def login(
-        self, email: str, password: str, ip_address: Optional[str] = None
-    ) -> dict:
+    async def login(self, email: str, password: str, ip_address: Optional[str] = None) -> dict:
         """
         Authenticate user and return tokens.
 

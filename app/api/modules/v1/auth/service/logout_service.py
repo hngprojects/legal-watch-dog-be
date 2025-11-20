@@ -1,7 +1,8 @@
-from app.api.utils.jwt import get_token_jti, calculate_token_ttl
+import logging
+
 from app.api.core.dependencies.redis_service import add_token_to_denylist
 from app.api.core.logger import setup_logging
-import logging
+from app.api.utils.jwt import calculate_token_ttl, get_token_jti
 
 setup_logging()
 logger = logging.getLogger("app")

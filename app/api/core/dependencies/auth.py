@@ -1,17 +1,18 @@
+import logging
+
+import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-import jwt
 
-from app.api.db.database import get_db
-from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.jwt import decode_token
 from app.api.core.dependencies.redis_service import is_token_denylisted
-from app.api.utils.permissions import Permission
 from app.api.core.logger import setup_logging
-import logging
+from app.api.db.database import get_db
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.jwt import decode_token
+from app.api.utils.permissions import Permission
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -61,9 +62,7 @@ async def get_current_user(
         user = await db.scalar(select(User).where(User.id == user_id))
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
         if not user.is_active:
             raise HTTPException(
@@ -71,21 +70,15 @@ async def get_current_user(
             )
 
         if not user.is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified")
 
         logger.info(f"Authenticated user: {user.email}")
         return user
 
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     except HTTPException:
         raise
     except Exception as e:
@@ -171,9 +164,7 @@ def require_any_permission(*permissions: Permission):
         user, role = user_role
 
         # Check if user has ANY of the required permissions
-        has_permission = any(
-            role.permissions.get(perm.value, False) for perm in permissions
-        )
+        has_permission = any(role.permissions.get(perm.value, False) for perm in permissions)
 
         if not has_permission:
             perm_names = [p.value for p in permissions]

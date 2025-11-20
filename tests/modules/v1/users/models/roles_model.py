@@ -1,28 +1,23 @@
-from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
-from sqlalchemy import DateTime, Column, UniqueConstraint
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.dialects.postgresql import JSONB
 import uuid
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import Column, DateTime, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.users.models import User
     from app.api.modules.v1.organization.models import Organization
+    from app.api.modules.v1.users.models import User
 
 
 class Role(SQLModel, table=True):
     __tablename__ = "roles"
-    __table_args__ = (
-        UniqueConstraint("organization_id", "name", name="uq_org_role_name"),
-    )
+    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_org_role_name"),)
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
-    organization_id: uuid.UUID = Field(
-        foreign_key="organizations.id", nullable=False, index=True
-    )
+    organization_id: uuid.UUID = Field(foreign_key="organizations.id", nullable=False, index=True)
 
     name: str = Field(max_length=50, nullable=False, index=True)
 

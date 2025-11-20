@@ -1,18 +1,17 @@
 import os
-import uvicorn
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 
-from app.api.core.config import settings
-from app.api import router as api_router
-from app.api.db.database import engine, Base
-from app.api.utils.response_payloads import success_response
-from app.api.core.logger import setup_logging
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
+from app.api import router as api_router
+from app.api.core.config import settings
+from app.api.core.logger import setup_logging
+from app.api.db.database import Base, engine
+from app.api.utils.response_payloads import success_response
 
 setup_logging()
 
