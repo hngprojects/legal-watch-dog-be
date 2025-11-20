@@ -1,3 +1,5 @@
+"""Tests for register schema validation."""
+
 import pytest
 from pydantic import ValidationError
 
@@ -6,7 +8,6 @@ from app.api.utils.email_verifier import BusinessEmailVerifier
 
 
 def test_register_rejects_free_provider():
-    # Ensure MX verification does not do real network calls during tests
     BusinessEmailVerifier._verify_mx_records = lambda self, d: True
 
     with pytest.raises(ValidationError):
