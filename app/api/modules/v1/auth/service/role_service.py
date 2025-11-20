@@ -1,9 +1,11 @@
-from sqlmodel import select
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.api.modules.v1.auth.schemas.role import RoleCreateRequest
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.auth.schemas.role import RoleCreateRequest
-from typing import Optional
 
 
 async def create_role(db: AsyncSession, org_id, data: RoleCreateRequest) -> Role:

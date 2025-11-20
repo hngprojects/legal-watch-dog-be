@@ -2,13 +2,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.modules.v1.auth.service.login_service import (
-    authenticate_user,
-    MAX_LOGIN_ATTEMPTS,
     LOCKOUT_DURATION_MINUTES,
+    MAX_LOGIN_ATTEMPTS,
+    authenticate_user,
 )
+from app.api.modules.v1.organization.models import Organization
 from app.api.modules.v1.users.models import User
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.modules.v1.organization.models import Organization
 from app.api.utils.permissions import Permission
 
 

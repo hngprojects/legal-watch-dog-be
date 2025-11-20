@@ -1,9 +1,10 @@
 import pytest
-from app.api.modules.v1.waitlist.service.waitlist_service import WaitlistService
+
 from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
     WaitlistResponse,
     WaitlistSignup,
 )
+from app.api.modules.v1.waitlist.service.waitlist_service import WaitlistService
 
 
 @pytest.mark.asyncio

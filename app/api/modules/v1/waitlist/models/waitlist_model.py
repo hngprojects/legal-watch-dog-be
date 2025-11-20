@@ -1,7 +1,8 @@
-from sqlmodel import SQLModel, Field
-from sqlalchemy import DateTime, Column
 from datetime import datetime, timezone
 from typing import Optional
+
+from sqlalchemy import Column, DateTime
+from sqlmodel import Field, SQLModel
 
 
 class Waitlist(SQLModel, table=True):
