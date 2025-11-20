@@ -61,9 +61,7 @@ async def company_signup(
                     "trace_id": str(uuid.uuid4()),
                 },
             )
-        user = await register_organization(
-            db, payload, background_tasks=background_tasks
-        )
+        user = await register_organization(db, payload, background_tasks=background_tasks)
     except Exception:
         logger.exception("Error during registration for email=%s", payload.email)
         return fail_response(
@@ -88,9 +86,7 @@ async def company_signup(
 
 
 @router.post("/verify-otp", status_code=status.HTTP_200_OK)
-async def verify_otp_endpoint(
-    payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)
-):
+async def verify_otp_endpoint(payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)):
     """Verify OTP sent to user email and return final access token."""
     logger.info("Verifying OTP for email=%s", payload.email)
 
@@ -109,9 +105,7 @@ async def verify_otp_endpoint(
     # Fetch user to create final token
     user = await db.scalar(select(User).where(User.email == payload.email))
     if not user:
-        logger.error(
-            "User not found after successful OTP verification: %s", payload.email
-        )
+        logger.error("User not found after successful OTP verification: %s", payload.email)
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Verification succeeded but user record missing. Contact support.",
@@ -121,9 +115,7 @@ async def verify_otp_endpoint(
             },
         )
 
-    logger.info(
-        "OTP verification succeeded for email=%s, user_id=%s", payload.email, user.id
-    )
+    logger.info("OTP verification succeeded for email=%s, user_id=%s", payload.email, user.id)
     return success_response(
         status_code=status.HTTP_200_OK,
         message="Email verified",
