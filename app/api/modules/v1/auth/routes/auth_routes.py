@@ -43,7 +43,7 @@ async def company_signup(
 ):
     """
     Company sign-up: creates organization, admin role, admin user, stores OTP in Redis
-    and sends OTP email (sent in background to avoid blocking).
+    and sends OTP email (in background to avoid blocking).
     """
     logger.info("Starting company signup for email=%s", payload.email)
     try:
