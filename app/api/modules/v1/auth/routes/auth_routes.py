@@ -43,7 +43,7 @@ async def company_signup(
 ):
     """
     Company sign-up: creates organization, admin role, admin user, stores OTP in Redis
-    and sends OTP email (sent in background to avoid blocking).
+    and sends OTP email (in background to avoid blocking).
     """
     logger.info("Starting company signup for email=%s", payload.email)
     try:
@@ -88,7 +88,9 @@ async def company_signup(
 
 
 @router.post("/verify-otp", status_code=status.HTTP_200_OK)
-async def verify_otp_endpoint(payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)):
+async def verify_otp_endpoint(
+    payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)
+):
     """Verify OTP sent to user email and return final access token."""
     logger.info("Verifying OTP for email=%s", payload.email)
 
@@ -107,7 +109,9 @@ async def verify_otp_endpoint(payload: OTPVerifyRequest, db: AsyncSession = Depe
     # Fetch user to create final token
     user = await db.scalar(select(User).where(User.email == payload.email))
     if not user:
-        logger.error("User not found after successful OTP verification: %s", payload.email)
+        logger.error(
+            "User not found after successful OTP verification: %s", payload.email
+        )
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Verification succeeded but user record missing. Contact support.",
