@@ -2,16 +2,17 @@
 
 import logging
 import secrets
+
 from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.password import hash_password
+
 from app.api.core.dependencies.redis_service import get_redis_client
 from app.api.core.dependencies.send_reset_password import send_password_reset_email
-from app.api.core.logger import setup_logging
-from app.api.utils.password import verify_password
 from app.api.core.exceptions import PasswordReuseError
+from app.api.core.logger import setup_logging
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.password import hash_password, verify_password
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -194,9 +195,7 @@ async def request_password_reset(
             await send_password_reset_email(email_context)
             logger.info(f"Sent password reset email to: {user.email}")
 
-        logger.info(
-            f"Password reset code generated for user_id={user.id}, email={user.email}"
-        )
+        logger.info(f"Password reset code generated for user_id={user.id}, email={user.email}")
         return True
 
     except Exception:
@@ -223,9 +222,7 @@ async def verify_reset_code(
     try:
         user = await db.scalar(select(User).where(User.email == email))
         if not user:
-            logger.warning(
-                f"Reset code verification attempted for non-existent email={email}"
-            )
+            logger.warning(f"Reset code verification attempted for non-existent email={email}")
             return None
 
         is_valid = await verify_reset_code_redis(email, code)
@@ -236,9 +233,7 @@ async def verify_reset_code(
 
         reset_token = generate_reset_token()
 
-        await store_reset_token(
-            reset_token, str(user.id), ttl_minutes=TOKEN_TTL_MINUTES
-        )
+        await store_reset_token(reset_token, str(user.id), ttl_minutes=TOKEN_TTL_MINUTES)
 
         logger.info(f"Reset code verified for email={email}, user_id={user.id}")
         return reset_token
@@ -273,9 +268,7 @@ async def reset_password(
 
         if verify_password(new_password, user.hashed_password):
             logger.warning(f"User {user.id} attempted to reuse old password")
-            raise PasswordReuseError(
-                "New password cannot be the same as your old password"
-            )
+            raise PasswordReuseError("New password cannot be the same as your old password")
 
         await client.delete(key)
         logger.info(f"Reset token consumed for user {user_id}")

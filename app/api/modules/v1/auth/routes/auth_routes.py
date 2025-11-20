@@ -1,27 +1,30 @@
 """Authentication"""
 
 import logging
-from fastapi import APIRouter, status, Depends, BackgroundTasks
+
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.modules.v1.auth.service.register_service import (
-    register_organization,
-    verify_otp as service_verify_otp,
-    get_organisation_by_email,
-)
+from sqlmodel import select
+
+from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.register import (
+    OTPVerifyRequest,
     RegisterRequest,
     RegisterResponse,
-    OTPVerifyRequest,
 )
-from sqlmodel import select
+from app.api.modules.v1.auth.service.register_service import (
+    get_organisation_by_email,
+    register_organization,
+)
+from app.api.modules.v1.auth.service.register_service import (
+    verify_otp as service_verify_otp,
+)
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import create_access_token
 from app.api.utils.response_payloads import (
     auth_response,
     fail_response,
 )
-from app.api.db.database import get_db
-
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -90,9 +93,7 @@ async def company_signup(
 
 
 @router.post("/verify-otp", status_code=status.HTTP_200_OK)
-async def verify_otp_endpoint(
-    payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)
-):
+async def verify_otp_endpoint(payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)):
     """Verify OTP sent to user email and return final access token."""
     logger.info("Verifying OTP for email=%s", payload.email)
 
@@ -107,9 +108,7 @@ async def verify_otp_endpoint(
     # Fetch user to create final token
     user = await db.scalar(select(User).where(User.email == payload.email))
     if not user:
-        logger.error(
-            "User not found after successful OTP verification: %s", payload.email
-        )
+        logger.error("User not found after successful OTP verification: %s", payload.email)
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Verification succeeded but user record missing. Contact support.",
@@ -122,9 +121,7 @@ async def verify_otp_endpoint(
         role_id=str(user.role_id),
     )
 
-    logger.info(
-        "OTP verification succeeded for email=%s, user_id=%s", payload.email, user.id
-    )
+    logger.info("OTP verification succeeded for email=%s, user_id=%s", payload.email, user.id)
     return auth_response(
         status_code=status.HTTP_200_OK,
         message="Email verified",

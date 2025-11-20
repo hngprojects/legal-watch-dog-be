@@ -1,14 +1,16 @@
 import asyncio
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
 import sqlalchemy
-from sqlmodel import SQLModel
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from app.api.core.config import settings
-from unittest.mock import AsyncMock, patch
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
