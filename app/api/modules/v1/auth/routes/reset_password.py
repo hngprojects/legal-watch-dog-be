@@ -20,6 +20,7 @@ from app.api.utils.response_payloads import (
 )
 from app.api.db.database import get_db
 from app.api.core.exceptions import PasswordReuseError
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,10 @@ async def request_password_reset(
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Email not found, please confirm your email!.",
+                data={
+                    "errors": {"email": ["Email not found"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         if not user.is_active:
@@ -57,6 +62,10 @@ async def request_password_reset(
             return fail_response(
                 status_code=status.HTTP_403_FORBIDDEN,
                 message="Account is inactive. Please contact support.",
+                data={
+                    "errors": {"email": ["Inactive email"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         await service_request_reset(db, user, background_tasks)
@@ -67,6 +76,7 @@ async def request_password_reset(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Reset code sent to email.",
+            data={"email": user.email},
         )
 
     except Exception:
@@ -76,6 +86,10 @@ async def request_password_reset(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset request failed. Please try again later.",
+            data={
+                "errors": {"password": ["Request failed"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
 
@@ -98,6 +112,10 @@ async def verify_reset_code(
             return fail_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired reset code.",
+                data={
+                    "errors": {"code": ["Invalid or expired code"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         logger.info("Reset code verified for email=%s", payload.email)
@@ -112,6 +130,10 @@ async def verify_reset_code(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Verification failed. Please try again.",
+            data={
+                "errors": {"code": ["Code not verified"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
 
@@ -137,12 +159,17 @@ async def confirm_password_reset(
             return fail_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired reset token.",
+                data={
+                    "errors": {"token": ["Invalid or expired token"]},
+                    "trace_id": str(uuid.uuid4()),
+                },
             )
 
         logger.info("Password reset completed successfully")
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Password reset successful.",
+            data={"password": success},
         )
 
     except PasswordReuseError as e:
@@ -150,6 +177,10 @@ async def confirm_password_reset(
         return fail_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
+            data={
+                "errors": {"password": ["Don't reuse old password"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
 
     except Exception:
@@ -157,4 +188,8 @@ async def confirm_password_reset(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset failed. Please try again.",
+            data={
+                "errors": {"password": ["Reset failed"]},
+                "trace_id": str(uuid.uuid4()),
+            },
         )
