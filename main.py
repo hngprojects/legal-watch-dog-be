@@ -9,9 +9,13 @@ from contextlib import asynccontextmanager
 from app.api.core.config import settings
 from app.api import router as api_router
 from app.api.db.database import engine, Base
-from app.api.utils.response_payloads import success_response
+from app.api.utils.response_payloads import success_response, fail_response
 from app.api.core.logger import setup_logging
 from fastapi.staticfiles import StaticFiles
+from fastapi import Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+import uuid
+import logging
 
 
 setup_logging()
@@ -50,6 +54,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = {err["loc"][-1]: [err["msg"]] for err in exc.errors()}
+    trace_id = str(uuid.uuid4())
+    logging.getLogger("app").error(f"Validation error: {exc.errors()}, trace_id: {trace_id}")
+    return fail_response(
+        status_code=400,
+        message="Validation failed",
+        data={"errors": errors, "trace_id": trace_id}
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    trace_id = str(uuid.uuid4())
+    logging.getLogger("app").error(f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}")
+    return fail_response(
+        status_code=exc.status_code,
+        message=exc.detail,
+        data={"trace_id": trace_id}
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    trace_id = str(uuid.uuid4())
+    logging.getLogger("app").exception(f"Unhandled exception: {exc}, trace_id: {trace_id}")
+    return fail_response(
+        status_code=500,
+        message="Internal server error",
+        data={"trace_id": trace_id}
+    )
 
 
 app.include_router(api_router)
