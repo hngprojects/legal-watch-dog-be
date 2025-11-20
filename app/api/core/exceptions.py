@@ -14,7 +14,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     trace_id = str(uuid.uuid4())
     logger.error(f"Validation error: {exc.errors()}, trace_id: {trace_id}")
     return fail_response(
-        status_code=400,
+        status_code=422,
         message="Validation failed",
         data={"errors": errors, "trace_id": trace_id},
     )
