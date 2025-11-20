@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from cryptography.fernet import Fernet
 from decouple import config
 from pydantic_settings import BaseSettings
 
@@ -38,6 +39,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
+    # Encryption
+    ENCRYPTION_KEY: str = config("ENCRYPTION_KEY", default="YOUR_GENERATED_KEY_HERE")
+
     # Waitlist Email
     # Waitlist Email
     MAIL_USERNAME: str = config("MAIL_USERNAME", default="test_user")
@@ -52,3 +56,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# Lazy load encryption cipher suite to avoid import-time initialization
+def get_cipher_suite():
+    return Fernet(settings.ENCRYPTION_KEY)
+
+
+# For backward compatibility, provide cipher_suite as a module-level variable
+# This will be initialized on first access
+cipher_suite = None

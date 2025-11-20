@@ -9,6 +9,7 @@ from app.api.modules.v1.auth.models.otp_model import OTP
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
+from app.api.modules.v1.scraping.models.scrape import Source, SourceType
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
