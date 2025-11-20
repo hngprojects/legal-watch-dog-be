@@ -24,13 +24,15 @@ async def get_project_by_id(
         Project object if found and accessible, None otherwise
     """
     statement = select(Project).where(
-        and_(Project.id == project_id, Project.organization_id == organization_id)
+        and_(Project.id == project_id, Project.org_id == organization_id)
     )
     result = await db.execute(statement)
     return result.scalar_one_or_none()
 
 
-async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID) -> Optional[User]:
+async def get_user_by_id(
+    db: AsyncSession, user_id: UUID, organization_id: UUID
+) -> Optional[User]:
     """
     Fetch user by ID and verify they belong to organization.
 
@@ -49,7 +51,9 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID)
     return result.scalar_one_or_none()
 
 
-async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id: UUID) -> bool:
+async def check_project_user_exists(
+    db: AsyncSession, project_id: UUID, user_id: UUID
+) -> bool:
     """
     Check if user is already a member of the project.
 
