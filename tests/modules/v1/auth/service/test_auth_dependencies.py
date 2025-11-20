@@ -2,15 +2,15 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.core.dependencies.auth import (
-    require_permission,
-    require_any_permission,
-    verify_organization_access,
     OrganizationFilter,
     get_current_user_with_role,
+    require_any_permission,
+    require_permission,
+    verify_organization_access,
 )
-from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.permissions import Permission
 
 
@@ -112,9 +112,7 @@ async def test_require_any_permission(pg_async_session):
         session.add(user)
         await session.commit()
 
-        checker = require_any_permission(
-            Permission.CREATE_PROJECTS, Permission.VIEW_PROJECTS
-        )
+        checker = require_any_permission(Permission.CREATE_PROJECTS, Permission.VIEW_PROJECTS)
 
         # Should succeed because the role has VIEW_PROJECTS
         result = await checker(user_role=(user, role))

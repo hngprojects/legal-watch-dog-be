@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import SQLModel, Field, select
+from sqlmodel import Field, SQLModel, select
 
 
 class TestUser(SQLModel, table=True):

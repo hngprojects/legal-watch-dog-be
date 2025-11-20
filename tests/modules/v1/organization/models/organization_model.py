@@ -1,10 +1,10 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, Column
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.dialects.postgresql import JSONB
-import uuid
 
+from sqlalchemy import Column, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.users.models import User
@@ -14,9 +14,7 @@ if TYPE_CHECKING:
 class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     name: str = Field(max_length=255, nullable=False, index=True)
 
