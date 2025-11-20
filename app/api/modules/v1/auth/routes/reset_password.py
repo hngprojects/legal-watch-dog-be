@@ -50,7 +50,7 @@ async def request_password_reset(
             logger.warning("Password reset requested for non-existent email=%s", payload.email)
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
-                message="Email not found, please confirm your email!.",
+                message="Email does not exixt.",
             )
 
         if not user.is_active:
@@ -66,13 +66,14 @@ async def request_password_reset(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Reset code sent to email.",
+            data={"email": user.email},
         )
 
     except Exception:
         logger.exception("Error during password reset request for email=%s", payload.email)
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Password reset request failed. Please try again later.",
+            message="Password reset request failed",
         )
 
 
@@ -94,13 +95,13 @@ async def verify_reset_code(
             logger.warning("Invalid or expired reset code for email=%s", payload.email)
             return fail_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                message="Invalid or expired reset code.",
+                message="Invalid or expired token.",
             )
 
         logger.info("Reset code verified for email=%s", payload.email)
         return success_response(
             status_code=status.HTTP_200_OK,
-            message="Reset code verified successfully.",
+            message="Token verified successfully.",
             data={"reset_token": reset_token},
         )
 
@@ -108,7 +109,7 @@ async def verify_reset_code(
         logger.exception("Error verifying reset code for email=%s", payload.email)
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Verification failed. Please try again.",
+            message="Internal server error.",
         )
 
 
@@ -136,18 +137,19 @@ async def confirm_password_reset(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Password reset successful.",
+            data={"password": success},
         )
 
     except PasswordReuseError as e:
-        logger.warning("Password reuse attempt during reset")
+        logger.warning("Password reuse attempt during reset ()", str(e))
         return fail_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            message=str(e),
+            message="Cannot reuse old password.",
         )
 
     except Exception:
         logger.exception("Error confirming password reset")
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Password reset failed. Please try again.",
+            message="Internal server error.",
         )
