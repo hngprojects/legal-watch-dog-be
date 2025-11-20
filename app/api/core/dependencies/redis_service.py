@@ -1,8 +1,10 @@
+import logging
 from typing import Optional
+
 import redis.asyncio as redis
+
 from app.api.core.config import settings
 from app.api.core.logger import setup_logging
-import logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -20,9 +22,7 @@ async def get_redis_client() -> redis.Redis:
     """
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.from_url(
-            settings.REDIS_URL, encoding="utf-8", decode_responses=True
-        )
+        _redis_client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
         logger.info("Redis client initialized")
     return _redis_client
 
@@ -114,9 +114,7 @@ async def check_rate_limit(
             await client.expire(key, window_seconds)
 
         if current > max_attempts:
-            logger.warning(
-                f"Rate limit exceeded for {identifier}: {current}/{max_attempts}"
-            )
+            logger.warning(f"Rate limit exceeded for {identifier}: {current}/{max_attempts}")
             return False
 
         return True

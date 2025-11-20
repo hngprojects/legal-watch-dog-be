@@ -1,21 +1,19 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, Column, JSON
-from sqlmodel import SQLModel, Field, Relationship
-import uuid
 
+from sqlalchemy import JSON, Column, DateTime
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.users.models.users_model import User
     from app.api.modules.v1.users.models.roles_model import Role
+    from app.api.modules.v1.users.models.users_model import User
 
 
 class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     name: str = Field(max_length=255, nullable=False, index=True)
 
