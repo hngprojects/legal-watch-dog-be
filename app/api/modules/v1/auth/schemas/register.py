@@ -20,8 +20,9 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v):
-        if not is_strong_password(v):
-            raise ValueError("Password does not meet strength requirements.")
+        error = is_strong_password(v)
+        if error:
+            raise ValueError(error)
         return v
 
     @field_validator("confirm_password")

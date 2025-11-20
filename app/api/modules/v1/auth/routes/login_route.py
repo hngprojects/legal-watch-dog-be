@@ -12,6 +12,9 @@ from app.api.modules.v1.auth.schemas.login import (
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.response_payloads import (
+    success_response,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -42,7 +45,11 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         email=login_data.email, password=login_data.password, ip_address=client_ip
     )
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Login successful",
+        data={"user": result},
+    )
 
 
 @router.post(
@@ -63,7 +70,11 @@ async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = De
 
     result = await login_service.refresh_access_token(refresh_token=refresh_data.refresh_token)
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="New token",
+        data={"token": result},
+    )
 
 
 @router.post(
@@ -88,4 +99,8 @@ async def logout(
     # For now, just blacklist based on user
     result = await login_service.logout(user_id=str(current_user.id))
 
-    return result
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Logged out",
+        data={"user": result},
+    )
