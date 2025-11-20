@@ -28,14 +28,10 @@ def success_response(status_code: int, message: str, data: Optional[dict] = None
         "data": data or {},
     }
 
-    return JSONResponse(
-        status_code=status_code, content=jsonable_encoder(response_data)
-    )
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
 
 
-def auth_response(
-    status_code: int, message: str, access_token: str, data: Optional[dict] = None
-):
+def auth_response(status_code: int, message: str, access_token: str, data: Optional[dict] = None):
     """
     Create a standardized JSON response for authentication-related successes.
 
@@ -57,9 +53,7 @@ def auth_response(
         "data": {"access_token": access_token, **(data or {})},
     }
 
-    return JSONResponse(
-        status_code=status_code, content=jsonable_encoder(response_data)
-    )
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
 
 
 def fail_response(status_code: int, message: str, data: Optional[dict] = None):
@@ -86,6 +80,4 @@ def fail_response(status_code: int, message: str, data: Optional[dict] = None):
         "data": data or {},
     }
 
-    return JSONResponse(
-        status_code=status_code, content=jsonable_encoder(response_data)
-    )
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))

@@ -15,9 +15,7 @@ router = APIRouter(prefix="/waitlist", tags=["Waitlist"])
 logger = logging.getLogger("app")
 
 
-@router.post(
-    "/signup", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/signup", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED)
 async def signup_waitlist(
     signup: WaitlistSignup,
     background_tasks: BackgroundTasks,

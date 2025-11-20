@@ -25,9 +25,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
         "Authenticate user and return access/refresh tokens with rate limiting protection"
     ),
 )
-async def login(
-    request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)
-):
+async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
     Login endpoint with security features:
     - Rate limiting (5 failed attempts, 15-minute lockout)
@@ -54,9 +52,7 @@ async def login(
     summary="Refresh Access Token",
     description="Refresh access token using a valid refresh token with token rotation",
 )
-async def refresh_token(
-    refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)
-):
+async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
     """
     Refresh token endpoint:
     - Validates refresh token
@@ -65,9 +61,7 @@ async def refresh_token(
     """
     login_service = LoginService(db)
 
-    result = await login_service.refresh_access_token(
-        refresh_token=refresh_data.refresh_token
-    )
+    result = await login_service.refresh_access_token(refresh_token=refresh_data.refresh_token)
 
     return result
 

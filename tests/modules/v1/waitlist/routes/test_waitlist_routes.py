@@ -34,9 +34,7 @@ async def test_signup_waitlist_success(app, pg_async_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/api/v1/waitlist/signup", json=payload.model_dump()
-        )
+        response = await client.post("/api/v1/waitlist/signup", json=payload.model_dump())
 
     assert response.status_code == 201
     data = response.json()
@@ -48,21 +46,15 @@ async def test_signup_waitlist_success(app, pg_async_session):
 async def test_signup_waitlist_duplicate_email(app, pg_async_session):
     """Test signing up with an existing email returns error."""
 
-    entry = Waitlist(
-        organization_email="dup@company.com", organization_name="Dup Company"
-    )
+    entry = Waitlist(organization_email="dup@company.com", organization_name="Dup Company")
     pg_async_session.add(entry)
     await pg_async_session.commit()
 
-    payload = WaitlistSignup(
-        organization_email="dup@company.com", organization_name="Dup Company"
-    )
+    payload = WaitlistSignup(organization_email="dup@company.com", organization_name="Dup Company")
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/api/v1/waitlist/signup", json=payload.model_dump()
-        )
+        response = await client.post("/api/v1/waitlist/signup", json=payload.model_dump())
 
     assert response.status_code == 400
     data = response.json()
