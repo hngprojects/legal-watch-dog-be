@@ -1,3 +1,5 @@
+"""Tests for validators."""
+
 import pytest
 
 from app.api.modules.v1.auth.service.validators import (
@@ -15,17 +17,15 @@ from app.api.modules.v1.auth.service.validators import (
         (
             "admin@company.com",
             True,
-        ),  # role-based local part, but allowed for company domains
-        ("someone@mailinator.com", False),  # disposable
+        ),
+        ("someone@mailinator.com", False),
         ("employee@enterprise.org", True),
         ("admin@outlook.com", False),
     ],
 )
 def test_is_company_email(email, expected):
-    # The verifier may attempt DNS lookups under the hood; patch MX resolution
     from app.api.utils.email_verifier import BusinessEmailVerifier
 
-    # Always pretend MX records exist for deterministic tests
     BusinessEmailVerifier._verify_mx_records = lambda self, d: True
     assert is_company_email(email) == expected
 
