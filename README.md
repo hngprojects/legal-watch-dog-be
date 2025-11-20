@@ -190,6 +190,11 @@ source .venv/bin/activate
 
 ```bash
 uv add <package_name>
+uv sync
+```
+   if you need to install packages, run:
+```bash
+uv pip install -r pyproject.toml
 ```
 
 > This updates `uv.lock` automatically.

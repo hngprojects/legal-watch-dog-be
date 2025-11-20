@@ -35,6 +35,13 @@ class RegisterRequest(BaseModel):
             raise ValueError("Passwords do not match.")
         return v
 
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v
+
 
 class RegisterResponse(BaseModel):
     message: str
