@@ -91,13 +91,13 @@ def create_access_token(
 
     # Convert datetime to timestamp for JSON serialization
     iat = datetime.now(timezone.utc)
-    
+
     payload = {
         "sub": str(user_id),  # Subject (user ID)
         "org_id": str(organization_id),
         "role_id": str(role_id),
-        "exp": int(expire.timestamp()),  
-        "iat": int(iat.timestamp()), 
+        "exp": int(expire.timestamp()),
+        "iat": int(iat.timestamp()),
         "jti": jti,  # JWT ID for revocation
     }
 
