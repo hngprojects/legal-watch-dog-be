@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 
 
 class Project(SQLModel, table=True):
@@ -42,3 +43,5 @@ class Project(SQLModel, table=True):
     organization: Optional["Organization"] = Relationship(back_populates="projects")
 
     project_users: List["ProjectUser"] = Relationship(back_populates="projects")
+    
+    jurisdictions: list["Jurisdiction"] = Relationship(back_populates="project")
