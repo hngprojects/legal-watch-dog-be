@@ -1,5 +1,6 @@
-import re
 import logging
+import re
+
 from app.api.utils.email_verifier import BusinessEmailVerifier, EmailType
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,7 @@ def is_company_email(email: str) -> bool:
     """
     verifier = BusinessEmailVerifier()
     result = verifier.verify_email(email)
-    return (
-        result.email_type in (EmailType.BUSINESS, EmailType.ROLE_BASED)
-        and result.is_valid
-    )
+    return result.email_type in (EmailType.BUSINESS, EmailType.ROLE_BASED) and result.is_valid
 
 
 def is_strong_password(password: str) -> bool:

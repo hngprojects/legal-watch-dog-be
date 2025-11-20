@@ -235,9 +235,7 @@ class BusinessEmailVerifier:
             True when local_part is role-like.
         """
         low = local_part.lower()
-        return any(
-            low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES
-        )
+        return any(low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES)
 
     @lru_cache(maxsize=1024)
     def _verify_mx_records(self, domain: str) -> bool:
