@@ -8,16 +8,15 @@ if __name__ == "__main__":
 
     verifier = BusinessEmailVerifier()
 
-    # Test cases
     test_emails = [
-        "john.doe@company.com",  # Business email
-        "user@gmail.com",  # Personal email
-        "support@company.com",  # Role-based business email
-        "temp@mailinator.com",  # Disposable email
-        "invalid-email",  # Invalid syntax
-        "admin@startup.io",  # Role-based
-        "contact@microsoft.com",  # Role-based business
-        "admin@hng.tech",  # Test this domain
+        "john.doe@company.com",
+        "user@gmail.com",
+        "support@company.com",
+        "temp@mailinator.com",
+        "invalid-email",
+        "admin@startup.io",
+        "contact@microsoft.com",
+        "admin@hng.tech",
     ]
 
     print("=" * 80)
@@ -42,7 +41,6 @@ if __name__ == "__main__":
 
         print("-" * 80)
 
-    # Demonstrate batch verification
     print("\n" + "=" * 80)
     print("BATCH VERIFICATION")
     print("=" * 80)
