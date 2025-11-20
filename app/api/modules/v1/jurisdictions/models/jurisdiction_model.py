@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Dict, Any, ClassVar
-from uuid import UUID
-from sqlmodel import SQLModel, Field, Column, Relationship
+from uuid import UUID, uuid4
+from sqlmodel import SQLModel, Field, Column, Relationship, DateTime
 from sqlalchemy import Text
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -58,15 +58,26 @@ class Jurisdiction(SQLModel, table=True):
         Soft-delete flag. True if the record is considered deleted but retained in DB.
     """
     __tablename__ = "jurisdictions"  # type: ignore
-    jurisdiction_id: UUID
-    project_id: int = Field(foreign_key="project.id")
+    
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        index=True
+    )
+    project_id: UUID = Field(foreign_key="projects.id")
     parent_id: Optional[UUID] = None
     name: str
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
-    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=JSONB)
+    scrape_output: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSONB)
+    )
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column())
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     deleted_at: Optional[datetime] = None
     is_deleted: bool = Field(default=False)
     
