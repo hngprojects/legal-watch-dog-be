@@ -14,8 +14,8 @@ class Project(SQLModel, table=True):
     """
     Main Project table - represents a high-level container for monitoring.
     """
+
     __tablename__ = "projects"
- 
 
     id: UUID = Field(default=uuid4, primary_key=True, index=True)
     org_id: UUID = Field(
@@ -29,7 +29,7 @@ class Project(SQLModel, table=True):
         default=None,
         sa_column=Column(Text),
         description="High-level AI prompt for the entire project",
-    ) 
+    )
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
@@ -41,4 +41,4 @@ class Project(SQLModel, table=True):
 
     organization: Optional["Organization"] = Relationship(back_populates="projects")
 
-    project_users: List["ProjectUser"] = Relationship(back_populates="projects")
+    project_users: List["ProjectUser"] = Relationship(back_populates="project")

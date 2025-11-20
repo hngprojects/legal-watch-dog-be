@@ -4,9 +4,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.projects.models.project_model import Project
-from app.api.modules.v1.projects.schemas.project import (
-    ProjectCreateRequest,
-    ProjectUpdateRequest,
+from app.api.modules.v1.projects.schemas.project_schema import (
+    ProjectBase,
+    ProjectUpdate,
 )
 from app.api.modules.v1.projects.services.project_service import (
     create_project_service,
@@ -22,9 +22,7 @@ async def test_create_project_service(mocked_db: AsyncSession):
     """Test project creation with adding creator as member."""
     org_id = uuid4()
     creator_id = uuid4()
-    data = ProjectCreateRequest(
-        title="Test Project", description="Desc", master_prompt="Prompt"
-    )
+    data = ProjectBase(title="Test Project", description="Desc", master_prompt="Prompt")
 
     project = await create_project_service(mocked_db, data, org_id, creator_id)
 
@@ -63,7 +61,7 @@ async def test_update_project_service(mocked_db: AsyncSession):
     """Test updating a project."""
     org_id = uuid4()
     project_id = uuid4()
-    data = ProjectUpdateRequest(title="Updated Title")
+    data = ProjectUpdate(title="Updated Title")
 
     project = await update_project_service(mocked_db, project_id, org_id, data)
     assert project is None or project.title == "Updated Title"

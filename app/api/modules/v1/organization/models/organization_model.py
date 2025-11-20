@@ -6,6 +6,7 @@ from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.users.models.roles_model import Role
     from app.api.modules.v1.users.models.users_model import User
 
@@ -13,7 +14,9 @@ if TYPE_CHECKING:
 class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
     name: str = Field(max_length=255, nullable=False, index=True)
 
@@ -41,3 +44,4 @@ class Organization(SQLModel, table=True):
 
     users: list["User"] = Relationship(back_populates="organization")
     roles: list["Role"] = Relationship(back_populates="organization")
+    projects: list["Project"] = Relationship(back_populates="organization")

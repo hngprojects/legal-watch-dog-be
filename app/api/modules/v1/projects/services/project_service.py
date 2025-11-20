@@ -13,9 +13,9 @@ from sqlmodel import and_, func, select
 
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
-from app.api.modules.v1.projects.schemas.project import (
-    ProjectCreateRequest,
-    ProjectUpdateRequest,
+from app.api.modules.v1.projects.schemas.project_schema import (
+    ProjectBase,
+    ProjectUpdate,
 )
 from app.api.modules.v1.projects.utils.project_utils import (
     calculate_pagination,
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 async def create_project_service(
     db: AsyncSession,
-    data: ProjectCreateRequest,
+    data: ProjectBase,
     organization_id: UUID,
     creator_id: UUID,
 ) -> Project:
@@ -163,7 +163,7 @@ async def update_project_service(
     db: AsyncSession,
     project_id: UUID,
     organization_id: UUID,
-    data: ProjectUpdateRequest,
+    data: ProjectUpdate,
 ) -> Optional[Project]:
     """
     Update project with provided data.

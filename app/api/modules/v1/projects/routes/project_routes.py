@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.middleware.get_current_user import get_current_user
 from app.api.db.database import get_db
-from app.api.modules.v1.projects.schemas.project import (
-    ProjectCreateRequest,
+from app.api.modules.v1.projects.schemas.project_schema import (
+    ProjectBase,
     ProjectListResponse,
     ProjectResponse,
-    ProjectUpdateRequest,
+    ProjectUpdate,
 )
 from app.api.modules.v1.projects.services.project_service import (
     create_project_service,
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
     status_code=status.HTTP_201_CREATED,
 )
 async def create_project(
-    payload: ProjectCreateRequest,
+    payload: ProjectBase,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -183,7 +183,7 @@ async def get_project(
 )
 async def update_project(
     project_id: UUID,
-    payload: ProjectUpdateRequest,
+    payload: ProjectUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
