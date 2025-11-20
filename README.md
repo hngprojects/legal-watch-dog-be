@@ -323,19 +323,34 @@ uv run ruff format .
 
 ## **Pre-Commit Hooks (Code Quality)**
 
-1. **Install pre-commit hooks:**
+To maintain code quality and consistency, this project uses pre-commit hooks for linting and formatting. These hooks automatically run checks before each commit to catch errors early and ensure the codebase stays clean.
+
+**Setup Instructions:**
+
+1. Install the pre-commit package (if not already installed):
+
+```bash
+pip install -r -requirements.txt
+```
+or
+
+```bash
+uv add pre-commit
+```
+
+2. Install the hooks defined in the repository:
 
 ```bash
 pre-commit install
 ```
 
-2. **Manually run on all files:**
+3. Run all hooks against all files manually to check your code before committing:
 
 ```bash
 pre-commit run --all-files
 ```
 
-3. **Fix issues and retry** if a hook fails.
+After this setup, pre-commit will automatically run linting and formatting checks before each commit.
 
 ---
 
