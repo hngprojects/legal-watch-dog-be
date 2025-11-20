@@ -70,7 +70,7 @@ async def register_organization(
 
     otp_code = OTP.generate_code()
     await store_otp(str(user.id), otp_code, ttl_minutes=10)
-
+    logger.info(f"otp: {otp_code}")
     await db.commit()
     logger.info(f"Generated OTP for user: {user.email} and stored in Redis {otp_code}")
 
