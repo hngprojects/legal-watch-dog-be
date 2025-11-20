@@ -5,10 +5,7 @@ from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.login import (
     LoginRequest,
-    LoginResponse,
-    LogoutResponse,
     RefreshTokenRequest,
-    RefreshTokenResponse,
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
@@ -21,7 +18,6 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post(
     "/login",
-    response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
     summary="User Login",
     description=(
@@ -45,16 +41,22 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         email=login_data.email, password=login_data.password, ip_address=client_ip
     )
 
+    token_data = {
+        "access_token": result["access_token"],
+        "refresh_token": result["refresh_token"],
+        "token_type": result["token_type"],
+        "expires_in": result["expires_in"],
+    }
+
     return success_response(
         status_code=status.HTTP_200_OK,
         message="Login successful",
-        data={"user": result},
+        data=token_data,
     )
 
 
 @router.post(
     "/refresh",
-    response_model=RefreshTokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Refresh Access Token",
     description="Refresh access token using a valid refresh token with token rotation",
@@ -72,14 +74,13 @@ async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = De
 
     return success_response(
         status_code=status.HTTP_200_OK,
-        message="New token",
-        data={"token": result},
+        message="Token refreshed successfully",
+        data=result,
     )
 
 
 @router.post(
     "/logout",
-    response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
     summary="User Logout",
     description="Logout user and blacklist their tokens",
@@ -101,6 +102,6 @@ async def logout(
 
     return success_response(
         status_code=status.HTTP_200_OK,
-        message="Logged out",
-        data={"user": result},
+        message="Logged out successfully",
+        data=result,
     )
