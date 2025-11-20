@@ -20,8 +20,9 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v):
-        if not is_strong_password(v):
-            raise ValueError("Password does not meet strength requirements.")
+        error = is_strong_password(v)
+        if error:
+            raise ValueError(error)
         return v
 
     @field_validator("confirm_password")
@@ -32,6 +33,13 @@ class RegisterRequest(BaseModel):
         )
         if password is not None and v != password:
             raise ValueError("Passwords do not match.")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
         return v
 
 
