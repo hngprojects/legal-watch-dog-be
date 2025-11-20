@@ -1,8 +1,8 @@
 """add project and project users table
 
-Revision ID: ff043b8c8419
+Revision ID: dd94c68c2ed7
 Revises: 243540ac6fd8
-Create Date: 2025-11-20 17:48:18.031619
+Create Date: 2025-11-20 18:09:40.636017
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "ff043b8c8419"
+revision: str = "dd94c68c2ed7"
 down_revision: Union[str, Sequence[str], None] = "243540ac6fd8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
