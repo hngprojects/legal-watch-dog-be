@@ -11,11 +11,11 @@ from app.api.modules.v1.projects.utils.project_utils import (
 
 
 @pytest.mark.asyncio
-async def test_get_project_by_id(mocked_db: AsyncSession):
+async def test_get_project_by_id(pg_async_session: AsyncSession):
     """Test fetching project by id."""
     org_id = uuid4()
     project_id = uuid4()
-    project = await get_project_by_id(mocked_db, project_id, org_id)
+    project = await get_project_by_id(pg_async_session, project_id, org_id)
     assert project is None or isinstance(project, Project)
 
 
