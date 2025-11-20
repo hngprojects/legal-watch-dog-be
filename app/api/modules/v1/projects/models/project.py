@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.api.modules.v1.organization.models.organization_model import Organization
-from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+if TYPE_CHECKING:
+    from app.api.modules.v1.organization.models.organization_model import Organization
+    from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 
 
 class Project(SQLModel, table=True):

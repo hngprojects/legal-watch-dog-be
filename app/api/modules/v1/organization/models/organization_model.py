@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.api.modules.v1.projects.models.project import Project
-
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project import Project
     from app.api.modules.v1.users.models.roles_model import Role
