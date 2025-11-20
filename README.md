@@ -298,27 +298,26 @@ pytest --cov=api
 
 ## **Code Quality & Linting**
 
-### Running Linters
+### Running Linters (Ruff)
 
-1. **Format code with Black:**
-
-```bash
-uv run black .
-```
-
-2. **Check code style with Flake8:**
+1. **Check linting with Ruff:**
 
 ```bash
-uv run flake8 app/
+uv run ruff check .
 ```
 
-3. **Run both linters together:**
+2. **Check formatting with Ruff:**
 
 ```bash
-uv run black . && uv run flake8 app/
+uv run ruff format --check .
 ```
 
-> Ensure your code passes both Black formatting and Flake8 checks before committing.
+3. **Auto-fix lint errors and formatting:**
+
+```bash
+uv run ruff check . --fix
+uv run ruff format .
+```
 
 ---
 
@@ -337,6 +336,65 @@ pre-commit run --all-files
 ```
 
 3. **Fix issues and retry** if a hook fails.
+
+---
+
+## **Testing CI Locally with `act`**
+
+You can run GitHub Actions workflows locally using **act**.
+
+### **Install act**
+
+**macOS (Homebrew):**
+
+```bash
+brew install act
+```
+
+**Linux:**
+
+```bash
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+sudo mv ./bin/act /usr/local/bin/act
+```
+
+**Windows (Chocolatey):**
+
+```powershell
+choco install act-cli
+```
+
+---
+
+### **Run the CI workflow locally**
+
+> Before running act, make sure your local database credentials in your `.env` match those configured in the CI workflow. For example:
+
+```env
+DB_TYPE=postgresql
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=user
+DB_PASS=password
+DB_NAME=dbname
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+```
+
+```bash
+act pull_request
+```
+
+If your workflow uses Docker services (Postgres, Redis), run with a larger image:
+
+```bash
+act pull_request -P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+You can also run with verbose mode:
+
+```bash
+act -v pull_request
+```
 
 ---
 

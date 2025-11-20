@@ -1,5 +1,6 @@
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 import os
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 def render_template(template_name: str, context: dict) -> str:
