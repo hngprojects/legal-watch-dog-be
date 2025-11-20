@@ -41,7 +41,6 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         email=login_data.email, password=login_data.password, ip_address=client_ip
     )
 
-    
     token_data = {
         "access_token": result["access_token"],
         "refresh_token": result["refresh_token"],
