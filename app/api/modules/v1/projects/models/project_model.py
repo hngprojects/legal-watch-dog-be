@@ -1,6 +1,6 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
-from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
@@ -17,8 +17,8 @@ class Project(SQLModel, table=True):
 
     __tablename__ = "projects"
 
-    id: UUID = Field(default=uuid4, primary_key=True, index=True)
-    org_id: UUID = Field(
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    org_id: uuid.UUID = Field(
         foreign_key="organizations.id",
         index=True,
         description="Organization that owns this project",
