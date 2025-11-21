@@ -1,8 +1,8 @@
 """add jurisdiction table
 
-Revision ID: 4f3e75c202d2
+Revision ID: c1bc173efb4e
 Revises: dd94c68c2ed7
-Create Date: 2025-11-21 11:28:56.320063
+Create Date: 2025-11-21 11:53:44.544621
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "4f3e75c202d2"
+revision: str = "c1bc173efb4e"
 down_revision: Union[str, Sequence[str], None] = "dd94c68c2ed7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
