@@ -105,11 +105,13 @@ class JurisdictionService:
         This method queries the database for all Jurisdiction records where
         `project_id` matches the given value and `is_deleted` is False (i.e., not soft-deleted).
         If no jurisdictions are found for the project, an HTTPException with status code 404
-        is raised. Any database errors during the query will raise an HTTPException with status code 500.
+        is raised. Any database errors during the query will raise an
+        HTTPException with status code 500.
 
         Args:
             db (AsyncSession): The asynchronous database session used to execute queries.
-            project_id (UUID): The unique identifier of the project whose jurisdictions are being retrieved.
+            project_id (UUID): The unique identifier of the project
+            whose jurisdictions are being retrieved.
 
         Returns:
             List[Jurisdiction]: A list of Jurisdiction instances associated with the project.
@@ -142,8 +144,10 @@ class JurisdictionService:
         Retrieve all active jurisdictions in the system.
 
         This method queries the database for all Jurisdiction records where `is_deleted` is False
-        (i.e., not soft-deleted). If no jurisdictions are found, an HTTPException with status code 404
-        is raised. Any database errors during the query will raise an HTTPException with status code 500.
+        (i.e., not soft-deleted). If no jurisdictions are found,
+        an HTTPException with status code 404
+        is raised. Any database errors during the query
+        will raise an HTTPException with status code 500.
 
         Args:
             db (AsyncSession): The asynchronous database session used to execute queries.
@@ -186,7 +190,8 @@ class JurisdictionService:
 
         Raises:
             HTTPException:
-                - 400 if an integrity constraint is violated (e.g., unique or foreign key constraints).
+                - 400 if an integrity constraint is violated
+                (e.g., unique or foreign key constraints).
                 - 500 if a general database error occurs during commit or refresh.
         """
         try:
@@ -243,7 +248,8 @@ class JurisdictionService:
 
         Raises:
             HTTPException:
-                - 400 if the soft delete violates integrity constraints (e.g., foreign key dependencies).
+                - 400 if the soft delete violates integrity constraints
+                (e.g., foreign key dependencies).
                 - 500 if a database error occurs during the update.
         """
         jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
