@@ -56,9 +56,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         one_minute_ago = current_time - 60
         self.request_logs[client_ip] = [
-            timestamp
-            for timestamp in self.request_logs[client_ip]
-            if timestamp > one_minute_ago
+            timestamp for timestamp in self.request_logs[client_ip] if timestamp > one_minute_ago
         ]
 
     def _get_client_ip(self, request: Request) -> str:
@@ -117,7 +115,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 detail={
                     "status": "failure",
                     "status_code": 429,
-                    "message": f"Rate limit exceeded. Maximum {self.requests_per_minute} requests per minute allowed.",
+                    "message": (
+                        f"Rate limit exceeded. Maximum {self.requests_per_minute} "
+                        "requests per minute allowed."
+                    ),
                     "error": {"retry_after": reset_time},
                 },
             )
