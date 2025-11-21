@@ -3,10 +3,15 @@
 import pytest
 from pydantic import ValidationError
 
+from app.api.core.config import settings
 from app.api.modules.v1.auth.schemas.register import RegisterRequest
 from app.api.utils.email_verifier import BusinessEmailVerifier
 
 
+@pytest.mark.skipif(
+    settings.ALLOW_TEST_EMAIL_PROVIDERS,
+    reason="Test requires ALLOW_TEST_EMAIL_PROVIDERS=false",
+)
 def test_register_rejects_free_provider():
     BusinessEmailVerifier._verify_mx_records = lambda self, d: True
 
