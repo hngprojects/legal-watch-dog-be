@@ -2,7 +2,6 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
