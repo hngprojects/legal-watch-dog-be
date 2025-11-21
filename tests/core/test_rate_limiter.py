@@ -76,7 +76,7 @@ def client(app_with_rate_limiter):
     redis_mock.zadd = AsyncMock(return_value=1)
     redis_mock.expire = AsyncMock(return_value=True)
     redis_mock.zrange = AsyncMock(return_value=[])
-    
+
     with patch("app.api.core.middleware.rate_limiter.get_redis_client") as mock_get_redis:
         mock_get_redis.return_value = redis_mock
         yield TestClient(app_with_rate_limiter), redis_mock
@@ -256,7 +256,7 @@ async def test_rate_limiter_different_clients(client):
     # Simulate reaching the rate limit by returning count >= limit
     mock_redis.zcard.return_value = 5
     mock_redis.zrange.return_value = [(str(time.time()), time.time())]
-    
+
     try:
         response = test_client.get("/test")
         # Should get 429 when rate limit is exceeded
