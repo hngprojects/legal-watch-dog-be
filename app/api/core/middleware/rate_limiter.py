@@ -4,7 +4,7 @@ import uuid
 from typing import Callable
 
 from redis.exceptions import RedisError
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -91,10 +91,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             call_next: The next middleware or route handler.
 
         Returns:
-            The response with rate limit headers added.
-
-        Raises:
-            HTTPException: 429 status code if rate limit is exceeded.
+            JSONResponse with 429 status code if rate limit is exceeded,
+            or the response from the next handler with rate limit headers added.
         """
         if self._is_excluded_path(request.url.path):
             return await call_next(request)
