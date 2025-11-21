@@ -33,8 +33,16 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     res = await routes.create_jurisdiction(payload, db=cast(Any, None))
 
-    assert isinstance(res, Jurisdiction)
-    assert res.id == fake_id
+    # route returns a JSONResponse; decode and assert payload
+    assert hasattr(res, "status_code")
+    assert res.status_code == 201
+    body = res.body
+    import json
+
+    content = json.loads(body)
+    assert "data" in content and "jurisdiction" in content["data"]
+    jur = content["data"]["jurisdiction"]
+    assert jur["id"] == str(fake_id)
 
 
 @pytest.mark.asyncio
@@ -44,8 +52,10 @@ async def test_get_jurisdiction_not_found_raises(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
 
-    with pytest.raises(HTTPException):
-        await routes.get_jurisdiction(uuid4(), db=cast(Any, None))
+    res = await routes.get_jurisdiction(uuid4(), db=cast(Any, None))
+    # route returns a failure JSONResponse with 404
+    assert hasattr(res, "status_code")
+    assert res.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -55,9 +65,10 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_all_jurisdictions", fake_all)
 
-    with pytest.raises(HTTPException):
-        # call without project_id -> will call get_all_jurisdictions
-        await routes.get_jurisdictions(project_id=None, db=cast(Any, None))
+    # call without project_id -> will call get_all_jurisdictions and return a JSONResponse
+    res = await routes.get_jurisdictions(project_id=None, db=cast(Any, None))
+    assert hasattr(res, "status_code")
+    assert res.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -81,6 +92,14 @@ async def test_restore_jurisdiction_success(monkeypatch):
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
     monkeypatch.setattr(routes.service, "update", fake_update)
 
-    restored = await routes.restore_jurisdiction(fake_id, db=cast(Any, None))
-    assert restored is not None
-    assert restored.is_deleted is False
+    res = await routes.restore_jurisdiction(fake_id, db=cast(Any, None))
+    # route returns a JSONResponse containing the restored jurisdiction
+    assert hasattr(res, "status_code")
+    assert res.status_code == 200
+    import json
+
+    content = json.loads(res.body)
+    assert "data" in content and "jurisdiction" in content["data"]
+    jur = content["data"]["jurisdiction"]
+    # restored is encoded as a dict; ensure is_deleted is False
+    assert jur.get("is_deleted") is False
