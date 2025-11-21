@@ -15,11 +15,6 @@ class JurisdictionCreateSchema(BaseModel):
     name: str
     description: str
     prompt: Optional[str] = None
-    scrape_output: Optional[Dict[str, Any]] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
-    is_deleted: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

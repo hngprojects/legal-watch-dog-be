@@ -64,26 +64,26 @@ class JurisdictionService:
             cast(Any, Jurisdiction.name) == name,
             cast(Any, Jurisdiction.is_deleted).is_(False),
         )
-        result = await db.exec(stmt)
+        result = await db.execute(stmt)
         # ScalarResult: use first() to retrieve the first mapped object or None
         return result.first()
 
     async def create(self, db: AsyncSession, jurisdiction: Jurisdiction):
         """Create a Jurisdiction. If first in project, set parent_id to itself."""
         try:
-            existing = None
-            project_id = jurisdiction.project_id
+            # existing = None
+            # project_id = jurisdiction.project_id
 
-            if project_id is not None:
-                stmt = select(Jurisdiction).where(
-                    cast(Any, Jurisdiction.project_id) == project_id,
-                    cast(Any, Jurisdiction.is_deleted).is_(False),
-                )
-                result = await db.exec(stmt)
-                existing = result.first()
+            # if project_id is not None:
+            #     stmt = select(Jurisdiction).where(
+            #         cast(Any, Jurisdiction.project_id) == project_id,
+            #         cast(Any, Jurisdiction.is_deleted).is_(False),
+            #     )
+            #     result = await db.execute(stmt)
+            #     existing = result.first()
 
-            if existing is None:
-                jurisdiction.parent_id = jurisdiction.id
+            # if existing is None:
+            #     jurisdiction.parent_id = jurisdiction.id
 
             # Now add and persist
             db.add(jurisdiction)
@@ -96,7 +96,9 @@ class JurisdictionService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            )
 
     async def get_jurisdictions_by_project(self, db: AsyncSession, project_id: UUID):
         """
@@ -126,8 +128,8 @@ class JurisdictionService:
                 cast(Any, Jurisdiction.project_id) == project_id,
                 cast(Any, Jurisdiction.is_deleted).is_(False),
             )
-            result = await db.exec(stmt)
-            jurisdictions = result.all()
+            result = await db.execute(stmt)
+            jurisdictions = result.scalars().all()
 
             if not jurisdictions:
                 raise HTTPException(
@@ -161,9 +163,11 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
-            result = await db.exec(stmt)
-            jurisdictions = result.all()
+            stmt = select(Jurisdiction).where(
+                cast(Any, Jurisdiction.is_deleted).is_(False)
+            )
+            result = await db.execute(stmt)
+            jurisdictions = result.scalars().all()
 
             if not jurisdictions:
                 raise HTTPException(status_code=404, detail="No jurisdictions found")
@@ -225,7 +229,7 @@ class JurisdictionService:
         """
         try:
             stmt = select(Jurisdiction)
-            result = await db.exec(stmt)
+            result = await db.execute(stmt)
             return result.all()
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
