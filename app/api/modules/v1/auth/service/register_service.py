@@ -94,7 +94,9 @@ class RegistrationService:
 
             await self._send_otp_email(payload.email, otp_code, background_tasks)
 
-            logger.info("Successfully initiated registration for email=%s", payload.email)
+            logger.info(
+                "Successfully initiated registration for email=%s", payload.email
+            )
 
             return {"email": payload.email}
 
@@ -133,7 +135,9 @@ class RegistrationService:
             "otp": otp_code,
         }
 
-        background_tasks.add_task(send_email, "otp.html", "OTP for Registration", email, context)
+        background_tasks.add_task(
+            send_email, "otp.html", "OTP for Registration", email, context
+        )
         logger.debug("OTP email queued for background sending to %s", email)
 
     async def resend_otp(
@@ -227,7 +231,9 @@ class RegistrationService:
             )
 
             if not credentials:
-                logger.warning("Invalid OTP or registration not found for email=%s", email)
+                logger.warning(
+                    "Invalid OTP or registration not found for email=%s", email
+                )
                 raise ValueError("Invalid or expired OTP code")
 
             try:
@@ -258,7 +264,9 @@ class RegistrationService:
             )
             logger.info("Created admin user with id=%s", admin_user.id)
 
-            await delete_organization_credentials(redis_client=self.redis_client, email=email)
+            await delete_organization_credentials(
+                redis_client=self.redis_client, email=email
+            )
             logger.info("Cleaned up pending registration for email=%s", email)
 
             await self.db.commit()
@@ -287,4 +295,6 @@ class RegistrationService:
                 exc_info=True,
             )
             await self.db.rollback()
-            raise Exception("An error occurred during registration completion. Please try again.")
+            raise Exception(
+                "An error occurred during registration completion. Please try again."
+            )
