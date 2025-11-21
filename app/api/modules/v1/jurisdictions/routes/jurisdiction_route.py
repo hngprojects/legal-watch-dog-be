@@ -242,7 +242,7 @@ async def delete_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(
 
 
 @router.post(
-    "/{jurisdiction_id}/restore",
+    "/jurisdictions/{id}/restoration",
     status_code=status.HTTP_200_OK,
     response_model=JurisdictionResponseSchema,
 )
