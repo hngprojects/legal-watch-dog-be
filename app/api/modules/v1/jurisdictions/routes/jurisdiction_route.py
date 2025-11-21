@@ -14,6 +14,7 @@ from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     JurisdictionService,
 )
+from app.api.utils.response_payloads import fail_response, success_response
 
 router = APIRouter(prefix="/jurisdictions", tags=["Jurisdictions"])
 
@@ -61,8 +62,20 @@ async def create_jurisdiction(
     """
 
     jurisdiction = Jurisdiction(**payload.model_dump())
-    created = await service.create(db, jurisdiction)
-    return created
+
+    try:
+        created = await service.create(db, jurisdiction)
+
+        return success_response(
+            status_code=201,
+            message="Jurisdiction created successfully",
+            data={"jurisdiction": created},
+        )
+
+    except Exception as e:
+        return fail_response(
+            status_code=400, message="Failed to create jurisdiction", error={"detail": str(e)}
+        )
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
@@ -108,9 +121,13 @@ async def get_jurisdictions(project_id: UUID | None = None, db: AsyncSession = D
         jurisdictions = await service.get_all_jurisdictions(db)
 
     if not jurisdictions:
-        raise HTTPException(status_code=404, detail="No jurisdictions found")
+        return fail_response(status_code=404, message="No jurisdictions found", error={})
 
-    return jurisdictions
+    return success_response(
+        status_code=200,
+        message="Jurisdictions retrieved successfully",
+        data={"jurisdictions": jurisdictions},
+    )
 
 
 @router.get(
@@ -155,8 +172,12 @@ async def get_jurisdiction(jurisdiction_id, db: AsyncSession = Depends(get_db)):
 
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
     if not jurisdiction:
-        raise HTTPException(status_code=404, detail="Jurisdiction not found")
-    return jurisdiction
+        return fail_response(status_code=404, message="Jurisdiction not found", error={})
+    return success_response(
+        status_code=200,
+        message="Jurisdictions retrieved successfully",
+        data={"jurisdictions": jurisdiction},
+    )
 
 
 @router.patch(
@@ -201,15 +222,26 @@ async def update_jurisdiction(
         or if a database error occurs during the update process.
     """
 
-    jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
-    if not jurisdiction:
-        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+    try:
+        jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
+        if not jurisdiction:
+            return fail_response(status_code=404, message="Jurisdiction not found", error={})
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(jurisdiction, key, value)
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(jurisdiction, key, value)
 
-    updated = await service.update(db, jurisdiction)
-    return updated
+        updated = await service.update(db, jurisdiction)
+
+        return success_response(
+            status_code=200,
+            message="Jurisdiction updated successfully",
+            data={"jurisdiction": updated},
+        )
+
+    except Exception as e:
+        return fail_response(
+            status_code=400, message="Failed to update jurisdiction", error={"detail": str(e)}
+        )
 
 
 @router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -236,9 +268,15 @@ async def delete_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(
     """
 
     jurisdiction = await service.soft_delete(db, jurisdiction_id)
+
     if not jurisdiction:
-        raise HTTPException(status_code=404, detail="Jurisdiction not found")
-    return
+        return fail_response(status_code=404, message="Jurisdiction not found", error={})
+
+    return success_response(
+        status_code=200,
+        message="Jurisdiction archived successfully",
+        data={"jurisdiction_id": str(jurisdiction_id)},
+    )
 
 
 @router.post(
@@ -269,10 +307,18 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     """
 
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
+
     if not jurisdiction or not jurisdiction.is_deleted:
-        raise HTTPException(status_code=404, detail="Jurisdiction not found or not deleted")
+        return fail_response(
+            status_code=404, message="Jurisdiction not found or not deleted", error={}
+        )
 
     jurisdiction.is_deleted = False
     jurisdiction.deleted_at = None
     restored = await service.update(db, jurisdiction)
-    return restored
+
+    return success_response(
+        status_code=200,
+        message="Jurisdiction restored successfully",
+        data={"jurisdiction": restored},
+    )
