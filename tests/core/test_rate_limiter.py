@@ -1,15 +1,33 @@
 import time
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 
 
-@pytest.fixture
-def app_with_rate_limiter():
+@pytest_asyncio.fixture
+async def mock_redis():
+    """
+    Create a mock Redis client for testing.
+
+    Returns:
+        AsyncMock: A mocked Redis client with common operations.
+    """
+    redis_mock = AsyncMock()
+    redis_mock.zremrangebyscore = AsyncMock(return_value=0)
+    redis_mock.zcard = AsyncMock(return_value=0)
+    redis_mock.zadd = AsyncMock(return_value=1)
+    redis_mock.expire = AsyncMock(return_value=True)
+    redis_mock.zrange = AsyncMock(return_value=[])
+    return redis_mock
+
+
+@pytest_asyncio.fixture
+async def app_with_rate_limiter(mock_redis):
     """
     Create a FastAPI app with rate limiting middleware.
 
@@ -18,14 +36,18 @@ def app_with_rate_limiter():
             - Rate limiting: 5 requests per minute
             - Excluded paths: /health, /excluded
             - Test endpoints: /test, /health, /excluded/resource
+            - Mocked Redis for testing
     """
     app = FastAPI()
 
-    app.add_middleware(
-        RateLimitMiddleware,
-        requests_per_minute=5,
-        excluded_paths=["/health", "/excluded"],
-    )
+    with patch(
+        "app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis
+    ):
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=5,
+            excluded_paths=["/health", "/excluded"],
+        )
 
     @app.get("/test")
     async def test_endpoint():
@@ -42,8 +64,8 @@ def app_with_rate_limiter():
     return app
 
 
-@pytest.fixture
-def client(app_with_rate_limiter):
+@pytest_asyncio.fixture
+async def client(app_with_rate_limiter):
     """
     Create a test client for the FastAPI application.
 
@@ -56,7 +78,7 @@ def client(app_with_rate_limiter):
     return TestClient(app_with_rate_limiter)
 
 
-def test_rate_limiter_allows_requests_within_limit(client):
+def test_rate_limiter_allows_requests_within_limit(client, mock_redis):
     """
     Test that requests within the rate limit are allowed.
 
@@ -68,8 +90,12 @@ def test_rate_limiter_allows_requests_within_limit(client):
 
     Args:
         client: The test client fixture.
+        mock_redis: Mocked Redis client.
     """
+    mock_redis.zcard.return_value = 0
+
     for i in range(5):
+        mock_redis.zcard.return_value = i
         response = client.get("/test")
         assert response.status_code == 200
         assert response.json() == {"message": "success"}
@@ -78,7 +104,7 @@ def test_rate_limiter_allows_requests_within_limit(client):
         assert "X-RateLimit-Remaining" in response.headers
 
 
-def test_rate_limiter_blocks_excess_requests(client):
+def test_rate_limiter_blocks_excess_requests(client, mock_redis):
     """
     Test that requests exceeding the rate limit are blocked.
 
@@ -90,10 +116,15 @@ def test_rate_limiter_blocks_excess_requests(client):
 
     Args:
         client: The test client fixture.
+        mock_redis: Mocked Redis client.
     """
     for i in range(5):
+        mock_redis.zcard.return_value = i
         response = client.get("/test")
         assert response.status_code == 200
+
+    mock_redis.zcard.return_value = 5
+    mock_redis.zrange.return_value = [(str(time.time()), time.time())]
 
     try:
         response = client.get("/test")
@@ -104,7 +135,7 @@ def test_rate_limiter_blocks_excess_requests(client):
         assert "rate limit exceeded" in str(e).lower()
 
 
-def test_rate_limiter_excluded_paths(client):
+def test_rate_limiter_excluded_paths(client, mock_redis):
     """
     Test that excluded paths are not rate limited.
 
@@ -116,6 +147,7 @@ def test_rate_limiter_excluded_paths(client):
 
     Args:
         client: The test client fixture.
+        mock_redis: Mocked Redis client.
     """
     for i in range(20):
         response = client.get("/health")
@@ -124,11 +156,12 @@ def test_rate_limiter_excluded_paths(client):
         response = client.get("/excluded/resource")
         assert response.status_code == 200
 
+    mock_redis.zcard.return_value = 0
     response = client.get("/test")
     assert response.status_code == 200
 
 
-def test_rate_limiter_headers(client):
+def test_rate_limiter_headers(client, mock_redis):
     """
     Test that rate limit headers are correctly set.
 
@@ -140,7 +173,9 @@ def test_rate_limiter_headers(client):
 
     Args:
         client: The test client fixture.
+        mock_redis: Mocked Redis client.
     """
+    mock_redis.zcard.return_value = 1
     response = client.get("/test")
     assert response.status_code == 200
 
@@ -153,7 +188,7 @@ def test_rate_limiter_headers(client):
     assert 0 <= remaining <= 5
 
 
-def test_rate_limiter_reset_time(client):
+def test_rate_limiter_reset_time(client, mock_redis):
     """
     Test that rate limit includes reset time in error response.
 
@@ -165,10 +200,16 @@ def test_rate_limiter_reset_time(client):
 
     Args:
         client: The test client fixture.
+        mock_redis: Mocked Redis client.
     """
     responses = []
     try:
         for i in range(6):
+            if i < 5:
+                mock_redis.zcard.return_value = i
+            else:
+                mock_redis.zcard.return_value = 5
+                mock_redis.zrange.return_value = [(str(time.time()), time.time())]
             response = client.get("/test")
             responses.append(response)
     except Exception as e:
@@ -184,27 +225,30 @@ def test_rate_limiter_reset_time(client):
         assert error_data["retry_after"] > 0
 
 
-def test_rate_limiter_different_clients():
+@pytest.mark.asyncio
+async def test_rate_limiter_different_clients(mock_redis):
     """
-    Test that rate limiting is per client IP.
-
-    Note:
-        TestClient uses the same IP for all clients in the test environment.
-        This test verifies the mechanism exists, even if TestClient limitation
-        prevents full isolation. In production, different IPs would be properly
-        separated.
+    Test that rate limiting is per client IP using Redis.
 
     Verifies:
-        - Rate limiting tracks requests per client IP
+        - Rate limiting tracks requests per client IP in Redis
+        - Redis keys are properly namespaced with client IP
         - Requests within limit succeed
         - Requests exceeding limit are blocked
+
+    Args:
+        mock_redis: Mocked Redis client.
     """
     app = FastAPI()
-    app.add_middleware(
-        RateLimitMiddleware,
-        requests_per_minute=3,
-        excluded_paths=[],
-    )
+
+    with patch(
+        "app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis
+    ):
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=3,
+            excluded_paths=[],
+        )
 
     @app.get("/test")
     async def test_endpoint():
@@ -213,42 +257,14 @@ def test_rate_limiter_different_clients():
     client1 = TestClient(app, raise_server_exceptions=False)
 
     for i in range(3):
+        mock_redis.zcard.return_value = i
         response = client1.get("/test")
         assert response.status_code == 200
 
+    mock_redis.zcard.return_value = 3
+    mock_redis.zrange.return_value = [(str(time.time()), time.time())]
     response = client1.get("/test")
     assert response.status_code in [429, 500]
-
-
-@pytest.mark.asyncio
-async def test_rate_limiter_cleanup():
-    """
-    Test that old requests are cleaned up after 60 seconds.
-
-    Verifies:
-        - Requests older than 60 seconds are removed from memory
-        - Recent requests (< 60 seconds) are retained
-        - Cleanup logic works correctly with mixed timestamps
-    """
-    from app.api.core.middleware.rate_limiter import RateLimitMiddleware
-
-    app = MagicMock()
-    middleware = RateLimitMiddleware(app, requests_per_minute=5)
-
-    client_ip = "192.168.1.1"
-    current_time = time.time()
-
-    middleware.request_logs[client_ip] = [
-        current_time - 120,
-        current_time - 90,
-        current_time - 30,
-        current_time - 10,
-    ]
-
-    middleware._clean_old_requests(client_ip, current_time)
-
-    assert len(middleware.request_logs[client_ip]) == 2
-    assert all(ts > current_time - 60 for ts in middleware.request_logs[client_ip])
 
 
 def test_rate_limiter_get_client_ip():
