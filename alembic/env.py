@@ -12,6 +12,8 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+from app.api.modules.v1.projects.models.project_regulatory_source_model import ProjectRegulatorySource
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

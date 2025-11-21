@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.api.modules.v1.projects.models.project_regulatory_source_model import (
+    ProjectRegulatorySource,
+)
+
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
@@ -42,3 +46,5 @@ class Project(SQLModel, table=True):
     organization: Optional["Organization"] = Relationship(back_populates="projects")
 
     project_users: List["ProjectUser"] = Relationship(back_populates="project")
+    
+    regulatory_sources: list[ProjectRegulatorySource] = Relationship(back_populates="project")
