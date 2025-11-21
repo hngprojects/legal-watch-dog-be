@@ -3,9 +3,9 @@ import time
 import uuid
 from typing import Callable
 
-from redis.exceptions import RedisError
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
+from redis.exceptions import RedisError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.core.dependencies.redis_service import get_redis_client
