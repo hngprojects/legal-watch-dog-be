@@ -1,8 +1,12 @@
 import re
 
-from app.api.core.config import Settings
+from app.api.core.config import settings
 
 __all__ = ["is_strong_password", "is_company_email"]
+
+_TEST_EMAIL_PROVIDERS = set()
+if settings.ALLOW_TEST_EMAIL_PROVIDERS:
+    _TEST_EMAIL_PROVIDERS = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
 
 
 def is_strong_password(password: str) -> bool:
@@ -63,11 +67,8 @@ def is_company_email(email: str) -> bool:
         domain = email.split("@")[1].lower()
 
         # Allow test email providers if configured
-        settings = Settings()
-        if settings.ALLOW_TEST_EMAIL_PROVIDERS:
-            test_providers = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
-            if domain in test_providers:
-                return True
+        if settings.ALLOW_TEST_EMAIL_PROVIDERS and domain in _TEST_EMAIL_PROVIDERS:
+            return True
 
         return domain not in personal_domains
     except IndexError:

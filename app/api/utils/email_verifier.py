@@ -6,6 +6,12 @@ from typing import Dict, Optional, Tuple
 
 import dns.resolver
 
+from app.api.core.config import settings
+
+_TEST_EMAIL_PROVIDERS = set()
+if settings.ALLOW_TEST_EMAIL_PROVIDERS:
+    _TEST_EMAIL_PROVIDERS = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
+
 
 class EmailType(Enum):
     BUSINESS = "business"
@@ -120,15 +126,6 @@ class BusinessEmailVerifier:
         self.rate_limit_delay = rate_limit_delay
         self.last_dns_query_time = 0
 
-        # Load settings for test provider configuration
-        from app.api.core.config import Settings
-
-        self.settings = Settings()
-        self._test_providers = set()
-        if self.settings.ALLOW_TEST_EMAIL_PROVIDERS:
-            providers_str = self.settings.TEST_EMAIL_PROVIDERS
-            self._test_providers = {p.strip().lower() for p in providers_str.split(",")}
-
     def verify_email(self, email: str) -> EmailVerificationResult:
         """Verify an email and return a detailed result.
 
@@ -235,7 +232,7 @@ class BusinessEmailVerifier:
             True when domain is in FREE_EMAIL_PROVIDERS, unless it's an allowed test provider.
         """
         # Allow test email providers if configured
-        if self.settings.ALLOW_TEST_EMAIL_PROVIDERS and domain in self._test_providers:
+        if settings.ALLOW_TEST_EMAIL_PROVIDERS and domain in _TEST_EMAIL_PROVIDERS:
             return False
         return domain in self.FREE_EMAIL_PROVIDERS
 
