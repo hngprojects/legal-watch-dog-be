@@ -11,6 +11,7 @@ from app.api.modules.v1.organization.service.organization import OrganizationCRU
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.generate_otp import generate_code
+from app.api.utils.get_organization_by_email import get_organization_by_email
 from app.api.utils.organization_validations import (
     validate_no_pending_registration,
     validate_organization_email_available,
@@ -18,6 +19,7 @@ from app.api.utils.organization_validations import (
 from app.api.utils.password import hash_password
 from app.api.utils.redis import (
     delete_organization_credentials,
+    get_organization_credentials,
     store_organization_credentials,
     verify_and_get_credentials,
 )
@@ -133,6 +135,69 @@ class RegistrationService:
 
         background_tasks.add_task(send_email, "otp.html", "OTP for Registration", email, context)
         logger.debug("OTP email queued for background sending to %s", email)
+
+    async def resend_otp(
+        self,
+        email: str,
+        background_tasks: BackgroundTasks,
+    ) -> dict:
+        """
+        Resend registration OTP for a pending company signup.
+
+        Rules:
+        - If the organization already exists for this email -> raise a ValueError telling the
+            client that registration is already complete and they should log in instead.
+        - If there's a pending registration in Redis -> generate a new OTP, update the stored
+            otp_code and TTL, and send a fresh OTP email.
+        - If neither an organization nor a pending registration exists -> raise a ValueError
+            telling the client to sign up first.
+
+        This does NOT create a new registration; it only works with an existing pending one.
+        """
+        logger.info("Starting resend OTP for email=%s", email)
+
+        try:
+            existing_org = await get_organization_by_email(self.db, email)
+            if existing_org:
+                logger.warning("Resend OTP requested for already registered email=%s", email)
+                raise ValueError(
+                    "Registration already completed for this email. Please log in instead."
+                )
+
+            credentials = await get_organization_credentials(self.redis_client, email)
+
+            if not credentials:
+                logger.warning("No pending registration found for email=%s", email)
+                raise ValueError(
+                    "No pending registration found for this email. Please sign up again."
+                )
+
+            otp_code = generate_code()
+            credentials["otp_code"] = otp_code
+
+            await store_organization_credentials(
+                redis_client=self.redis_client,
+                email=email,
+                registration_data=credentials,
+                ttl_seconds=settings.REDIS_CACHE_TTL_SECONDS,
+            )
+
+            await self._send_otp_email(email, otp_code, background_tasks)
+
+            logger.info("Resent OTP successfully for email=%s", email)
+
+            return {"email": email}
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                "Unexpected error during resend OTP for email=%s: %s",
+                email,
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("An error occurred while resending OTP. Please try again.")
 
     async def verify_otp_and_complete_registration(self, email: str, code: str) -> dict:
         """
