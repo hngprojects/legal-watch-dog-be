@@ -24,14 +24,14 @@ from app.api.modules.v1.projects.utils.project_utils import (
     get_user_by_id,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 async def create_project_service(
     db: AsyncSession,
     data: ProjectBase,
     organization_id: UUID,
-    creator_id: UUID,
+    user_id: UUID,
 ) -> Project:
     """
     Create a new project and add creator as member.
@@ -40,14 +40,14 @@ async def create_project_service(
         db: Database session
         data: Project creation data
         organization_id: Organization UUID
-        creator_id: User UUID of creator
+        user_id: User UUID of user
 
     Returns:
         Created Project object
     """
     logger.info(
         f"Creating project '{data.title}' for organization_id={organization_id}, "
-        f"creator_id={creator_id}"
+        f"user_id={user_id}"
     )
 
     project = Project(
@@ -58,17 +58,10 @@ async def create_project_service(
     )
 
     db.add(project)
-    await db.flush()
+    await db.commit()
+    db.refresh()
 
     logger.info(f"Created project with id={project.id}")
-
-    project_user = ProjectUser(project_id=project.id, user_id=creator_id)
-    db.add(project_user)
-
-    await db.commit()
-    await db.refresh(project)
-
-    logger.info(f"Added creator to project, project_id={project.id}, user_id={creator_id}")
 
     return project
 
@@ -77,7 +70,6 @@ async def list_projects_service(
     db: AsyncSession,
     organization_id: UUID,
     q: Optional[str] = None,
-    owner: Optional[UUID] = None,
     page: int = 1,
     limit: int = 20,
 ) -> dict:
@@ -97,7 +89,7 @@ async def list_projects_service(
     """
     logger.info(
         f"Listing projects for organization_id={organization_id}, "
-        f"q={q}, owner={owner}, page={page}, limit={limit}"
+        f"q={q}, page={page}, limit={limit}"
     )
 
     statement = select(Project).where(Project.org_id == organization_id)
@@ -105,10 +97,6 @@ async def list_projects_service(
     if q:
         statement = statement.where(Project.title.ilike(f"%{q}%"))
         logger.info(f"Applied search filter: q={q}")
-
-    if owner:
-        statement = statement.join(ProjectUser).where(ProjectUser.user_id == owner)
-        logger.info(f"Applied owner filter: owner={owner}")
 
     count_statement = select(func.count()).select_from(statement.subquery())
     total_result = await db.execute(count_statement)
