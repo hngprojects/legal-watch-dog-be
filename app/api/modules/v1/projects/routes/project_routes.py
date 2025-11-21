@@ -59,7 +59,7 @@ async def create_project(
         return success_response(
             status_code=status.HTTP_201_CREATED,
             message="Project created successfully",
-            data=ProjectResponse.model_validate(project).model_dump(),
+            data=ProjectResponse.model_validate(project).model_dump().model_dump(),
         )
 
     except Exception:
