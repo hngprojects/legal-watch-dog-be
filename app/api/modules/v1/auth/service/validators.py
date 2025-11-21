@@ -1,5 +1,7 @@
 import re
 
+from app.api.core.config import Settings
+
 __all__ = ["is_strong_password", "is_company_email"]
 
 
@@ -32,7 +34,8 @@ def is_company_email(email: str) -> bool:
     """Return True if the email appears to be from a company domain.
 
     This function checks if the email domain is not from common personal
-    or disposable email providers.
+    or disposable email providers. Can be overridden for test email providers
+    via ALLOW_TEST_EMAIL_PROVIDERS configuration.
 
     Args:
         email: Email address to validate.
@@ -58,6 +61,14 @@ def is_company_email(email: str) -> bool:
     try:
         # Extract domain from email
         domain = email.split("@")[1].lower()
+
+        # Allow test email providers if configured
+        settings = Settings()
+        if settings.ALLOW_TEST_EMAIL_PROVIDERS:
+            test_providers = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
+            if domain in test_providers:
+                return True
+
         return domain not in personal_domains
     except IndexError:
         # Invalid email format
