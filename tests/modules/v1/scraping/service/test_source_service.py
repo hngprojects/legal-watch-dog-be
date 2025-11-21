@@ -331,22 +331,22 @@ class TestSourceServiceDelete:
 
     @pytest.mark.asyncio
     async def test_delete_source_success(self, sample_source_db):
-        """Test successful source deletion."""
+        """Test successful source deletion (soft delete by default)."""
 
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
         mock_db.get = AsyncMock(return_value=sample_source_db)
-        mock_db.delete = AsyncMock()
         mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
 
         result = await service.delete_source(mock_db, sample_source_db.id)
 
         assert "message" in result
         assert "Source successfully deleted" in result["message"]
         assert result["source_id"] == str(sample_source_db.id)
-        mock_db.delete.assert_awaited_once_with(sample_source_db)
         mock_db.commit.assert_awaited_once()
+        mock_db.refresh.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_delete_source_not_found(self):
@@ -371,7 +371,7 @@ class TestSourceServiceDelete:
         service = SourceService()
 
         mock_db.get = AsyncMock(return_value=sample_source_db)
-        mock_db.delete = AsyncMock(side_effect=Exception("DB Error"))
+        mock_db.commit = AsyncMock(side_effect=Exception("DB Error"))
         mock_db.rollback = AsyncMock()
         with pytest.raises(HTTPException) as exc_info:
             await service.delete_source(mock_db, sample_source_db.id)
