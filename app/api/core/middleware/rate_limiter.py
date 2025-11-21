@@ -1,11 +1,16 @@
+import logging
 import time
+import uuid
 from typing import Callable
 
-import redis.asyncio as aioredis
-from fastapi import HTTPException, Request, Response
+from redis.exceptions import RedisError
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.core.dependencies.redis_service import get_redis_client
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -114,9 +119,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 else:
                     reset_time = 60
 
-                raise HTTPException(
+                return JSONResponse(
                     status_code=429,
-                    detail={
+                    content={
                         "status": "failure",
                         "status_code": 429,
                         "message": (
@@ -127,20 +132,30 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     },
                 )
 
-            await redis_client.zadd(redis_key, {str(current_time): current_time})
+            # Use unique ID with timestamp as score to avoid collisions
+            member = f"{current_time}:{uuid.uuid4()}"
+            await redis_client.zadd(redis_key, {member: current_time})
             await redis_client.expire(redis_key, 60)
 
             response = await call_next(request)
+
+            # Get the oldest request timestamp to calculate reset time
+            oldest_request = await redis_client.zrange(redis_key, 0, 0, withscores=True)
+            if oldest_request:
+                oldest_timestamp = oldest_request[0][1]
+                reset_timestamp = int(oldest_timestamp + 60)
+            else:
+                reset_timestamp = int(current_time + 60)
 
             request_count = await redis_client.zcard(redis_key)
             remaining = self.requests_per_minute - request_count
             response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
-            response.headers["X-RateLimit-Reset"] = str(int(current_time + 60))
+            response.headers["X-RateLimit-Reset"] = str(reset_timestamp)
 
             return response
 
-        except aioredis.RedisError as e:
-            print(f"Redis error in rate limiter: {e}")
+        except RedisError as e:
+            logger.error(f"Redis error in rate limiter: {e}")
             response = await call_next(request)
             return response
