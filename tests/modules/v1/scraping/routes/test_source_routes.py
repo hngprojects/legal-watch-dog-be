@@ -521,14 +521,13 @@ class TestDeleteSourceEndpoint:
         )
 
         # Assert
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert data["status"] == "success"
-        assert "deleted" in data["message"].lower()
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert response.content == b""
 
-        # Verify source is actually deleted
+        # Verify source is soft-deleted (default behavior)
         deleted_source = await test_session.get(Source, source_id)
-        assert deleted_source is None
+        assert deleted_source is not None
+        assert deleted_source.is_deleted is True
 
     @pytest.mark.asyncio
     async def test_delete_source_not_found(self, client, test_session, auth_headers, sample_user):
