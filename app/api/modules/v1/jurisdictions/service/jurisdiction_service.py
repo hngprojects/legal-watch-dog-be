@@ -14,7 +14,25 @@ from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdict
 
 class JurisdictionService:
     async def get_jurisdiction_by_id(self, db: AsyncSession, jurisdiction_id: UUID):
-        """Finds Jurisdiction by Id"""
+        """
+        Retrieve a single Jurisdiction by its unique identifier.
+
+        This method queries the database for a Jurisdiction with the given `jurisdiction_id`.
+        If no matching record is found, it raises an HTTPException with status code 404.
+        Any database errors during the query will raise an HTTPException with status code 500.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute queries.
+            jurisdiction_id (UUID): The unique identifier of the Jurisdiction to retrieve.
+
+        Returns:
+            Jurisdiction: The matching Jurisdiction instance from the database.
+
+        Raises:
+            HTTPException:
+                - 404 if the Jurisdiction does not exist.
+                - 500 if a database error occurs.
+        """
         try:
             jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
             if not jurisdiction:
@@ -24,7 +42,24 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def get_jurisdiction_by_name(self, db: AsyncSession, name: str):
-        """Finds Jurisdiction by name"""
+        """
+        Retrieve a single Jurisdiction by its name.
+
+        This method queries the database for a Jurisdiction with the specified `name`
+        that has not been soft-deleted (`is_deleted=False`). If multiple jurisdictions
+        match the name, only the first one is returned.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute queries.
+            name (str): The name of the Jurisdiction to retrieve.
+
+        Returns:
+            Optional[Jurisdiction]: The first matching Jurisdiction instance if found,
+            otherwise None.
+
+        Raises:
+            SQLAlchemyError: If a database error occurs during the query.
+        """
         stmt = select(Jurisdiction).where(
             cast(Any, Jurisdiction.name) == name,
             cast(Any, Jurisdiction.is_deleted).is_(False),
@@ -64,7 +99,26 @@ class JurisdictionService:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     async def get_jurisdictions_by_project(self, db: AsyncSession, project_id: UUID):
-        """Get all jurisdictions for a specific project"""
+        """
+        Retrieve all active jurisdictions associated with a specific project.
+
+        This method queries the database for all Jurisdiction records where
+        `project_id` matches the given value and `is_deleted` is False (i.e., not soft-deleted).
+        If no jurisdictions are found for the project, an HTTPException with status code 404
+        is raised. Any database errors during the query will raise an HTTPException with status code 500.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute queries.
+            project_id (UUID): The unique identifier of the project whose jurisdictions are being retrieved.
+
+        Returns:
+            List[Jurisdiction]: A list of Jurisdiction instances associated with the project.
+
+        Raises:
+            HTTPException:
+                - 404 if no jurisdictions are found for the project.
+                - 500 if a database error occurs.
+        """
         try:
             stmt = select(Jurisdiction).where(
                 cast(Any, Jurisdiction.project_id) == project_id,
@@ -84,7 +138,24 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def get_all_jurisdictions(self, db: AsyncSession):
-        """Get all Jurisductions"""
+        """
+        Retrieve all active jurisdictions in the system.
+
+        This method queries the database for all Jurisdiction records where `is_deleted` is False
+        (i.e., not soft-deleted). If no jurisdictions are found, an HTTPException with status code 404
+        is raised. Any database errors during the query will raise an HTTPException with status code 500.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute queries.
+
+        Returns:
+            List[Jurisdiction]: A list of all active Jurisdiction instances.
+
+        Raises:
+            HTTPException:
+                - 404 if no jurisdictions are found.
+                - 500 if a database error occurs.
+        """
         try:
             stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
             result = await db.exec(stmt)
@@ -99,7 +170,25 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def update(self, db: AsyncSession, jurisdiction: Jurisdiction):
-        """Update a jurisdiction with error handling"""
+        """
+        Persist updates to an existing Jurisdiction in the database.
+
+        This method commits any changes made to the given `jurisdiction` instance and refreshes it
+        from the database to ensure the latest state is returned. It handles database errors and
+        integrity constraints by rolling back the transaction and raising an HTTPException.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to commit changes.
+            jurisdiction (Jurisdiction): The Jurisdiction instance with updated fields.
+
+        Returns:
+            Jurisdiction: The updated Jurisdiction instance reflecting persisted changes.
+
+        Raises:
+            HTTPException:
+                - 400 if an integrity constraint is violated (e.g., unique or foreign key constraints).
+                - 500 if a general database error occurs during commit or refresh.
+        """
         try:
             await db.commit()
             await db.refresh(jurisdiction)
@@ -112,7 +201,23 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def read(self, db: AsyncSession):
-        """Read all jurisdictions with error handling"""
+        """
+        Retrieve all jurisdictions from the database, including soft-deleted ones.
+
+        This method queries the database for all Jurisdiction records without filtering
+        by `is_deleted`. It handles database errors by raising an HTTPException with
+        a 500 status code if any issues occur during the query execution.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute queries.
+
+        Returns:
+            List[Jurisdiction]: A list of all Jurisdiction instances in the database.
+
+        Raises:
+            HTTPException:
+                - 500 if a database error occurs while retrieving jurisdictions.
+        """
         try:
             stmt = select(Jurisdiction)
             result = await db.exec(stmt)
@@ -121,7 +226,26 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def soft_delete(self, db: AsyncSession, jurisdiction_id: UUID):
-        """Soft delete a jurisdiction by setting is_deleted=True and deleted_at timestamp"""
+        """
+        Soft delete a Jurisdiction by marking it as deleted without removing it from the database.
+
+        This method sets the `is_deleted` flag to True and updates the `deleted_at` timestamp
+        to the current time for the jurisdiction identified by `jurisdiction_id`. The record
+        remains in the database for historical reference or potential restoration.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to persist changes.
+            jurisdiction_id (UUID): The unique identifier of the Jurisdiction to be soft-deleted.
+
+        Returns:
+            Optional[Jurisdiction]: The soft-deleted Jurisdiction instance if found,
+            otherwise None if no matching jurisdiction exists.
+
+        Raises:
+            HTTPException:
+                - 400 if the soft delete violates integrity constraints (e.g., foreign key dependencies).
+                - 500 if a database error occurs during the update.
+        """
         jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
         if not jurisdiction:
             return None
@@ -146,7 +270,24 @@ class JurisdictionService:
             )
 
     async def delete(self, db: AsyncSession, jurisdiction: Jurisdiction) -> bool:
-        """Permanently delete a jurisdiction record from the database."""
+        """
+        Permanently delete a Jurisdiction record from the database.
+
+        This method removes the given `jurisdiction` instance from the database and commits
+        the transaction. Unlike `soft_delete`, this operation irreversibly deletes the record.
+
+        Args:
+            db (AsyncSession): The asynchronous database session used to execute the deletion.
+            jurisdiction (Jurisdiction): The Jurisdiction instance to be permanently removed.
+
+        Returns:
+            bool: True if the deletion was successful.
+
+        Raises:
+            HTTPException:
+                - 400 if the deletion violates integrity constraints (e.g., related records exist).
+                - 500 if a database error occurs during the deletion.
+        """
         try:
             # Expecting a jurisdiction instance to be passed in (as tests provide)
             await db.delete(jurisdiction)
