@@ -73,9 +73,7 @@ async def create_jurisdiction(
         )
 
     except Exception:
-        return fail_response(
-            status_code=400, message="Failed to create jurisdiction"
-        )
+        return fail_response(status_code=400, message="Failed to create jurisdiction")
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
@@ -239,8 +237,7 @@ async def update_jurisdiction(
         )
 
     except Exception:
-        return fail_response(
-            status_code=400, message="Failed to update jurisdiction")
+        return fail_response(status_code=400, message="Failed to update jurisdiction")
 
 
 @router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -308,9 +305,7 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
 
     if not jurisdiction or not jurisdiction.is_deleted:
-        return fail_response(
-            status_code=404, message="Jurisdiction not found or not deleted"
-        )
+        return fail_response(status_code=404, message="Jurisdiction not found or not deleted")
 
     jurisdiction.is_deleted = False
     jurisdiction.deleted_at = None
