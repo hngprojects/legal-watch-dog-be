@@ -33,7 +33,7 @@ class Project(SQLModel, table=True):
     )
     is_deleted: bool = Field(default=False)
     deleted_at: Optional[datetime] = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(DateTime(timezone=True), nullable=True),
         default=None,
     )
     created_at: datetime = Field(
