@@ -28,7 +28,7 @@ async def get_project_by_id(
     )
     result = await db.execute(statement)
     # db.execute() returns a ScalarResult from SQLModel; use one_or_none()
-    return result.one_or_none()
+    return result.scalars().first()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID) -> Optional[User]:

@@ -7,7 +7,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -26,7 +26,10 @@ from app.api.modules.v1.projects.services.project_service import (
     update_project_service,
 )
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.response_payloads import fail_response, success_response
+from app.api.utils.response_payloads import (
+    fail_response,
+    success_response,
+)
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 logger = logging.getLogger("app")
@@ -59,7 +62,7 @@ async def create_project(
         return success_response(
             status_code=status.HTTP_201_CREATED,
             message="Project created successfully",
-            data=ProjectResponse.model_validate(project).model_dump().model_dump(),
+            data=ProjectResponse.model_validate(project).model_dump(),
         )
 
     except Exception:
@@ -210,7 +213,7 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Archive or soft-delete a project. This removes the project from
+    Delete a project. This removes the project from
     active listings but preserves historical data for audit purposes.
     """
     logger.info(f"Deleting project_id={project_id} for user_id={current_user.id}")
@@ -224,11 +227,7 @@ async def delete_project(
                 message="Project not found",
             )
 
-        return success_response(
-            status_code=status.HTTP_204_NO_CONTENT,
-            message="Project deleted successfully",
-            data={},
-        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except Exception:
         logger.exception(f"Error deleting project_id={project_id}")
