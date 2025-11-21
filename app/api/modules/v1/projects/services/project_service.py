@@ -46,8 +46,7 @@ async def create_project_service(
         Created Project object
     """
     logger.info(
-        f"Creating project '{data.title}' for organization_id={organization_id}, "
-        f"user_id={user_id}"
+        f"Creating project '{data.title}' for organization_id={organization_id}, user_id={user_id}"
     )
 
     project = Project(
@@ -59,7 +58,7 @@ async def create_project_service(
 
     db.add(project)
     await db.commit()
-    db.refresh()
+    db.refresh(project)
 
     logger.info(f"Created project with id={project.id}")
 
@@ -88,8 +87,7 @@ async def list_projects_service(
         Dictionary with projects list and pagination metadata
     """
     logger.info(
-        f"Listing projects for organization_id={organization_id}, "
-        f"q={q}, page={page}, limit={limit}"
+        f"Listing projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
     )
 
     statement = select(Project).where(Project.org_id == organization_id)
@@ -100,13 +98,15 @@ async def list_projects_service(
 
     count_statement = select(func.count()).select_from(statement.subquery())
     total_result = await db.execute(count_statement)
-    total = total_result.scalar()
+    # ScalarResult from db.exec(); use one() to retrieve the single scalar count
+    total = total_result.scalar_one()
 
     logger.info(f"Found {total} projects matching criteria")
 
     offset = (page - 1) * limit
-    statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
-
+    statement = (
+        statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
+    )
     result = await db.execute(statement)
     projects = result.scalars().all()
 
@@ -235,7 +235,7 @@ async def get_project_users_service(
 
     statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
     result = await db.execute(statement)
-    user_ids = result.scalars().all()
+    user_ids = result.all()
 
     logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
 
@@ -307,8 +307,9 @@ async def remove_user_from_project_service(
     statement = select(ProjectUser).where(
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
+    # prefer SQLModel AsyncSession.execute which returns a ScalarResult
     result = await db.execute(statement)
-    project_user = result.scalar_one_or_none()
+    project_user = result.one_or_none()
 
     if not project_user:
         logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
