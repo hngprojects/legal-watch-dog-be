@@ -1,45 +1,141 @@
-name: Deploy Backend
+name: Backend CD - Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches:
+      - main
       - dev
 
 jobs:
-  deploy:
-    name: Deploy to EC2
+  # DEPLOY TO STAGING (DEV BRANCH)
+  deploy_staging:
+    name: CD - Backend Deploy (Staging)
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    environment: staging
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate environment file
+      - name: Generate staging environment file
         run: |
-          cat <<EOF > .env.dev
+          cat <<EOF > .env.staging
           DEBUG=False
-          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_NAME="${{ vars.STAGING_APP_NAME || 'LEGAL WATCH DOG' }}"
           APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
-          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8000' }}"
-          ENVIRONMENT="${{ vars.ENVIRONMENT || 'production' }}"
-          SECRET_KEY="${{ secrets.SECRET_KEY || vars.SECRET_KEY }}"
-          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.LEGAL_WATCH_DOG_BASE_URL || vars.LEGAL_WATCH_DOG_BASE_URL }}"
+          APP_PORT="${{ secrets.STAGING_APP_PORT || vars.STAGING_APP_PORT || '8000' }}"
+          ENVIRONMENT="staging"
+          SECRET_KEY="${{ secrets.STAGING_SECRET_KEY }}"
+          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.STAGING_BASE_URL || vars.STAGING_BASE_URL }}"
 
           DB_TYPE="${{ vars.DB_TYPE || 'postgresql' }}"
-          DB_HOST="${{ secrets.DB_HOST || vars.DB_HOST }}"
+          DB_HOST="${{ secrets.STAGING_DB_HOST }}"
           DB_PORT="${{ vars.DB_PORT || '5432' }}"
-          DB_USER="${{ secrets.DB_USER || vars.DB_USER }}"
-          DB_PASS="${{ secrets.DB_PASS || vars.DB_PASS }}"
-          DB_NAME="${{ secrets.DB_NAME || vars.DB_NAME }}"
-          DATABASE_URL="postgresql://${{ secrets.DB_USER || vars.DB_USER }}:${{ secrets.DB_PASS || vars.DB_PASS }}@${{ secrets.DB_HOST || vars.DB_HOST }}/${{ secrets.DB_NAME || vars.DB_NAME }}"
+          DB_USER="${{ secrets.STAGING_DB_USER }}"
+          DB_PASS="${{ secrets.STAGING_DB_PASS }}"
+          DB_NAME="${{ secrets.STAGING_DB_NAME }}"
+          DATABASE_URL="postgresql://${{ secrets.STAGING_DB_USER }}:${{ secrets.STAGING_DB_PASS }}@${{ secrets.STAGING_DB_HOST }}/${{ secrets.STAGING_DB_NAME }}"
 
           MAIL_MAILER="smtp"
           SMTP_SERVER="${{ vars.SMTP_SERVER || 'smtp.gmail.com' }}"
           SMTP_PORT="${{ vars.SMTP_PORT || '587' }}"
-          MAIL_USERNAME="${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME }}"
-          MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD || vars.MAIL_PASSWORD }}"
+          MAIL_USERNAME="${{ secrets.STAGING_MAIL_USERNAME }}"
+          MAIL_PASSWORD="${{ secrets.STAGING_MAIL_PASSWORD }}"
           MAIL_ENCRYPTION="TLS"
-          EMAIL="${{ secrets.EMAIL || vars.EMAIL }}"
+          EMAIL="${{ secrets.STAGING_EMAIL }}"
+          MAIL_FROM_NAME="LEGAL WATCH DOG - Staging"
+          EOF
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Upload .env file to server
+        run: |
+          sshpass -p "${{ secrets.STAGING_PASS }}" scp -o StrictHostKeyChecking=no .env.staging ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_IP }}:/tmp/backend_env
+
+      - name: Set up SSH and Deploy
+        env:
+          SERVER_PASS: ${{ secrets.STAGING_PASS }}
+          SERVER_USER: ${{ secrets.STAGING_USER }}
+          SERVER_IP: ${{ secrets.STAGING_IP }}
+        run: |
+          echo "access gained"
+          echo "deploying to staging server"
+
+          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
+
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-BE"
+            
+            # Clone if the directory doesn't exist
+            if [ ! -d "$REMOTE_DIR" ]; then
+              cd /home/ifeanyinw/apps/backend/
+              git clone https://github.com/hngprojects/legal-watch-dog-BE.git "$REMOTE_DIR"
+            fi
+
+            cd "$REMOTE_DIR"
+            
+            git pull origin dev
+            
+            mv /tmp/backend_env .env
+            
+            uv sync
+            
+            # Stop existing process
+            pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
+            sleep 2
+            
+            export $(grep -v '^#' .env | xargs)
+            
+            # Start the application
+            nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
+            
+            echo "Staging deployment complete on port $APP_PORT!"
+          EOF
+
+      - name: Mark Deployment Result
+        if: failure()
+        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
+
+  # DEPLOY TO PRODUCTION (MAIN BRANCH)
+  deploy_production:
+    name: CD - Backend Deploy (Production)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate production environment file
+        run: |
+          cat <<EOF > .env.production
+          DEBUG=False
+          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
+          APP_PORT="${{ secrets.PROD_APP_PORT || vars.PROD_APP_PORT || '8000' }}"
+          ENVIRONMENT="production"
+          SECRET_KEY="${{ secrets.PROD_SECRET_KEY }}"
+          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.PROD_BASE_URL || vars.PROD_BASE_URL }}"
+
+          DB_TYPE="${{ vars.DB_TYPE || 'postgresql' }}"
+          DB_HOST="${{ secrets.PROD_DB_HOST }}"
+          DB_PORT="${{ vars.DB_PORT || '5432' }}"
+          DB_USER="${{ secrets.PROD_DB_USER }}"
+          DB_PASS="${{ secrets.PROD_DB_PASS }}"
+          DB_NAME="${{ secrets.PROD_DB_NAME }}"
+          DATABASE_URL="postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASS }}@${{ secrets.PROD_DB_HOST }}/${{ secrets.PROD_DB_NAME }}"
+
+          MAIL_MAILER="smtp"
+          SMTP_SERVER="${{ vars.SMTP_SERVER || 'smtp.gmail.com' }}"
+          SMTP_PORT="${{ vars.SMTP_PORT || '587' }}"
+          MAIL_USERNAME="${{ secrets.PROD_MAIL_USERNAME }}"
+          MAIL_PASSWORD="${{ secrets.PROD_MAIL_PASSWORD }}"
+          MAIL_ENCRYPTION="TLS"
+          EMAIL="${{ secrets.PROD_EMAIL }}"
           MAIL_FROM_NAME="LEGAL WATCH DOG"
           EOF
 
@@ -48,27 +144,148 @@ jobs:
 
       - name: Upload .env file to server
         run: |
-          sshpass -p "${{ secrets.EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no .env.dev ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }}:/home/${{ secrets.EC2_USERNAME }}/backend_env
+          sshpass -p "${{ secrets.PROD_PASS }}" scp -o StrictHostKeyChecking=no .env.production ${{ secrets.PROD_USER }}@${{ secrets.PROD_IP }}:/tmp/backend_env
 
-      - name: SSH into EC2 and deploy
+      - name: Set up SSH and Deploy
+        env:
+          SERVER_PASS: ${{ secrets.PROD_PASS }}
+          SERVER_USER: ${{ secrets.PROD_USER }}
+          SERVER_IP: ${{ secrets.PROD_IP }}
         run: |
-          sshpass -p "${{ secrets.EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_IP }} << 'EOF'
+          echo "access gained"
+          echo "deploying to production server"
+
+          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            cd ~/backend
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-BE"
+            
+            # Clone if the directory doesn't exist
+            if [ ! -d "$REMOTE_DIR" ]; then
+              cd /home/ifeanyinw/apps/backend/
+              git clone https://github.com/hngprojects/legal-watch-dog-BE.git "$REMOTE_DIR"
+            fi
 
-            git pull origin dev
-
-            mv ~/backend_env .env
-
+            cd "$REMOTE_DIR"
+            
+            git pull origin main
+            
+            mv /tmp/backend_env .env
+            
             uv sync
-
-            pkill -f "uv run" || true
+            
+            # Run database migrations
+            uv run alembic upgrade head
+            
+            # Stop existing process
+            pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
             sleep 2
-
+            
             export $(grep -v '^#' .env | xargs)
-
+            
+            # Start the application
             nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
-
-            echo "Deployment complete on port $APP_PORT!"
+            
+            echo "Production deployment complete on port $APP_PORT!"
           EOF
+
+      - name: Mark Deployment Result
+        if: failure()
+        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
+
+  # -------------------------
+  # 3. Slack Notification
+  # -------------------------
+  notify_slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    needs:
+      - deploy_staging
+      - deploy_production
+    if: always()
+
+    steps:
+      - name: Send Slack Notification
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          STAGING_RESULT: ${{ needs.deploy_staging.result }}
+          PROD_RESULT: ${{ needs.deploy_production.result }}
+        run: |
+          echo "Preparing Slack message..."
+
+          # Get branch name
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          
+          # Determine high-level outcome and set appropriate emoji
+          if ([ "$STAGING_RESULT" == "success" ] || [ "$STAGING_RESULT" == "skipped" ]) && ([ "$PROD_RESULT" == "success" ] || [ "$PROD_RESULT" == "skipped" ]); then
+            MAIN_STATUS="✅ Deployment Successful"
+            STATUS_COLOR="good"
+          else
+            MAIN_STATUS="❌ Deployment Failed"
+            STATUS_COLOR="danger"
+          fi
+
+          # Build detailed status for each stage
+          DETAIL_MSG=""
+
+          # Staging Deploy Stage
+          if [ "$STAGING_RESULT" == "success" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n✅ *Staging Environment:* Successfully deployed to staging server"
+          elif [ "$STAGING_RESULT" == "skipped" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n⏭️ *Staging Environment:* Skipped (not a dev branch)"
+          else
+            DETAIL_MSG="${DETAIL_MSG}\n❌ *Staging Environment:* Failed to deploy to staging server"
+          fi
+
+          # Production Deploy Stage
+          if [ "$PROD_RESULT" == "success" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n✅ *Production API:* Successfully deployed to production server"
+          elif [ "$PROD_RESULT" == "skipped" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n⏭️ *Production API:* Skipped (not main branch)"
+          else
+            DETAIL_MSG="${DETAIL_MSG}\n❌ *Production API:* Failed to deploy to production server"
+          fi
+
+          # Add branch info
+          DETAIL_MSG="${DETAIL_MSG}\n\n📋 *Branch:* \`${BRANCH_NAME}\`"
+          DETAIL_MSG="${DETAIL_MSG}\n👤 *Triggered by:* ${GITHUB_ACTOR}"
+
+          LOG_LINK="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          # Format Slack JSON with rich formatting
+          PAYLOAD="{
+            \"attachments\": [
+              {
+                \"color\": \"${STATUS_COLOR}\",
+                \"blocks\": [
+                  {
+                    \"type\": \"header\",
+                    \"text\": {
+                      \"type\": \"plain_text\",
+                      \"text\": \"⚙️ Backend Deployment Update\",
+                      \"emoji\": true
+                    }
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*${MAIN_STATUS}*${DETAIL_MSG}\"
+                    }
+                  },
+                  {
+                    \"type\": \"divider\"
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"Need help? Check the <${LOG_LINK}|detailed logs> or contact the development team.\"
+                    }
+                  }
+                ]
+              }
+            ]
+          }"
+
+          curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" $SLACK_WEBHOOK
