@@ -60,12 +60,16 @@ class Jurisdiction(SQLModel, table=True):
     __tablename__ = "jurisdictions"  # type: ignore
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    project_id: UUID = Field(foreign_key="projects.id")
-    parent_id: Optional[UUID] = Field(default=None, foreign_key="jurisdictions.id")
+    project_id: UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
+    parent_id: Optional[UUID] = Field(
+        default=None, foreign_key="jurisdictions.id", ondelete="CASCADE"
+    )
     name: str
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
-    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    scrape_output: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
