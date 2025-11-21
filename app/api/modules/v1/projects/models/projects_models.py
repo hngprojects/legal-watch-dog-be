@@ -21,4 +21,4 @@ class Project(ProjectBase, table=True):
     jurisdictions: List["Jurisdiction"] = Relationship(back_populates="project")
 
 
-from app.api.modules.v1.jurisdictions.models.jurisdiction_models import Jurisdiction
+from app.api.modules.v1.jurisdictions.models.jurisdictions_models import Jurisdiction
