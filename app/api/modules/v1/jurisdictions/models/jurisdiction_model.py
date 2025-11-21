@@ -1,14 +1,16 @@
-""" Jurisdiction Model"""
+"""Jurisdiction Model"""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Dict, Any, ClassVar
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
-from sqlmodel import SQLModel, Field, Column, Relationship, DateTime
+
 from sqlalchemy import Text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
+
 
 class Jurisdiction(SQLModel, table=True):
     """
@@ -22,10 +24,10 @@ class Jurisdiction(SQLModel, table=True):
     -------
     jurisdiction_id : UUID
         Primary key. Unique identifier for the jurisdiction.
-    
+
     project_id : str
         Foreign key or reference to the parent project.
-    
+
     parent_id : Optional[UUID]
         References another jurisdiction as the parent (for hierarchy). Null if top-level.
 
@@ -57,29 +59,21 @@ class Jurisdiction(SQLModel, table=True):
     is_deleted : bool
         Soft-delete flag. True if the record is considered deleted but retained in DB.
     """
+
     __tablename__ = "jurisdictions"  # type: ignore
-    
-    id: UUID = Field(
-        default_factory=uuid4,
-        primary_key=True,
-        index=True
-    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     project_id: UUID = Field(foreign_key="projects.id")
     parent_id: Optional[UUID] = None
     name: str
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
-    scrape_output: Optional[Dict[str, Any]] = Field(
-        default=None,
-        sa_column=Column(JSONB)
-    )
+    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(
-        default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True)
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     deleted_at: Optional[datetime] = None
     is_deleted: bool = Field(default=False)
-    
-    project: "Project" = Relationship(back_populates="jurisdictions")
 
+    project: "Project" = Relationship(back_populates="jurisdictions")

@@ -46,8 +46,7 @@ async def create_project_service(
         Created Project object
     """
     logger.info(
-        f"Creating project '{data.title}' for organization_id={organization_id}, "
-        f"user_id={user_id}"
+        f"Creating project '{data.title}' for organization_id={organization_id}, user_id={user_id}"
     )
 
     project = Project(
@@ -59,7 +58,7 @@ async def create_project_service(
 
     db.add(project)
     await db.commit()
-    db.refresh()
+    db.refresh(project)
 
     logger.info(f"Created project with id={project.id}")
 
@@ -88,8 +87,7 @@ async def list_projects_service(
         Dictionary with projects list and pagination metadata
     """
     logger.info(
-        f"Listing projects for organization_id={organization_id}, "
-        f"q={q}, page={page}, limit={limit}"
+        f"Listing projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
     )
 
     statement = select(Project).where(Project.org_id == organization_id)

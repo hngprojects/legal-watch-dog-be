@@ -65,7 +65,6 @@ async def create_project(
     except Exception as e:
         logger.exception(f"Error creating project for user_id={current_user.id}")
         return fail_response(
-            status="failure",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to create project. Please try again.",
             error=f"str{e}",
@@ -100,7 +99,6 @@ async def list_projects(
         )
 
         return success_response(
-            status="success",
             status_code=status.HTTP_200_OK,
             message="Projects retrieved successfully",
             data=ProjectListResponse(
@@ -115,7 +113,6 @@ async def list_projects(
     except Exception as e:
         logger.exception(f"Error listing projects for user_id={current_user.id}")
         return fail_response(
-            status="failure",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve projects. Please try again.",
             error=f"str{e}",
@@ -142,14 +139,12 @@ async def get_project(
 
         if not project:
             return fail_response(
-                status="failure",
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
-                error= "Project not found",
+                error="Project not found",
             )
 
         return success_response(
-            status="success",
             status_code=status.HTTP_200_OK,
             message="Project retrieved successfully",
             data=ProjectResponse.model_validate(project),
@@ -158,7 +153,6 @@ async def get_project(
     except Exception as e:
         logger.exception(f"Error getting project_id={project_id}")
         return fail_response(
-            status="failure",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve project. Please try again.",
             error=f"str{e}",
@@ -190,14 +184,12 @@ async def update_project(
 
         if not project:
             return fail_response(
-                status="failure",
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
                 error="Project not found",
             )
 
         return success_response(
-            status="success",
             status_code=status.HTTP_200_OK,
             message="Project updated successfully",
             data=ProjectResponse.model_validate(project),
@@ -206,7 +198,6 @@ async def update_project(
     except Exception:
         logger.exception(f"Error updating project_id={project_id}")
         return fail_response(
-            status="failure",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to update project. Please try again.",
             error="Project failed to update",
@@ -233,14 +224,12 @@ async def delete_project(
 
         if not deleted:
             return fail_response(
-                status="failure",
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
-                error="Could not delete project"
+                error="Could not delete project",
             )
 
         return success_response(
-            status="success",
             status_code=status.HTTP_204_NO_CONTENT,
             message="Project deleted successfully",
             data={},
@@ -249,7 +238,6 @@ async def delete_project(
     except Exception:
         logger.exception(f"Error deleting project_id={project_id}")
         return fail_response(
-            status="failure",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete project. Please try again.",
             error="Project not deleted",
