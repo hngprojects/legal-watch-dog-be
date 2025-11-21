@@ -1,13 +1,14 @@
-import pytest
-from uuid import uuid4
-from datetime import datetime
 from typing import Any, cast
+from uuid import uuid4
 
+import pytest
 from fastapi import HTTPException
 
-from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
-from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import JurisdictionCreateSchema, JurisdictionResponseSchema
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
+from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
+    JurisdictionCreateSchema,
+)
 
 
 @pytest.mark.asyncio
@@ -19,7 +20,12 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     async def fake_create(db, jurisdiction):
         # return a Jurisdiction-like object
-        return Jurisdiction(id=fake_id, project_id=jurisdiction.project_id, name=jurisdiction.name, description=jurisdiction.description)
+        return Jurisdiction(
+            id=fake_id,
+            project_id=jurisdiction.project_id,
+            name=jurisdiction.name,
+            description=jurisdiction.description,
+        )
 
     monkeypatch.setattr(routes.service, "create", fake_create)
 
@@ -58,7 +64,13 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 async def test_restore_jurisdiction_success(monkeypatch):
     fake_id = uuid4()
 
-    jur = Jurisdiction(id=fake_id, project_id=uuid4(), name="ToRestore", description="d", is_deleted=True)
+    jur = Jurisdiction(
+        id=fake_id,
+        project_id=uuid4(),
+        name="ToRestore",
+        description="d",
+        is_deleted=True,
+    )
 
     async def fake_get(db, jurisdiction_id):
         return jur

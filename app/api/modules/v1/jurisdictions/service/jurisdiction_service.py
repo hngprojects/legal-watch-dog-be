@@ -1,17 +1,18 @@
-"""Service Handler For Jurisdiction
-"""
+"""Service Handler For Jurisdiction"""
+
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from fastapi import status, HTTPException
-from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import false
-from sqlmodel import select
-from uuid import UUID
 from typing import Any, cast
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+
 
 class JurisdictionService:
-
     async def get_jurisdiction_by_id(self, db: AsyncSession, jurisdiction_id: UUID):
         """Finds Jurisdiction by Id"""
         try:
@@ -21,17 +22,17 @@ class JurisdictionService:
             return jurisdiction
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    
+
     async def get_jurisdiction_by_name(self, db: AsyncSession, name: str):
         """Finds Jurisdiction by name"""
         stmt = select(Jurisdiction).where(
             cast(Any, Jurisdiction.name) == name,
-            cast(Any, Jurisdiction.is_deleted).is_(False)
+            cast(Any, Jurisdiction.is_deleted).is_(False),
         )
         result = await db.exec(stmt)
         # ScalarResult: use first() to retrieve the first mapped object or None
         return result.first()
-    
+
     async def create(self, db: AsyncSession, jurisdiction: Jurisdiction):
         """Create a Jurisdiction. If first in project, set parent_id to itself."""
         try:
@@ -65,12 +66,17 @@ class JurisdictionService:
     async def get_jurisdictions_by_project(self, db: AsyncSession, project_id: UUID):
         """Get all jurisdictions for a specific project"""
         try:
-            stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.project_id) == project_id, cast(Any, Jurisdiction.is_deleted).is_(False))
+            stmt = select(Jurisdiction).where(
+                cast(Any, Jurisdiction.project_id) == project_id,
+                cast(Any, Jurisdiction.is_deleted).is_(False),
+            )
             result = await db.exec(stmt)
             jurisdictions = result.all()
 
             if not jurisdictions:
-               raise HTTPException(status_code=404, detail="No jurisdictions found for this project")
+                raise HTTPException(
+                    status_code=404, detail="No jurisdictions found for this project"
+                )
 
             return jurisdictions
 
@@ -83,15 +89,14 @@ class JurisdictionService:
             stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
             result = await db.exec(stmt)
             jurisdictions = result.all()
-            
+
             if not jurisdictions:
                 raise HTTPException(status_code=404, detail="No jurisdictions found")
-            
+
             return jurisdictions
-        
+
         except SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")           
-            
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def update(self, db: AsyncSession, jurisdiction: Jurisdiction):
         """Update a jurisdiction with error handling"""
@@ -114,7 +119,7 @@ class JurisdictionService:
             return result.all()
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-        
+
     async def soft_delete(self, db: AsyncSession, jurisdiction_id: UUID):
         """Soft delete a jurisdiction by setting is_deleted=True and deleted_at timestamp"""
         jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
@@ -131,13 +136,13 @@ class JurisdictionService:
             await db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot delete jurisdiction due to integrity constraints: {e.orig}"
+                detail=f"Cannot delete jurisdiction due to integrity constraints: {e.orig}",
             )
         except SQLAlchemyError as e:
             await db.rollback()
             raise HTTPException(
                 status_code=500,
-               detail=f"Database error occurred while deleting jurisdiction: {str(e)}"
+                detail=f"Database error occurred while deleting jurisdiction: {str(e)}",
             )
 
     async def delete(self, db: AsyncSession, jurisdiction: Jurisdiction) -> bool:
@@ -151,11 +156,11 @@ class JurisdictionService:
             await db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot delete jurisdiction due to integrity constraints: {e.orig}"
+                detail=f"Cannot delete jurisdiction due to integrity constraints: {e.orig}",
             )
         except SQLAlchemyError as e:
             await db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Database error occurred while deleting jurisdiction: {str(e)}"
+                detail=f"Database error occurred while deleting jurisdiction: {str(e)}",
             )

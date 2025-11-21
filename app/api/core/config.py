@@ -2,7 +2,6 @@ from pathlib import Path
 
 from decouple import config
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import ConfigDict
 
 # Base directory for relative paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -47,10 +46,7 @@ class Settings(BaseSettings):
     SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 
 settings = Settings()

@@ -5,12 +5,8 @@ from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.api.core.dependencies.redis_service import (
-    store_otp,
-)
-from app.api.core.dependencies.redis_service import (
-    verify_otp as verify_otp_redis,
-)
+from app.api.core.dependencies.redis_service import store_otp
+from app.api.core.dependencies.redis_service import verify_otp as verify_otp_redis
 from app.api.core.dependencies.send_mail import send_email
 from app.api.core.logger import setup_logging
 from app.api.modules.v1.auth.models.otp_model import OTP

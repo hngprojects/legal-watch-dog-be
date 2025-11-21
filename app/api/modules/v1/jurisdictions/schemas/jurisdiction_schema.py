@@ -1,10 +1,10 @@
 """Schemas For Jurisdiction Request and Responses"""
 
-from pydantic import BaseModel, ConfigDict
-from uuid import UUID
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, Optional
+from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict
 
 
 class JurisdictionCreateSchema(BaseModel):
@@ -23,6 +23,7 @@ class JurisdictionCreateSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class JurisdictionResponseSchema(BaseModel):
     """Schema used for returning Jurisdiction objects in responses"""
 
@@ -39,6 +40,7 @@ class JurisdictionResponseSchema(BaseModel):
     is_deleted: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class JurisdictionUpdateSchema(BaseModel):
     """Schema for updating a jurisdiction: all fields optional except id"""

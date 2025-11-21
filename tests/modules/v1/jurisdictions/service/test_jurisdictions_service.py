@@ -1,7 +1,9 @@
 import pytest
-from datetime import datetime
-from app.api.modules.v1.jurisdictions.service.jurisdiction_service import JurisdictionService
+
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
+    JurisdictionService,
+)
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
 
@@ -45,8 +47,8 @@ async def test_create_second_jurisdiction_has_no_self_parent(test_session):
     await test_session.refresh(project)
 
     # first jurisdiction
-    first = Jurisdiction(project_id=project.id, name="J-A", description="d")
-    created_first = await svc.create(test_session, first)
+    _first = Jurisdiction(project_id=project.id, name="J-A", description="d")
+    _created_first = await svc.create(test_session, _first)
 
     # second jurisdiction
     second = Jurisdiction(project_id=project.id, name="J-B", description="d")
