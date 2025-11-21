@@ -15,7 +15,7 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     JurisdictionService,
 )
 
-router = APIRouter(prefix="/jurisdiction", tags=["Jurisdiction"])
+router = APIRouter(prefix="/jurisdictions", tags=["Jurisdictions"])
 
 service = JurisdictionService()
 
