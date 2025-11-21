@@ -12,7 +12,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     errors = {err["loc"][-1]: [err["msg"]] for err in exc.errors()}
     logger.error(f"Validation error: {exc.errors()}")
     return fail_response(
-        status_code=400,
+        status_code=422,
         message="Validation failed",
         error=errors,
     )
