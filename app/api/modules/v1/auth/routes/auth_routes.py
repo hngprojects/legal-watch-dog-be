@@ -110,7 +110,7 @@ async def verify_otp(
         )
 
         return success_response(
-            status_code=status.HTTP_200_OK,
+            status_code=status.HTTP_201_CREATED,
             message="Registration completed successfully",
             data=result,
         )
