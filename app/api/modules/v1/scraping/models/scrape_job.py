@@ -21,6 +21,7 @@ class ScrapeJob(Base):
         created_at (datetime): The timestamp when the scrape job was initiated.
         sources (dict): A JSONB field storing various information about the data sources.
     """
+
     __tablename__ = "scrape_jobs"
 
     scrape_id: Optional[uuid.UUID] = Field(
@@ -32,12 +33,8 @@ class ScrapeJob(Base):
     project_id: uuid.UUID = Field(
         sa_column=Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     )
-    created_at: datetime = Field(
-        sa_column=Column(DateTime, default=func.now(), nullable=False)
-    )
-    sources: Dict = Field(
-        default_factory=dict, sa_column=Column(JSONB, nullable=False, default={})
-    )
+    created_at: datetime = Field(sa_column=Column(DateTime, default=func.now(), nullable=False))
+    sources: Dict = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False, default={}))
 
     def __repr__(self):
         return (

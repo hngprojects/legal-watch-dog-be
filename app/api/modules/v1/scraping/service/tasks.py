@@ -52,9 +52,7 @@ def get_next_scrape_time(current_time: datetime, frequency: str) -> datetime:
         "MONTHLY": timedelta(days=30),  # Approximation for monthly
         "HOURLY": timedelta(hours=1),
     }
-    delta = frequency_map.get(
-        frequency.upper(), timedelta(days=1)
-    )  # Default to daily
+    delta = frequency_map.get(frequency.upper(), timedelta(days=1))  # Default to daily
     return current_time + delta
 
 
@@ -83,9 +81,7 @@ def scrape_source(self, source_id: str):
                 logger.warning(f"Source with ID {source_id} not found.")
                 return f"Source {source_id} not found."
 
-            logger.info(
-                f"Attempting to scrape source: {source.name} (ID: {source.id})"
-            )
+            logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
 
             # --- Placeholder for actual scraping logic ---
             # Simulate a potential failure
@@ -95,6 +91,7 @@ def scrape_source(self, source_id: str):
 
             # Simulate scraping work (in real implementation, this would be actual scraping)
             import time
+
             time.sleep(random.uniform(0.1, 0.5))  # Shortened for tests
 
             # If scraping is successful
@@ -111,17 +108,12 @@ def scrape_source(self, source_id: str):
                 f"Next scrape time: {source.next_scrape_time}"
             )
             return (
-                f"Source {source.id} scraped successfully. "
-                f"Next scrape: {source.next_scrape_time}"
+                f"Source {source.id} scraped successfully. Next scrape: {source.next_scrape_time}"
             )
     except Exception as exc:
         redis_client = None
         try:
-            redis_client = redis.Redis.from_url(
-                settings.REDIS_URL,
-                db=0,
-                decode_responses=True
-            )
+            redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
 
             # Exponential backoff with jitter
             retry_count = self.request.retries
@@ -155,7 +147,7 @@ def scrape_source(self, source_id: str):
             logger.error(
                 f"Redis error while handling failed task {self.request.id} "
                 f"for source {source_id}: {redis_exc}",
-                exc_info=True
+                exc_info=True,
             )
             # If Redis is down, we can't push to DLQ, so re-raise the original exception
             # or log and return a failure message without DLQ. For now, re-raise.
@@ -183,12 +175,8 @@ def dispatch_due_sources(self):
     redis_client = None
     try:
         # Connect to Redis synchronously
-        redis_client = redis.Redis.from_url(
-            settings.REDIS_URL,
-            db=0,
-            decode_responses=True
-        )
-        
+        redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
+
         # Try to acquire the lock
         lock_acquired = redis_client.set(
             DISPATCH_LOCK_KEY, "locked", nx=True, ex=LOCK_TIMEOUT_SECONDS
@@ -200,7 +188,7 @@ def dispatch_due_sources(self):
 
         # --- Lock acquired, proceed with dispatch logic ---
         logger.info("Acquired dispatch lock. Checking for due sources...")
-        
+
         with Session(engine) as db:
             now = datetime.now(timezone.utc)
 
@@ -221,9 +209,7 @@ def dispatch_due_sources(self):
                     args=[str(src.id)],
                 )
 
-            logger.info(
-                f"Dispatched {len(due_sources)} sources for scraping."
-            )
+            logger.info(f"Dispatched {len(due_sources)} sources for scraping.")
             return f"Dispatched {len(due_sources)} sources"
 
     except redis.RedisError as e:
