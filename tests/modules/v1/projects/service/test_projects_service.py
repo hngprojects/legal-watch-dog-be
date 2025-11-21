@@ -74,7 +74,7 @@ async def test_create_project_after_registration(pg_async_session):
         db=pg_async_session,
         data=project_data,
         organization_id=org_id,
-        creator_id=user_id,
+        user_id=user_id,
     )
 
     assert project.id is not None
