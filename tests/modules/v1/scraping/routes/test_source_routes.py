@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
-from app.api.modules.v1.scraping.models.scrape import Source, SourceType
+from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.users.models.users_model import User
 from main import app
 

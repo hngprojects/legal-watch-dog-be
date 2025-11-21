@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
-from app.api.modules.v1.scraping.models.scrape import SourceType
+from app.api.modules.v1.scraping.models.source_model import SourceType
 
 
 class SourceCreate(BaseModel):
