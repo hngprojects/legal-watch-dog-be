@@ -1,9 +1,10 @@
-from sqlalchemy import Column, String, Text, Boolean, DateTime, Float, func
-from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
-from sqlmodel import SQLModel, Field
-from typing import Optional
 import uuid
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel
 
 
 class DataRevision(SQLModel, table=True):
