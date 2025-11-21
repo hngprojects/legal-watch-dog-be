@@ -74,7 +74,7 @@ class RegistrationService:
 
             otp_code = generate_code()
             hashed_pw = hash_password(payload.password)
-
+            logger.info(f"otp: {otp_code}")
             registration_data = {
                 "name": payload.name,
                 "email": payload.email,
@@ -98,7 +98,9 @@ class RegistrationService:
 
         except ValueError as e:
             logger.warning(
-                "Validation error during registration for email=%s: %s", payload.email, str(e)
+                "Validation error during registration for email=%s: %s",
+                payload.email,
+                str(e),
             )
             raise
         except Exception as e:
@@ -205,7 +207,9 @@ class RegistrationService:
 
         except ValueError as e:
             logger.warning(
-                "Validation error during OTP verification for email=%s: %s", email, str(e)
+                "Validation error during OTP verification for email=%s: %s",
+                email,
+                str(e),
             )
             raise
         except Exception as e:
