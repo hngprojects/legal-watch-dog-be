@@ -41,7 +41,5 @@ class Project(SQLModel, table=True):
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="projects")
-
     project_users: List["ProjectUser"] = Relationship(back_populates="project")
-
     jurisdictions: List["Jurisdiction"] = Relationship(back_populates="project")
