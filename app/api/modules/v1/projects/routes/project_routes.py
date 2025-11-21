@@ -100,9 +100,7 @@ async def list_projects(
             db, current_user.organization_id, q=q, page=page, limit=limit
         )
 
-        projects_list = [
-            ProjectResponse.model_validate(p).model_dump() for p in result["data"]
-        ]
+        projects_list = [ProjectResponse.model_validate(p).model_dump() for p in result["data"]]
 
         return success_response(
             status_code=status.HTTP_200_OK,
@@ -140,9 +138,7 @@ async def get_project(
     logger.info(f"Getting project_id={project_id} for user_id={current_user.id}")
 
     try:
-        project = await get_project_service(
-            db, project_id, current_user.organization_id
-        )
+        project = await get_project_service(db, project_id, current_user.organization_id)
 
         if not project:
             return fail_response(
@@ -223,9 +219,7 @@ async def delete_project(
     logger.info(f"Deleting project_id={project_id} for user_id={current_user.id}")
 
     try:
-        deleted = await delete_project_service(
-            db, project_id, current_user.organization_id
-        )
+        deleted = await delete_project_service(db, project_id, current_user.organization_id)
 
         if not deleted:
             return fail_response(
