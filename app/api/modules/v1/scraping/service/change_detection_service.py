@@ -133,6 +133,7 @@ class ChangeDetectionService:
         # Step 4: Create change_diff if change was detected
         change_diff = None
         if was_change_detected and previous_revision is not None:
+            logger.info("Change detected, creating ChangeDiff record.")
             diff_patch = self.generate_diff_patch(
                 previous_revision.ai_summary, ai_summary
             )
@@ -144,6 +145,7 @@ class ChangeDetectionService:
                 ai_confidence=None,
             )
             self.db.add(change_diff)
+            logger.info(f"Created change_diff: {change_diff}")
 
         # Step 5: Commit transaction
         await self.db.commit()
