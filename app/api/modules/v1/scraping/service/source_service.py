@@ -182,8 +182,8 @@ class SourceService:
         # Apply pagination
         query = query.offset(skip).limit(limit)
 
-        result = await db.exec(query)
-        sources = result.all()
+        result = await db.execute(query)
+        sources = result.scalars().all()
 
         logger.info(f"Retrieved {len(sources)} sources")
         return [self._to_read_schema(source) for source in sources]
