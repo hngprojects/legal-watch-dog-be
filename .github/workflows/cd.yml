@@ -91,7 +91,7 @@ jobs:
             uv sync
             
             # Stop existing process
-            pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
+            pkill -f "uv run uvicorn.*legal-watch-dog-be" || true
             sleep 2
             
            bashset -a 
