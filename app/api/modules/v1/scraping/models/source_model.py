@@ -40,6 +40,7 @@ class Source(SQLModel, table=True):
     scrape_frequency: str = Field(default="DAILY")
     next_scrape_time: Optional[datetime] = Field(default=None)
     is_active: bool = Field(default=True)
+    is_deleted: bool = Field(default=False, index=True)
 
     auth_details_encrypted: Optional[str] = Field(default=None)
     scraping_rules: Dict = Field(default={}, sa_column=Column(JSON))

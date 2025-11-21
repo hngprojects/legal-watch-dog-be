@@ -65,6 +65,7 @@ class SourceUpdate(BaseModel):
     source_type: Optional[SourceType] = None
     scrape_frequency: Optional[str] = Field(None, min_length=1)
     is_active: Optional[bool] = None
+    is_deleted: Optional[bool] = None
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = None
 
@@ -83,6 +84,7 @@ class SourceRead(BaseModel):
         source_type (SourceType): Type of source.
         scrape_frequency (str): Scraping schedule.
         is_active (bool): Whether source is enabled.
+        is_deleted (bool): Whether source is soft-deleted.
         has_auth (bool): Whether source has authentication configured.
         created_at (datetime): Timestamp of creation.
     """
@@ -94,6 +96,7 @@ class SourceRead(BaseModel):
     source_type: SourceType
     scrape_frequency: str
     is_active: bool
+    is_deleted: bool
     has_auth: bool
     created_at: datetime
 
