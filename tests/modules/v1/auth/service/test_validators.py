@@ -1,5 +1,7 @@
 """Tests for validators."""
 
+from unittest.mock import patch
+
 import pytest
 
 from app.api.modules.v1.auth.service.validators import (
@@ -27,7 +29,13 @@ def test_is_company_email(email, expected):
     from app.api.utils.email_verifier import BusinessEmailVerifier
 
     BusinessEmailVerifier._verify_mx_records = lambda self, d: True
-    assert is_company_email(email) == expected
+
+    # Ensure test providers are not allowed
+    with patch("app.api.modules.v1.auth.service.validators.settings") as mock_settings:
+        mock_settings.ALLOW_TEST_EMAIL_PROVIDERS = False
+        mock_settings.TEST_EMAIL_PROVIDERS = "gmail.com"
+
+        assert is_company_email(email) == expected
 
 
 @pytest.mark.parametrize(
