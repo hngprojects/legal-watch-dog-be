@@ -102,7 +102,7 @@ async def list_projects(
         result = await list_projects_service(
             db, current_user.organization_id, q=q, owner=owner, page=page, limit=limit
         )
-        
+
         projects_list = [ProjectResponse.model_validate(p).model_dump() for p in result["data"]]
 
         return success_response(

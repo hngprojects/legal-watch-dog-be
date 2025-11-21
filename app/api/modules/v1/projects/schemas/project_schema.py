@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.modules.v1.users.schemas.user_schema import UserResponse
 
@@ -42,6 +42,7 @@ class ProjectUserResponse(BaseModel):
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class ProjectListResponse(BaseModel):
     projects: List[ProjectResponse]

@@ -18,10 +18,7 @@ from app.api.modules.v1.auth.service.register_service import (
     verify_otp as service_verify_otp,
 )
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.response_payloads import (
-    fail_response,
-    success_response,
-)
+from app.api.utils.response_payloads import fail_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
