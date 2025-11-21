@@ -21,6 +21,7 @@ from app.api.modules.v1.projects.utils.project_utils import (
     calculate_pagination,
     check_project_user_exists,
     get_project_by_id,
+    get_project_by_id_including_deleted,
     get_user_by_id,
 )
 
@@ -90,8 +91,10 @@ async def list_projects_service(
         f"Listing projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
     )
 
-    statement = select(Project).where(Project.org_id == organization_id)
-
+    statement = select(Project).where(
+        and_(Project.org_id == organization_id, Project.is_deleted.is_(False))
+    )
+    logger.info(f"Base SQL: {str(statement)}")
     if q:
         statement = statement.where(Project.title.ilike(f"%{q}%"))
         logger.info(f"Applied search filter: q={q}")
@@ -182,9 +185,77 @@ async def update_project_service(
     return project
 
 
-async def delete_project_service(db: AsyncSession, project_id: UUID, organization_id: UUID) -> bool:
+async def soft_delete_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
     """
-    Delete/archive project.
+    soft delete/archive project.
+
+    Args:
+        db: Database session
+        project_id: Project UUID
+        organization_id: Organization UUID
+
+    Returns:
+        True if soft deleted, False if not found
+    """
+    logger.info(f"soft deleting project_id={project_id}")
+
+    project = await get_project_by_id(db, project_id, organization_id)
+
+    if not project:
+        logger.warning(f"Project not found for deletion: project_id={project_id}")
+        return False
+
+    if project.is_deleted:
+        logger.warning(f"Project already deleted: project_id={project_id}")
+        return False
+
+    project.is_deleted = True
+    project.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(project)
+
+    logger.info(f"Project soft deleted successfully: project_id={project_id}")
+
+    return True
+
+
+async def restore_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
+    """
+    Restore a soft-deleted project.
+    """
+    logger.info(f"Restoring project_id={project_id}")
+
+    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
+
+    if not project:
+        logger.warning(f"Project not found: project_id={project_id}")
+        return False
+
+    if not project.is_deleted:
+        logger.warning(f"Project not deleted: project_id={project_id}")
+        return False
+
+    project.is_deleted = False
+    project.deleted_at = None
+    project.updated_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(project)
+
+    logger.info(f"Project restored successfully: project_id={project_id}")
+
+    return True
+
+
+async def hard_delete_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
+    """
+    Permanently delete project from database (irreversible), also includes soft deleted projects.
 
     Args:
         db: Database session
@@ -194,18 +265,18 @@ async def delete_project_service(db: AsyncSession, project_id: UUID, organizatio
     Returns:
         True if deleted, False if not found
     """
-    logger.info(f"Deleting project_id={project_id}")
+    logger.warning(f"hard deleting project_id={project_id}")
 
-    project = await get_project_by_id(db, project_id, organization_id)
+    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
 
     if not project:
-        logger.warning(f"Project not found for deletion: project_id={project_id}")
+        logger.warning(f"Project not found for hard delete: project_id={project_id}")
         return False
 
     await db.delete(project)
     await db.commit()
 
-    logger.info(f"Project deleted successfully: project_id={project_id}")
+    logger.warning(f"Project deleted permanently: project_id={project_id}")
 
     return True
 
