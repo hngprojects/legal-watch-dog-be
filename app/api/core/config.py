@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from decouple import config
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Base directory for relative paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
+    REDIS_CACHE_TTL_SECONDS: int = config("REDIS_CACHE_TTL_SECONDS", default=300, cast=int)
 
     # JWT Authentication
     JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
@@ -39,16 +40,13 @@ class Settings(BaseSettings):
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
     # Waitlist Email
-    # Waitlist Email
     MAIL_USERNAME: str = config("MAIL_USERNAME", default="test_user")
     MAIL_PASSWORD: str = config("MAIL_PASSWORD", default="test_pass")
     EMAIL: str = config("EMAIL", default="test@example.com")
     SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
-    class Config:
-        env_file = ".env"
-        extra = "allow"
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 
 settings = Settings()

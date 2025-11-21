@@ -1,19 +1,20 @@
-"""project update
+"""Jurisdiction Model
 
-Revision ID: b0632a715607
-Revises: 6e796c5102fc
-Create Date: 2025-11-21 02:24:10.824313
+Revision ID: a8f723b06175
+Revises: dd94c68c2ed7
+Create Date: 2025-11-20 23:15:49.226964
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'b0632a715607'
-down_revision: Union[str, Sequence[str], None] = '6e796c5102fc'
+revision: str = "a8f723b06175"
+down_revision: Union[str, Sequence[str], None] = "dd94c68c2ed7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
