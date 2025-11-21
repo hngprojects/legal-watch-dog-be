@@ -25,7 +25,9 @@ async def get_project_by_id(
     """
     statement = select(Project).where(
         and_(
-            Project.id == project_id, Project.org_id == organization_id, not Project.is_deleted
+            Project.id == project_id,
+            Project.org_id == organization_id,
+            Project.is_deleted.is_(False),
         )
     )
     result = await db.execute(statement)

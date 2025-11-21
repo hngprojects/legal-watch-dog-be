@@ -92,8 +92,9 @@ async def list_projects_service(
     )
 
     statement = select(Project).where(
-        and_(Project.org_id == organization_id, not Project.is_deleted)
+        and_(Project.org_id == organization_id, Project.is_deleted.is_(False))
     )
+    logger.info(f"Base SQL: {str(statement)}")
     if q:
         statement = statement.where(Project.title.ilike(f"%{q}%"))
         logger.info(f"Applied search filter: q={q}")
