@@ -1,22 +1,20 @@
-"""Jurisdiction Model
+"""add jurisdiction table
 
-Revision ID: 9d7eca693a7a
-Revises: a8f723b06175
-Create Date: 2025-11-20 23:18:11.643552
+Revision ID: 4f3e75c202d2
+Revises: dd94c68c2ed7
+Create Date: 2025-11-21 11:28:56.320063
 
 """
 
 from typing import Sequence, Union
-
-import sqlalchemy as sa
 import sqlmodel
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
+import sqlalchemy as sa
+
 
 # revision identifiers, used by Alembic.
-revision: str = "9d7eca693a7a"
-down_revision: Union[str, Sequence[str], None] = "a8f723b06175"
+revision: str = "4f3e75c202d2"
+down_revision: Union[str, Sequence[str], None] = "dd94c68c2ed7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -32,13 +30,15 @@ def upgrade() -> None:
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("prompt", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column(
-            "scrape_output", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("scrape_output", sa.JSON(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.Column("is_deleted", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["parent_id"],
+            ["jurisdictions.id"],
+        ),
         sa.ForeignKeyConstraint(
             ["project_id"],
             ["projects.id"],
