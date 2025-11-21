@@ -104,9 +104,7 @@ async def list_projects_service(
     logger.info(f"Found {total} projects matching criteria")
 
     offset = (page - 1) * limit
-    statement = (
-        statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
-    )
+    statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
     result = await db.execute(statement)
     projects = result.scalars().all()
 
