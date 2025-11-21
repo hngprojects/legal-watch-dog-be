@@ -94,7 +94,9 @@ jobs:
             pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
             sleep 2
             
-            export $(grep -v '^#' .env | xargs)
+           bashset -a 
+           source .env 
+           set +a
             
             # Start the application
             nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
@@ -195,7 +197,9 @@ jobs:
             pkill -f "uv run uvicorn.*legal-watch-dog-be" || true
             sleep 2
             
-            export $(grep -v '^#' .env | xargs)
+            bashset -a 
+            source .env 
+            set +a
             
             # Start the application
             nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
