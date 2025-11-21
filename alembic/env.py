@@ -5,7 +5,6 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.api.core.config import BASE_DIR, settings
 from app.api.db.database import Base
-from app.api.modules.v1.auth.models.otp_model import OTP
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
