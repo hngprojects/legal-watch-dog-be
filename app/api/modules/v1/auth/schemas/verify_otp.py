@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -28,17 +30,17 @@ class VerifyOTPResponse(BaseModel):
         user_id: Created user ID
     """
 
-    organization_id: int
+    organization_id: uuid.UUID
     organization_name: str
     email: EmailStr
-    user_id: int
+    user_id: uuid.UUID
 
     class Config:
         json_schema_extra = {
             "example": {
-                "organization_id": 1,
+                "organization_id": "550e8400-e29b-41d4-a716-446655440000",
                 "organization_name": "Tech Corp",
                 "email": "admin@techcorp.com",
-                "user_id": 1,
+                "user_id": "660e8400-e29b-41d4-a716-446655440000",
             }
         }

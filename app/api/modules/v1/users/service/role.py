@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
+from app.api.utils.permissions import ADMIN_PERMISSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +36,11 @@ class RoleCRUD:
             Exception: If database operation fails
         """
         try:
-            admin_permissions = {
-                "users": ["create", "read", "update", "delete"],
-                "roles": ["create", "read", "update", "delete"],
-                "organization": ["read", "update"],
-                "settings": ["read", "update"],
-            }
-
             role = Role(
                 name=role_name,
                 organization_id=organization_id,
                 description=description,
-                permissions=admin_permissions,
+                permissions=ADMIN_PERMISSIONS,
             )
 
             db.add(role)

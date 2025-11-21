@@ -161,10 +161,13 @@ class RegistrationService:
                 logger.warning("Invalid OTP or registration not found for email=%s", email)
                 raise ValueError("Invalid or expired OTP code")
 
-            org_name = credentials.get("name")
-            org_email = credentials.get("email")
-            industry = credentials.get("industry")
-            hashed_password = credentials.get("hashed_password")
+            try:
+                org_name = credentials["name"]
+                org_email = credentials["email"]
+                industry = credentials["industry"]
+                hashed_password = credentials["hashed_password"]
+            except KeyError as e:
+                raise ValueError(f"Missing required credential key: {e}")
 
             organization = await OrganizationCRUD.create_organization(
                 db=self.db, name=org_name, industry=industry
