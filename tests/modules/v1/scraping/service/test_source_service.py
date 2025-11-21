@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 mock_fernet = MagicMock()
 mock_fernet.encrypt.return_value.decode.return_value = "mock_encrypted_value"
 with patch("cryptography.fernet.Fernet", return_value=mock_fernet):
-    from app.api.modules.v1.scraping.models.scrape import Source, SourceType
+    from app.api.modules.v1.scraping.models.source_model import Source, SourceType
     from app.api.modules.v1.scraping.schemas.source_service import (
         SourceCreate,
         SourceRead,
@@ -98,7 +98,7 @@ class TestSourceServiceCreate:
     @pytest.mark.asyncio
     async def test_create_source_success_without_auth(self, sample_jurisdiction_id):
         """Test successful source creation without auth details."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -111,15 +111,13 @@ class TestSourceServiceCreate:
             auth_details=None,
         )
 
-        mock_db.scalar = AsyncMock(return_value=None) 
+        mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        
         result = await service.create_source(mock_db, source_data)
 
-        
         assert isinstance(result, SourceRead)
         assert result.has_auth is False
         mock_db.commit.assert_awaited_once()
@@ -127,11 +125,11 @@ class TestSourceServiceCreate:
     @pytest.mark.asyncio
     async def test_create_source_database_error(self, sample_source_create):
         """Test that database errors are handled properly."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
-        mock_db.scalar = AsyncMock(return_value=None) 
+        mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock(side_effect=Exception("Database error"))
         mock_db.rollback = AsyncMock()
@@ -150,16 +148,14 @@ class TestSourceServiceGet:
     @pytest.mark.asyncio
     async def test_get_source_success(self, sample_source_db):
         """Test successful retrieval of a source."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
         mock_db.get = AsyncMock(return_value=sample_source_db)
 
-        
         result = await service.get_source(mock_db, sample_source_db.id)
 
-        
         assert isinstance(result, SourceRead)
         assert result.id == sample_source_db.id
         assert result.name == sample_source_db.name
@@ -169,7 +165,7 @@ class TestSourceServiceGet:
     @pytest.mark.asyncio
     async def test_get_source_not_found(self):
         """Test that 404 is raised when source doesn't exist."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
         source_id = uuid.uuid4()
@@ -189,7 +185,7 @@ class TestSourceServiceGetSources:
     @pytest.mark.asyncio
     async def test_get_sources_success(self, sample_jurisdiction_id):
         """Test successful retrieval of multiple sources."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -221,10 +217,8 @@ class TestSourceServiceGetSources:
         mock_result.all.return_value = [source1, source2]
         mock_db.exec = AsyncMock(return_value=mock_result)
 
-        
         result = await service.get_sources(mock_db)
 
-        
         assert len(result) == 2
         assert all(isinstance(s, SourceRead) for s in result)
         assert result[0].name == "Source 1"
@@ -233,7 +227,7 @@ class TestSourceServiceGetSources:
     @pytest.mark.asyncio
     async def test_get_sources_with_filters(self, sample_jurisdiction_id):
         """Test get_sources with jurisdiction filter."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -241,7 +235,6 @@ class TestSourceServiceGetSources:
         mock_result.all.return_value = []
         mock_db.exec = AsyncMock(return_value=mock_result)
 
-        
         result = await service.get_sources(
             mock_db,
             jurisdiction_id=sample_jurisdiction_id,
@@ -250,7 +243,6 @@ class TestSourceServiceGetSources:
             limit=50,
         )
 
-        
         assert isinstance(result, list)
         mock_db.exec.assert_awaited_once()
 
@@ -274,10 +266,8 @@ class TestSourceServiceUpdate:
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        
         result = await service.update_source(mock_db, sample_source_db.id, update_data)
 
-        
         assert isinstance(result, SourceRead)
         assert sample_source_db.name == "Updated Name"
         assert sample_source_db.scrape_frequency == "HOURLY"
@@ -287,7 +277,7 @@ class TestSourceServiceUpdate:
     @pytest.mark.asyncio
     async def test_update_source_with_new_auth(self, sample_source_db):
         """Test updating source with new auth details."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -297,17 +287,15 @@ class TestSourceServiceUpdate:
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        
         await service.update_source(mock_db, sample_source_db.id, update_data)
 
-        
         assert sample_source_db.auth_details_encrypted == "mock_encrypted_value"
         mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_source_not_found(self):
         """Test update when source doesn't exist."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
         source_id = uuid.uuid4()
@@ -323,7 +311,7 @@ class TestSourceServiceUpdate:
     @pytest.mark.asyncio
     async def test_update_source_database_error(self, sample_source_db):
         """Test that database errors during update are handled."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -344,7 +332,7 @@ class TestSourceServiceDelete:
     @pytest.mark.asyncio
     async def test_delete_source_success(self, sample_source_db):
         """Test successful source deletion."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
@@ -352,10 +340,8 @@ class TestSourceServiceDelete:
         mock_db.delete = AsyncMock()
         mock_db.commit = AsyncMock()
 
-        
         result = await service.delete_source(mock_db, sample_source_db.id)
 
-        
         assert "message" in result
         assert "Source successfully deleted" in result["message"]
         assert result["source_id"] == str(sample_source_db.id)
@@ -365,7 +351,7 @@ class TestSourceServiceDelete:
     @pytest.mark.asyncio
     async def test_delete_source_not_found(self):
         """Test delete when source doesn't exist."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
         source_id = uuid.uuid4()
@@ -380,7 +366,7 @@ class TestSourceServiceDelete:
     @pytest.mark.asyncio
     async def test_delete_source_database_error(self, sample_source_db):
         """Test that database errors during deletion are handled."""
-        
+
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 

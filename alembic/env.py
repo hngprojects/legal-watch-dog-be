@@ -11,7 +11,7 @@ from app.api.modules.v1.organization.models.organization_model import Organizati
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.scraping.models.scrape import Source, SourceType
+from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 
 # this is the Alembic Config object, which provides

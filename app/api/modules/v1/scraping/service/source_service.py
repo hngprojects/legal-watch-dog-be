@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.security import encrypt_auth_details
-from app.api.modules.v1.scraping.models.scrape import Source
+from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceRead,
