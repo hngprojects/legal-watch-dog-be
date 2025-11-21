@@ -4,12 +4,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, status
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.config import settings
 from app.api.core.dependencies.registeration_redis import get_redis
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.register import (
     RegisterRequest,
     RegisterResponse,
 )
+from app.api.modules.v1.auth.schemas.resend_otp import ResendOTPRequest
 from app.api.modules.v1.auth.schemas.verify_otp import VerifyOTPRequest, VerifyOTPResponse
 from app.api.modules.v1.auth.service.register_service import RegistrationService
 from app.api.utils.response_payloads import (
@@ -123,4 +125,61 @@ async def verify_otp(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="OTP verification failed. Please try again later.",
+        )
+
+@router.post(
+    "/resend-otp",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def resend_otp(
+    payload: ResendOTPRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    redis_client: Redis = Depends(get_redis),
+):
+    """
+    Resend registration OTP for a pending signup.
+    
+    Rules:
+    - If the organization already exists -> tell user to log in instead.
+    - If there's a pending registration -> generate a new OTP and resend.
+    - If neither -> tell user to sign up first.
+
+    This endpoint does NOT create a new registration, it only works with an
+    existing pending registration.
+    """
+    try:
+        service = RegistrationService(db, redis_client)
+        result = await service.resend_otp(
+            email=payload.email,
+            background_tasks=background_tasks,
+        )
+
+        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
+        unit = "minute" if minutes_display == 1 else "minutes"
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=f"A new OTP has been sent to your email, expiring in {minutes_display} {unit}.",
+            data=result,
+        )
+
+    except ValueError as e:
+        logger.warning("Resend OTP validation failed for email=%s: %s", payload.email, str(e))
+        return fail_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(e),
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to resend OTP for email=%s: %s",
+            payload.email,
+            str(e),
+            exc_info=True,
+        )
+        return fail_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to resend OTP. Please try again later.",
         )
