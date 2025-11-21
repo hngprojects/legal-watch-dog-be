@@ -226,7 +226,7 @@ def test_rate_limiter_reset_time(client):
 
     last_response = responses[-1]
     if last_response.status_code == 429:
-        error_data = last_response.json()["detail"]["error"]
+        error_data = last_response.json()["error"]
         assert "retry_after" in error_data
         assert isinstance(error_data["retry_after"], int)
         assert error_data["retry_after"] > 0
