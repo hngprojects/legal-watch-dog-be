@@ -60,7 +60,7 @@ async def create_project(
         return success_response(
             status_code=status.HTTP_201_CREATED,
             message="Project created successfully",
-            data=ProjectResponse.model_validate(project),
+            data=ProjectResponse.model_validate(project).model_dump(),
         )
 
     except Exception:
@@ -68,7 +68,7 @@ async def create_project(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to create project. Please try again.",
-            data={
+            error={
                 "errors": {"project": ["Failed to create project"]},
                 "trace_id": str(uuid.uuid4()),
             },
@@ -103,16 +103,18 @@ async def list_projects(
             db, current_user.organization_id, q=q, owner=owner, page=page, limit=limit
         )
 
+        projects_list = [ProjectResponse.model_validate(p).model_dump() for p in result["data"]]
+
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Projects retrieved successfully",
             data=ProjectListResponse(
-                projects=[ProjectResponse.model_validate(p) for p in result["data"]],
+                projects=projects_list,
                 total=result["total"],
                 page=result["page"],
                 limit=result["limit"],
                 total_pages=result["total_pages"],
-            ),
+            ).model_dump(),
         )
 
     except Exception:
@@ -149,7 +151,7 @@ async def get_project(
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
-                data={
+                error={
                     "errors": {"project": ["Project not found"]},
                     "trace_id": str(uuid.uuid4()),
                 },
@@ -166,7 +168,7 @@ async def get_project(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve project. Please try again.",
-            data={
+            error={
                 "errors": {"project": ["Failed to retrieve project"]},
                 "trace_id": str(uuid.uuid4()),
             },
@@ -200,7 +202,7 @@ async def update_project(
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
-                data={
+                error={
                     "errors": {"project": ["Project not found"]},
                     "trace_id": str(uuid.uuid4()),
                 },
@@ -209,7 +211,7 @@ async def update_project(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Project updated successfully",
-            data=ProjectResponse.model_validate(project),
+            data=ProjectResponse.model_validate(project).model_dump(),
         )
 
     except Exception:
@@ -217,7 +219,7 @@ async def update_project(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to update project. Please try again.",
-            data={
+            error={
                 "errors": {"project": ["Failed to update project"]},
                 "trace_id": str(uuid.uuid4()),
             },
@@ -246,7 +248,7 @@ async def delete_project(
             return fail_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or you don't have access to it",
-                data={
+                error={
                     "errors": {"project": ["Project not found"]},
                     "trace_id": str(uuid.uuid4()),
                 },
@@ -263,7 +265,7 @@ async def delete_project(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete project. Please try again.",
-            data={
+            error={
                 "errors": {"project": ["Failed to delete project"]},
                 "trace_id": str(uuid.uuid4()),
             },
