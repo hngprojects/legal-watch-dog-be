@@ -40,9 +40,7 @@ async def app_with_rate_limiter(mock_redis):
     """
     app = FastAPI()
 
-    with patch(
-        "app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis
-    ):
+    with patch("app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis):
         app.add_middleware(
             RateLimitMiddleware,
             requests_per_minute=5,
@@ -241,9 +239,7 @@ async def test_rate_limiter_different_clients(mock_redis):
     """
     app = FastAPI()
 
-    with patch(
-        "app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis
-    ):
+    with patch("app.api.core.dependencies.redis_service.get_redis_client", return_value=mock_redis):
         app.add_middleware(
             RateLimitMiddleware,
             requests_per_minute=3,
