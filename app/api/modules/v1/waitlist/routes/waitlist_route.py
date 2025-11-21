@@ -1,21 +1,21 @@
 import logging
-from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
-    WaitlistSignup,
-    WaitlistResponse,
-)
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import status, Depends, APIRouter, HTTPException, BackgroundTasks
+
 from app.api.db.database import get_db
+from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
+    WaitlistResponse,
+    WaitlistSignup,
+)
 from app.api.modules.v1.waitlist.service.waitlist_service import waitlist_service
-from app.api.utils.response_payloads import success_response, fail_response
+from app.api.utils.response_payloads import fail_response, success_response
 
 router = APIRouter(prefix="/waitlist", tags=["Waitlist"])
 logger = logging.getLogger("app")
 
 
-@router.post(
-    "/signup", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/signup", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED)
 async def signup_waitlist(
     signup: WaitlistSignup,
     background_tasks: BackgroundTasks,
@@ -34,7 +34,7 @@ async def signup_waitlist(
         return success_response(
             201,
             "Successfully added to waitlist. Confirmation email will be sent shortly.",
-            data=result.dict(),
+            data=result.model_dump(),
         )
     except HTTPException as e:
         return fail_response(e.status_code, e.detail)

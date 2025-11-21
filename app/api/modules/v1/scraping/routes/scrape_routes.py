@@ -1,27 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.db.database import get_db
-from app.api.modules.v1.scraping.schemas.scrape_result_schema import (
-    ScrapeResultCreate,
-    ScrapeResultOut,
+from app.api.modules.v1.scraping.service.scraper_service import scrape_url_and_store
+
+router = APIRouter(prefix="/scraper", tags=["Scraper"])
+
+@router.post(
+    "/scrape",
+    summary="Scrape a URL and store the result",
+    status_code=status.HTTP_200_OK,
+    description="Web scraper",
 )
-from app.api.modules.v1.scraping.models.scrape_result import ScrapeResult
-from app.api.modules.v1.scraping.service.scraper import scrape_url
 
-
-router = APIRouter()
-
-
-@router.post("/", response_model=ScrapeResultOut)
-async def scrape_endpoint(
-    payload: ScrapeResultCreate, db: AsyncSession = Depends(get_db)
-):
-    data = await scrape_url(payload.url)
-
-    obj = ScrapeResult(url=data["url"], title=data["title"], content=data["content"])
-    db.add(obj)
-    await db.commit()
-    await db.refresh(obj)
-
-    return obj
+async def scrape(url: str, session: AsyncSession = Depends(get_db)):
+    return await scrape_url_and_store(url, session)

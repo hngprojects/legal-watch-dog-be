@@ -1,44 +1,61 @@
+import logging
 import re
 
-# List of common public email domains to block
-PUBLIC_EMAIL_DENYLIST = {
-    # "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "aol.com",
-    "icloud.com",
-    "mail.com",
-    "protonmail.com",
-    "zoho.com",
-    "gmx.com",
-    "yandex.com",
-    "msn.com",
-    "live.com",
-    "ymail.com",
-    "inbox.com",
-    "me.com",
-    "fastmail.com",
-    "hushmail.com",
-}
+from app.api.utils.email_verifier import BusinessEmailVerifier, EmailType
+
+logger = logging.getLogger(__name__)
 
 
 def is_company_email(email: str) -> bool:
-    """Return True if email is not from a public provider."""
-    domain = email.split("@")[-1].lower()
-    return domain not in PUBLIC_EMAIL_DENYLIST
+    """Return True if an email appears to be from a business/enterprise.
+
+    This function is a small wrapper around :class:`BusinessEmailVerifier`
+    used by registration to block free and disposable addresses.
+
+    Args:
+        email: The email address to check.
+
+    Returns:
+        True if the email is classified as `EmailType.BUSINESS` or `EmailType.ROLE_BASED`
+        and not disposable.
+    """
+    verifier = BusinessEmailVerifier()
+    result = verifier.verify_email(email)
+    return result.email_type in (EmailType.BUSINESS, EmailType.ROLE_BASED) and result.is_valid
 
 
-def is_strong_password(password: str) -> bool:
-    """Check if password meets industry standard requirements."""
+def is_strong_password(password: str) -> str:
+    """Check password strength and return a human-readable error message.
+
+    This function validates the password against several common rules and
+    returns a concatenated message describing the missing requirements. If the
+    password satisfies all checks, an empty string is returned (so it can be
+    used in Pydantic validators as the absence of an error).
+
+    Args:
+        password: The plaintext password to validate.
+
+    Returns:
+        An empty string on success, or a message describing the failures.
+    """
+    errors: list[str] = []
+
+    # Minimum length
     if len(password) < 8:
-        return False
+        errors.append("at least 8 characters")
+    # Uppercase
     if not re.search(r"[A-Z]", password):
-        return False
+        errors.append("one uppercase letter")
+    # Lowercase
     if not re.search(r"[a-z]", password):
-        return False
+        errors.append("one lowercase letter")
+    # Digit
     if not re.search(r"[0-9]", password):
-        return False
+        errors.append("one digit")
+    # Special character
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return False
-    return True
+        errors.append('one special character (!@#$%^&*(),.?":{}|<>)')
+
+    if errors:
+        return "Password must contain: " + ", ".join(errors) + "."
+    return ""

@@ -1,16 +1,18 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-
-from app.api.core.config import settings, BASE_DIR
+from app.api.core.config import BASE_DIR, settings
 from app.api.db.database import Base
-from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.organization.models.organization_model import Organization
-from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.auth.models.otp_model import OTP
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.users.models.users_model import User
+from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

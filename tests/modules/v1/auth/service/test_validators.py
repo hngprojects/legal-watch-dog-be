@@ -1,4 +1,7 @@
+"""Tests for validators."""
+
 import pytest
+
 from app.api.modules.v1.auth.service.validators import (
     is_company_email,
     is_strong_password,
@@ -9,13 +12,21 @@ from app.api.modules.v1.auth.service.validators import (
     "email,expected",
     [
         ("user@company.com", True),
-        ("user@gmail.com", True),
+        ("user@gmail.com", False),
         ("user@yahoo.com", False),
+        (
+            "admin@company.com",
+            True,
+        ),
+        ("someone@mailinator.com", False),
         ("employee@enterprise.org", True),
         ("admin@outlook.com", False),
     ],
 )
 def test_is_company_email(email, expected):
+    from app.api.utils.email_verifier import BusinessEmailVerifier
+
+    BusinessEmailVerifier._verify_mx_records = lambda self, d: True
     assert is_company_email(email) == expected
 
 
