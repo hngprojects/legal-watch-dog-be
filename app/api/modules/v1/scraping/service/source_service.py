@@ -315,6 +315,7 @@ class SourceService:
             if permanent:
                 # Hard delete: remove from database
                 await db.delete(source)
+                await db.commit()
                 logger.info(f"Permanently deleted source: {source_id}")
                 return {
                     "message": "Source permanently deleted",
@@ -327,7 +328,7 @@ class SourceService:
                 await db.refresh(source)
                 logger.info(f"Soft deleted source: {source_id}")
                 return {
-                    "message": "Source deleted successfully",
+                    "message": "Source successfully deleted",
                     "source_id": str(source_id),
                 }
 
