@@ -84,7 +84,7 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def get_all_jurisdictions(self, db: AsyncSession):
-        """Get all Jurisduction"""
+        """Get all Jurisductions"""
         try:
             stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
             result = await db.exec(stmt)
