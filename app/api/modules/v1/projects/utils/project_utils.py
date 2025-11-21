@@ -65,7 +65,7 @@ async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id:
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none() is not None
+    return result.one_or_none() is not None
 
 
 def calculate_pagination(total: int, page: int, limit: int) -> dict:

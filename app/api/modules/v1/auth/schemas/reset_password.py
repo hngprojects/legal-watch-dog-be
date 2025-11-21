@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.api.utils.validators import is_strong_password
+
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
@@ -23,7 +25,24 @@ class PasswordResetVerify(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     reset_token: str = Field(..., description="Temporary reset token from verify step")
-    new_password: str = Field(
-        ..., min_length=8, max_length=100, description="New password (min 8 characters)"
-    )
+    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
     confirm_password: str = Field(..., description="Confirm new password")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        error = is_strong_password(v)
+        if error:
+            raise ValueError(error)
+        return v
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        """
+        Validate that confirm_password matches new_password
+        """
+        new_password = info.data.get("new_password")
+        if new_password != v:
+            raise ValueError("Passwords do not match.")
+        return v
