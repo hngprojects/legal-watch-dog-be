@@ -5,6 +5,10 @@ on:
     branches:
       - dev
       - main
+  push:
+    branches:
+      - dev
+      - main
 
 jobs:
   test_lint_build:
