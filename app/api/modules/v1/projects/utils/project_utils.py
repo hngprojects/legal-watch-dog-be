@@ -27,7 +27,8 @@ async def get_project_by_id(
         and_(Project.id == project_id, Project.org_id == organization_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none()
+    # db.execute() returns a ScalarResult from SQLModel; use one_or_none()
+    return result.scalars().first()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID) -> Optional[User]:
@@ -46,7 +47,7 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID)
         and_(User.id == user_id, User.organization_id == organization_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none()
+    return result.scalar_one()
 
 
 async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id: UUID) -> bool:
@@ -65,7 +66,7 @@ async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id:
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none() is not None
+    return result.one_or_none() is not None
 
 
 def calculate_pagination(total: int, page: int, limit: int) -> dict:

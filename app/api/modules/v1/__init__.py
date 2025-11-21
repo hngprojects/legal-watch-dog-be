@@ -5,6 +5,9 @@ from app.api.modules.v1.auth.routes.login_route import router as auth_router
 from app.api.modules.v1.auth.routes.reset_password import (
     router as password_reset_router,
 )
+from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
+    router as juridiction_router,
+)
 from app.api.modules.v1.projects.routes.project_routes import router as project_router
 from app.api.modules.v1.scraping.routes.change_detection_routes import (
     router as change_detection_router,
@@ -18,4 +21,4 @@ router.include_router(auth_router)
 router.include_router(password_reset_router)
 router.include_router(project_router)
 router.include_router(change_detection_router)
-
+router.include_router(juridiction_router)

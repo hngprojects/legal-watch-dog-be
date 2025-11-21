@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.modules.v1.users.schemas.user_schema import UserResponse
 
@@ -10,7 +10,6 @@ from app.api.modules.v1.users.schemas.user_schema import UserResponse
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Project title")
     description: Optional[str] = Field(None, description="Project description")
-    org_id: UUID = Field(..., description="Organization ID")
     master_prompt: Optional[str] = Field(None, description="High-level AI prompt for the project")
 
 
@@ -31,19 +30,17 @@ class ProjectResponse(ProjectBase):
     updated_at: datetime
     assigned_users: List[UserResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-class UserResponse(BaseModel):
+class ProjectUserResponse(BaseModel):
     id: UUID
     email: str
     name: str
     role_id: UUID
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectListResponse(BaseModel):
@@ -51,3 +48,4 @@ class ProjectListResponse(BaseModel):
     total: int
     page: int
     limit: int
+    total_pages: Optional[int] = None
