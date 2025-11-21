@@ -12,8 +12,8 @@ from app.api.modules.v1.projects.schemas.project_schema import (
 )
 from app.api.modules.v1.projects.services.project_service import (
     create_project_service,
-    delete_project_service,
     get_project_service,
+    hard_delete_project_service,
     list_projects_service,
     update_project_service,
 )
@@ -125,5 +125,5 @@ async def test_delete_project_service(pg_async_session: AsyncSession):
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
 
-    result = await delete_project_service(pg_async_session, project_id, org_id)
+    result = await hard_delete_project_service(pg_async_session, project_id, org_id)
     assert result in [True, False]
