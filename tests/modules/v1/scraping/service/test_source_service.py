@@ -11,12 +11,11 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Mock Fernet before any imports that use cryptography
 mock_fernet = MagicMock()
 mock_fernet.encrypt.return_value.decode.return_value = "mock_encrypted_value"
 with patch("cryptography.fernet.Fernet", return_value=mock_fernet):
     from app.api.modules.v1.scraping.models.scrape import Source, SourceType
-    from app.api.modules.v1.scraping.schemas.scrape import (
+    from app.api.modules.v1.scraping.schemas.source_service import (
         SourceCreate,
         SourceRead,
         SourceUpdate,
@@ -84,6 +83,7 @@ class TestSourceServiceCreate:
             is_active=True,
         )
 
+        mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock(side_effect=lambda x: setattr(x, "id", created_source.id))
@@ -115,6 +115,7 @@ class TestSourceServiceCreate:
             auth_details=None,
         )
 
+        mock_db.scalar = AsyncMock(return_value=None)  # No existing source
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
@@ -134,6 +135,7 @@ class TestSourceServiceCreate:
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
+        mock_db.scalar = AsyncMock(return_value=None)  # No existing source
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock(side_effect=Exception("Database error"))
         mock_db.rollback = AsyncMock()
@@ -222,8 +224,8 @@ class TestSourceServiceGetSources:
         )
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [source1, source2]
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_result.all.return_value = [source1, source2]
+        mock_db.exec = AsyncMock(return_value=mock_result)
 
         # Act
         result = await service.get_sources(mock_db)
@@ -242,8 +244,8 @@ class TestSourceServiceGetSources:
         service = SourceService()
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = []
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_result.all.return_value = []
+        mock_db.exec = AsyncMock(return_value=mock_result)
 
         # Act
         result = await service.get_sources(
@@ -256,7 +258,7 @@ class TestSourceServiceGetSources:
 
         # Assert
         assert isinstance(result, list)
-        mock_db.execute.assert_awaited_once()
+        mock_db.exec.assert_awaited_once()
 
 
 class TestSourceServiceUpdate:

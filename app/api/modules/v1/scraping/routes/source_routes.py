@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
-from app.api.modules.v1.scraping.schemas.scrape import (
+from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceUpdate,
 )
