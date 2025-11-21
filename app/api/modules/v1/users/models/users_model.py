@@ -7,6 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models import Organization
+    from app.api.modules.v1.projects.models.project_user_model import ProjectUser
     from app.api.modules.v1.users.models.roles_model import Role
 
 
@@ -43,3 +44,4 @@ class User(SQLModel, table=True):
 
     organization: "Organization" = Relationship(back_populates="users")
     role: "Role" = Relationship(back_populates="users")
+    project_users: list["ProjectUser"] = Relationship(back_populates="user")

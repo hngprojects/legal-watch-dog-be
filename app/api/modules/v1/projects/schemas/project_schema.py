@@ -10,6 +10,7 @@ from app.api.modules.v1.users.schemas.user_schema import UserResponse
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Project title")
     description: Optional[str] = Field(None, description="Project description")
+    org_id: UUID = Field(..., description="Organization ID")
     master_prompt: Optional[str] = Field(None, description="High-level AI prompt for the project")
 
 
@@ -50,5 +51,3 @@ class ProjectListResponse(BaseModel):
     total: int
     page: int
     limit: int
-
-

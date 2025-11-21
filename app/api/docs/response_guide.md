@@ -32,12 +32,7 @@ Global exception handlers are implemented in `main.py` to automatically handle u
   "status": "failure",
   "status_code": 400,
   "message": "Validation failed",
-  "data": {
-    "errors": {
-      "field": ["Error message"]
-    },
-    "trace_id": "uuid-for-logging"
-  }
+  "error": {}
 }
 ```
 
@@ -121,10 +116,6 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
         return fail_response(
             status_code=409,
             message="User with this email already exists",
-            data={
-                "errors": {"email": ["Email already in use"]},
-                "trace_id": str(uuid.uuid4())
-            }
         )
     
     # Create user...
@@ -144,7 +135,6 @@ async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
         return fail_response(
             status_code=404,
             message="Project not found",
-            data={"trace_id": str(uuid.uuid4())}
         )
     
     return success_response(
@@ -169,7 +159,6 @@ async def update_project(project_id: int, update_data: ProjectUpdate,
         return fail_response(
             status_code=403,
             message="You don't have permission to update this project",
-            data={"trace_id": str(uuid.uuid4())}
         )
     
     # Update project...
@@ -208,9 +197,6 @@ The global handler will catch it and return:
   "status": "failure",
   "status_code": 500,
   "message": "Internal server error",
-  "data": {
-    "trace_id": "550e8400-e29b-41d4-a716-446655440000"
-  }
 }
 ```
 
@@ -243,5 +229,4 @@ def test_fail_response():
     assert response.status_code == 400
     data = response.body
     assert data["status"] == "failure"
-    assert "errors" in data["data"]
 ```

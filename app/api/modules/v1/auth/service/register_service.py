@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from typing import Tuple
 
 from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +31,7 @@ async def register_organization(
     db: AsyncSession,
     data: RegisterRequest,
     background_tasks: BackgroundTasks | None = None,
-) -> Tuple[User, str]:
+) -> User:
     logger.info(f"Starting registration for company: {data.name}, email: {data.email}")
     org = Organization(name=data.name, industry=data.industry)
     db.add(org)
@@ -70,7 +69,7 @@ async def register_organization(
 
     otp_code = OTP.generate_code()
     await store_otp(str(user.id), otp_code, ttl_minutes=10)
-
+    logger.info(f"otp: {otp_code}")
     await db.commit()
     logger.info(f"Generated OTP for user: {user.email} and stored in Redis {otp_code}")
 

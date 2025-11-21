@@ -1,6 +1,6 @@
+import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
-from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
@@ -8,18 +8,18 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
-    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    # from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 
 
 class Project(SQLModel, table=True):
     """
     Main Project table - represents a high-level container for monitoring.
     """
-    __tablename__ = "projects"
- 
 
-    id: UUID = Field(default=uuid4, primary_key=True, index=True)
-    org_id: UUID = Field(
+    __tablename__ = "projects"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    org_id: uuid.UUID = Field(
         foreign_key="organizations.id",
         index=True,
         description="Organization that owns this project",
@@ -30,7 +30,7 @@ class Project(SQLModel, table=True):
         default=None,
         sa_column=Column(Text),
         description="High-level AI prompt for the entire project",
-    ) 
+    )
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
@@ -42,6 +42,4 @@ class Project(SQLModel, table=True):
 
     organization: Optional["Organization"] = Relationship(back_populates="projects")
 
-    project_users: List["ProjectUser"] = Relationship(back_populates="projects")
-    
-    jurisdictions: list["Jurisdiction"] = Relationship(back_populates="projects")
+    project_users: List["ProjectUser"] = Relationship(back_populates="project")
