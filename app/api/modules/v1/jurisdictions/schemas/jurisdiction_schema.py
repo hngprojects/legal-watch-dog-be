@@ -15,6 +15,7 @@ class JurisdictionCreateSchema(BaseModel):
     name: str
     description: str
     prompt: Optional[str] = None
+    scrape_output: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
