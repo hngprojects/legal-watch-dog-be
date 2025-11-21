@@ -81,6 +81,13 @@ jobs:
             
             mv /tmp/backend_env .env
             
+            # Install uv if not present
+            if ! command -v uv &> /dev/null; then
+              echo "Installing uv..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            
             uv sync
             
             # Stop existing process
@@ -171,6 +178,13 @@ jobs:
             git pull origin main
             
             mv /tmp/backend_env .env
+
+            # Install uv if not present
+            if ! command -v uv &> /dev/null; then
+              echo "Installing uv..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
             
             uv sync
             
