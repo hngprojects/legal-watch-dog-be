@@ -68,9 +68,7 @@ async def company_signup(
         )
 
     except ValueError as e:
-        logger.warning(
-            "Registration validation failed for email=%s: %s", payload.email, str(e)
-        )
+        logger.warning("Registration validation failed for email=%s: %s", payload.email, str(e))
         return fail_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
 
     except Exception as e:
@@ -180,9 +178,7 @@ async def resend_otp(
         )
 
     except ValueError as e:
-        logger.warning(
-            "Resend OTP validation failed for email=%s: %s", payload.email, str(e)
-        )
+        logger.warning("Resend OTP validation failed for email=%s: %s", payload.email, str(e))
         return fail_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
