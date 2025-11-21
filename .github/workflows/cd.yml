@@ -11,7 +11,7 @@ jobs:
   # DEPLOY TO STAGING (DEV BRANCH)
   deploy_staging:
     name: CD - Backend Deploy (Staging)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/dev'
     environment: staging
 
@@ -102,7 +102,7 @@ jobs:
   # DEPLOY TO PRODUCTION (MAIN BRANCH)
   deploy_production:
     name: CD - Backend Deploy (Production)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
     environment: production
 
@@ -198,7 +198,7 @@ jobs:
   # -------------------------
   notify_slack:
     name: Notify Slack
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs:
       - deploy_staging
       - deploy_production
