@@ -20,9 +20,11 @@ from app.api.modules.v1.projects.schemas.project_schema import (
 )
 from app.api.modules.v1.projects.services.project_service import (
     create_project_service,
-    delete_project_service,
     get_project_service,
+    hard_delete_project_service,
     list_projects_service,
+    restore_project_service,
+    soft_delete_project_service,
     update_project_service,
 )
 from app.api.modules.v1.users.models.users_model import User
@@ -219,7 +221,7 @@ async def delete_project(
     logger.info(f"Deleting project_id={project_id} for user_id={current_user.id}")
 
     try:
-        deleted = await delete_project_service(db, project_id, current_user.organization_id)
+        deleted = await soft_delete_project_service(db, project_id, current_user.organization_id)
 
         if not deleted:
             return fail_response(
@@ -234,4 +236,81 @@ async def delete_project(
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete project. Please try again.",
+        )
+
+
+@router.post(
+    "/{project_id}/undo-delete",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def restore_project(
+    project_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Restore a soft-deleted project.
+    """
+    logger.info(f"Restoring project_id={project_id}")
+
+    try:
+        restored = await restore_project_service(db, project_id, current_user.organization_id)
+
+        if not restored:
+            return fail_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Project not found or not deleted",
+            )
+
+        project = await get_project_service(db, project_id, current_user.organization_id)
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Project restored successfully",
+            data=ProjectResponse.model_validate(project),
+        )
+
+    except Exception:
+        logger.exception(f"Error restoring project_id={project_id}")
+        return fail_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to restore project. Please try again.",
+        )
+
+
+@router.delete(
+    "/{project_id}/permanent",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def hard_delete_project(
+    project_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Permanently delete a project (irreversible).
+    This completely removes the project and all related data from the database.
+    Use with extreme caution!
+
+    Requires admin privileges or special confirmation.
+    """
+    logger.info(f"hard deleting project_id={project_id}")
+
+    try:
+        deleted = await hard_delete_project_service(db, project_id, current_user.organization_id)
+
+        if not deleted:
+            return fail_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Project not found",
+            )
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except Exception:
+        logger.exception(f"Error during hard delete of project_id={project_id}")
+        return fail_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to permanently delete project.",
         )
