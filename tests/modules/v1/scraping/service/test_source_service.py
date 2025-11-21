@@ -214,8 +214,8 @@ class TestSourceServiceGetSources:
         )
 
         mock_result = MagicMock()
-        mock_result.all.return_value = [source1, source2]
-        mock_db.exec = AsyncMock(return_value=mock_result)
+        mock_result.scalars.return_value.all.return_value = [source1, source2]
+        mock_db.execute = AsyncMock(return_value=mock_result)
 
         result = await service.get_sources(mock_db)
 
@@ -232,8 +232,8 @@ class TestSourceServiceGetSources:
         service = SourceService()
 
         mock_result = MagicMock()
-        mock_result.all.return_value = []
-        mock_db.exec = AsyncMock(return_value=mock_result)
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
 
         result = await service.get_sources(
             mock_db,
@@ -244,7 +244,7 @@ class TestSourceServiceGetSources:
         )
 
         assert isinstance(result, list)
-        mock_db.exec.assert_awaited_once()
+        mock_db.execute.assert_awaited_once()
 
 
 class TestSourceServiceUpdate:
