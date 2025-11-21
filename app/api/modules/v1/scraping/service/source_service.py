@@ -18,7 +18,7 @@ from sqlmodel import select
 
 from app.api.core.security import encrypt_auth_details
 from app.api.modules.v1.scraping.models.scrape import Source
-from app.api.modules.v1.scraping.schemas.scrape import (
+from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceRead,
     SourceUpdate,
@@ -182,8 +182,8 @@ class SourceService:
         # Apply pagination
         query = query.offset(skip).limit(limit)
 
-        result = await db.execute(query)
-        sources = result.scalars().all()
+        result = await db.exec(query)
+        sources = result.all()
 
         logger.info(f"Retrieved {len(sources)} sources")
         return [self._to_read_schema(source) for source in sources]
