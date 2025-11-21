@@ -1,7 +1,7 @@
 """source table addition
 
 Revision ID: 015152e4dda6
-Revises: c1bc173efb4e
+Revises: 568cc1b65e22
 Create Date: 2025-11-20 17:36:58.407169
 
 """
@@ -13,7 +13,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '015152e4dda6'
-down_revision: Union[str, Sequence[str], None] = 'c1bc173efb4e'
+down_revision: Union[str, Sequence[str], None] = '568cc1b65e22'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
