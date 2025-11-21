@@ -67,12 +67,12 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-BE"
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be"
             
             # Clone if the directory doesn't exist
             if [ ! -d "$REMOTE_DIR" ]; then
               cd /home/ifeanyinw/apps/backend/
-              git clone https://github.com/hngprojects/legal-watch-dog-BE.git "$REMOTE_DIR"
+              git clone https://github.com/hngprojects/legal-watch-dog-be.git "$REMOTE_DIR"
             fi
 
             cd "$REMOTE_DIR"
@@ -158,12 +158,12 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-BE"
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be"
             
             # Clone if the directory doesn't exist
             if [ ! -d "$REMOTE_DIR" ]; then
               cd /home/ifeanyinw/apps/backend/
-              git clone https://github.com/hngprojects/legal-watch-dog-BE.git "$REMOTE_DIR"
+              git clone https://github.com/hngprojects/legal-watch-dog-be.git "$REMOTE_DIR"
             fi
 
             cd "$REMOTE_DIR"
@@ -178,7 +178,7 @@ jobs:
             uv run alembic upgrade head
             
             # Stop existing process
-            pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
+            pkill -f "uv run uvicorn.*legal-watch-dog-be" || true
             sleep 2
             
             export $(grep -v '^#' .env | xargs)
