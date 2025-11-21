@@ -1,14 +1,18 @@
 import time
-from collections import defaultdict
 from typing import Callable
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.api.core.dependencies.redis_service import get_redis_client
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
-    Rate limiting middleware that limits requests to a specified number per minute.
+    Redis-based rate limiting middleware that limits requests to a specified number per minute.
+
+    Uses Redis for distributed rate limiting, making it suitable for multi-server deployments.
     Excludes certain paths from rate limiting (e.g., waitlist endpoints).
     """
 
@@ -29,7 +33,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.excluded_paths = excluded_paths or []
-        self.request_logs: dict[str, list[float]] = defaultdict(list)
 
     def _is_excluded_path(self, path: str) -> bool:
         """
@@ -45,19 +48,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if path.startswith(excluded_path):
                 return True
         return False
-
-    def _clean_old_requests(self, client_ip: str, current_time: float) -> None:
-        """
-        Remove requests older than 1 minute from the request log.
-
-        Args:
-            client_ip: The client IP address.
-            current_time: The current timestamp in seconds.
-        """
-        one_minute_ago = current_time - 60
-        self.request_logs[client_ip] = [
-            timestamp for timestamp in self.request_logs[client_ip] if timestamp > one_minute_ago
-        ]
 
     def _get_client_ip(self, request: Request) -> str:
         """
@@ -86,7 +76,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
-        Process the request and apply rate limiting.
+        Process the request and apply rate limiting using Redis.
+
+        Uses Redis sorted sets to track requests with timestamps as scores.
+        Automatically removes expired entries older than 60 seconds.
 
         Args:
             request: The incoming request.
@@ -103,33 +96,51 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client_ip = self._get_client_ip(request)
         current_time = time.time()
+        redis_key = f"rate_limit:api:{client_ip}"
 
-        self._clean_old_requests(client_ip, current_time)
+        try:
+            redis_client = await get_redis_client()
 
-        if len(self.request_logs[client_ip]) >= self.requests_per_minute:
-            oldest_request = min(self.request_logs[client_ip])
-            reset_time = int(oldest_request + 60 - current_time)
+            one_minute_ago = current_time - 60
+            await redis_client.zremrangebyscore(redis_key, 0, one_minute_ago)
 
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "status": "failure",
-                    "status_code": 429,
-                    "message": (
-                        f"Rate limit exceeded. Maximum {self.requests_per_minute} "
-                        "requests per minute allowed."
-                    ),
-                    "error": {"retry_after": reset_time},
-                },
-            )
+            request_count = await redis_client.zcard(redis_key)
 
-        self.request_logs[client_ip].append(current_time)
+            if request_count >= self.requests_per_minute:
+                oldest_request = await redis_client.zrange(redis_key, 0, 0, withscores=True)
+                if oldest_request:
+                    oldest_timestamp = oldest_request[0][1]
+                    reset_time = int(oldest_timestamp + 60 - current_time)
+                else:
+                    reset_time = 60
 
-        response = await call_next(request)
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "status": "failure",
+                        "status_code": 429,
+                        "message": (
+                            f"Rate limit exceeded. Maximum {self.requests_per_minute} "
+                            "requests per minute allowed."
+                        ),
+                        "error": {"retry_after": reset_time},
+                    },
+                )
 
-        remaining = self.requests_per_minute - len(self.request_logs[client_ip])
-        response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(int(current_time + 60))
+            await redis_client.zadd(redis_key, {str(current_time): current_time})
+            await redis_client.expire(redis_key, 60)
 
-        return response
+            response = await call_next(request)
+
+            request_count = await redis_client.zcard(redis_key)
+            remaining = self.requests_per_minute - request_count
+            response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            response.headers["X-RateLimit-Reset"] = str(int(current_time + 60))
+
+            return response
+
+        except aioredis.RedisError as e:
+            print(f"Redis error in rate limiter: {e}")
+            response = await call_next(request)
+            return response
