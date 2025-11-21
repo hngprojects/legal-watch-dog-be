@@ -12,7 +12,10 @@ from app.api.modules.v1.auth.schemas.register import (
     RegisterResponse,
 )
 from app.api.modules.v1.auth.schemas.resend_otp import ResendOTPRequest
-from app.api.modules.v1.auth.schemas.verify_otp import VerifyOTPRequest, VerifyOTPResponse
+from app.api.modules.v1.auth.schemas.verify_otp import (
+    VerifyOTPRequest,
+    VerifyOTPResponse,
+)
 from app.api.modules.v1.auth.service.register_service import RegistrationService
 from app.api.utils.response_payloads import (
     fail_response,
@@ -65,12 +68,17 @@ async def company_signup(
         )
 
     except ValueError as e:
-        logger.warning("Registration validation failed for email=%s: %s", payload.email, str(e))
+        logger.warning(
+            "Registration validation failed for email=%s: %s", payload.email, str(e)
+        )
         return fail_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
 
     except Exception as e:
         logger.error(
-            "Failed to process registration for email=%s: %s", payload.email, str(e), exc_info=True
+            "Failed to process registration for email=%s: %s",
+            payload.email,
+            str(e),
+            exc_info=True,
         )
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -121,11 +129,17 @@ async def verify_otp(
         return fail_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
 
     except Exception as e:
-        logger.error("Failed to verify OTP for email=%s: %s", payload.email, str(e), exc_info=True)
+        logger.error(
+            "Failed to verify OTP for email=%s: %s",
+            payload.email,
+            str(e),
+            exc_info=True,
+        )
         return fail_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="OTP verification failed. Please try again later.",
         )
+
 
 @router.post(
     "/resend-otp",
@@ -140,7 +154,7 @@ async def resend_otp(
 ):
     """
     Resend registration OTP for a pending signup.
-    
+
     Rules:
     - If the organization already exists -> tell user to log in instead.
     - If there's a pending registration -> generate a new OTP and resend.
@@ -166,7 +180,9 @@ async def resend_otp(
         )
 
     except ValueError as e:
-        logger.warning("Resend OTP validation failed for email=%s: %s", payload.email, str(e))
+        logger.warning(
+            "Resend OTP validation failed for email=%s: %s", payload.email, str(e)
+        )
         return fail_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
