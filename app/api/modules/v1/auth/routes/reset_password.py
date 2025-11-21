@@ -21,10 +21,7 @@ from app.api.modules.v1.auth.service.reset_password import (
     verify_reset_code as service_verify_code,
 )
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.response_payloads import (
-    fail_response,
-    success_response,
-)
+from app.api.utils.response_payloads import fail_response, success_response
 
 logger = logging.getLogger(__name__)
 

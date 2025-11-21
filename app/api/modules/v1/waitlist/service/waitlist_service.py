@@ -76,8 +76,9 @@ class WaitlistService:
     async def _email_exists(self, db: AsyncSession, email: str) -> bool:
         """Check if email already exists"""
         stmt = select(Waitlist).where(Waitlist.organization_email == email.lower())
-        result = await db.execute(stmt)
-        exists = result.scalar_one_or_none() is not None
+        result = await db.exec(stmt)
+        # db.exec() returns a ScalarResult; use one_or_none()
+        exists = result.one_or_none() is not None
         if exists:
             logger.debug(f"Email found in database: {email}")
         return exists
