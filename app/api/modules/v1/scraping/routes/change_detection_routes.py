@@ -11,16 +11,29 @@ from app.api.modules.v1.scraping.schemas.change_detection_schemas import (
     RevisionResponse,
     RevisionWithDiffResponse,
 )
-from app.api.modules.v1.scraping.service.change_detection_service import ChangeDetectionService
+from app.api.modules.v1.scraping.service.change_detection_service import (
+    ChangeDetectionService,
+)
 from app.api.modules.v1.scraping.service.mock_ai_summary import MockAIService
 
 router = APIRouter(prefix="/revisions", tags=["revisions"])
 
 
-@router.post("/create", response_model=RevisionWithDiffResponse)
+@router.post(
+    "/create",
+    response_model=RevisionWithDiffResponse,
+    summary="Create a new revision (⚠️ Not Ready)",
+    description="""
+⚠️ **This endpoint is not yet fully implemented.**  
+
+- Currently generates a deterministic AI summary from `raw_content`.  
+- **Change detection and diff logic are not implemented yet.**  
+- Use this endpoint **only to test the flow** and see placeholder data.  
+- Full functionality coming in a future update.
+""",
+)
 async def create_revision_with_change_detection(
-    revision_data: RevisionCreate,
-    db: AsyncSession = Depends(get_db)
+    revision_data: RevisionCreate, db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new revision and automatically detect changes.
@@ -31,24 +44,30 @@ async def create_revision_with_change_detection(
 
         # Step 2: Run change detection service
         detection_service = ChangeDetectionService(db)
-        new_revision, change_diff = await detection_service.create_revision_with_detection(
-            source_id=revision_data.source_id,
-            scraped_at=datetime.utcnow(),
-            status=revision_data.status,
-            raw_content=revision_data.raw_content,
-            extracted_data=revision_data.extracted_data,
-            ai_summary=ai_summary
+        new_revision, change_diff = (
+            await detection_service.create_revision_with_detection(
+                source_id=revision_data.source_id,
+                scraped_at=datetime.utcnow(),
+                status=revision_data.status,
+                raw_content=revision_data.raw_content,
+                extracted_data=revision_data.extracted_data,
+                ai_summary=ai_summary,
+            )
         )
 
         # Step 3: Format response
         return RevisionWithDiffResponse(
             revision=RevisionResponse.from_orm(new_revision),
-            change_diff=ChangeDiffResponse.from_orm(change_diff) if change_diff else None
+            change_diff=(
+                ChangeDiffResponse.from_orm(change_diff) if change_diff else None
+            ),
         )
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating revision: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating revision: {str(e)}"
+        )
 
 
 # @router.get("/source/{source_id}/history", response_model=List[RevisionResponse])
