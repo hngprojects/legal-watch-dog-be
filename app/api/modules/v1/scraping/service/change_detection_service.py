@@ -1,4 +1,3 @@
-
 import difflib
 import logging
 import uuid
@@ -13,15 +12,40 @@ from app.api.modules.v1.scraping.models.data_revision_model import DataRevision
 
 logger = logging.getLogger(__name__)
 
+
 class ChangeDetectionService:
+    """
+    Service responsible for handling creation of data revisions and detecting
+    whether meaningful changes occurred between the previous and current revision.
+
+    This includes:
+    - Fetching the most recent revision for a source
+    - Comparing AI-generated summaries
+    - Generating unified diff patches
+    - Creating ChangeDiff records when a change is detected
+    """
 
     def __init__(self, db: AsyncSession):
+        """
+        Initialize the ChangeDetectionService.
+
+        Args:
+            db (AsyncSession): The async database session used for database operations.
+        """
         self.db = db
 
     async def get_previous_revision(self, source_id: str) -> Optional[DataRevision]:
         """
-        Get the most recent revision for a given source.
-        Excludes soft-deleted records.
+        Retrieve the most recent (non-deleted) revision for a specific source_id.
+
+        Args:
+            source_id (str): Identifier of the data source.
+
+        Returns:
+            Optional[DataRevision]: The latest revision or None if none exists.
+
+        Raises:
+            SQLAlchemyError: If the database query fails.
         """
         result = await self.db.execute(
             select(DataRevision)
@@ -33,10 +57,15 @@ class ChangeDetectionService:
 
     def compare_summaries(self, old_summary: str, new_summary: str) -> bool:
         """
-        Compare two AI summaries using exact string match.
-        Returns True if they are DIFFERENT, False if they are the SAME.
+        Compare two AI summaries to determine if they differ.
+
+        Args:
+            old_summary (str): Summary from the previous revision.
+            new_summary (str): Newly generated summary.
+
+        Returns:
+            bool: True if they are different, False otherwise.
         """
-        # Handle None cases
         if old_summary is None and new_summary is None:
             return False
         if old_summary is None or new_summary is None:
@@ -46,7 +75,15 @@ class ChangeDetectionService:
 
     def generate_diff_patch(self, old_summary: str, new_summary: str) -> Dict[str, Any]:
         """
-        Generate a detailed diff patch in JSON format using difflib.
+        Generate a detailed unified diff patch between two summaries.
+
+        Args:
+            old_summary (str): Previous summary text.
+            new_summary (str): Current summary text.
+
+        Returns:
+            Dict[str, Any]: Structured diff data including additions, deletions,
+                            previews and unified diff.
         """
         old_summary = old_summary or ""
         new_summary = new_summary or ""
@@ -101,19 +138,37 @@ class ChangeDetectionService:
         ai_summary: str,
     ) -> Tuple[DataRevision, Optional[ChangeDiff]]:
         """
-        Creates a new revision and optionally a change_diff if changes are detected.
+        Create a new revision for a source and detect whether changes occurred
+        compared to the previous revision.
+
+        Args:
+            source_id (str): Unique identifier for the scraped source.
+            scraped_at (datetime): Timestamp of the scraping operation.
+            status (str): Current status of the scraped data.
+            raw_content (str): Raw scraped text/content.
+            extracted_data (Dict[str, Any]): Parsed structured data.
+            ai_summary (str): AI-generated summary used for change comparison.
+
+        Returns:
+            Tuple[DataRevision, Optional[ChangeDiff]]:
+                - Newly created revision
+                - A ChangeDiff record if changes were detected, otherwise None
+
+        Raises:
+            SQLAlchemyError: If database operations fail.
         """
-        # Step 1: Get previous revision
+
+        # Retrieve previous revision
         previous_revision = await self.get_previous_revision(source_id)
 
-        # Step 2: Determine if there's a change
+        # Determine whether a change occurred
         was_change_detected = False
         if previous_revision is not None:
             was_change_detected = self.compare_summaries(
                 previous_revision.ai_summary, ai_summary
             )
 
-        # Step 3: Create new revision (ALWAYS created)
+        # Create new revision record
         new_revision = DataRevision(
             revision_id=str(uuid.uuid4()),
             source_id=source_id,
@@ -128,9 +183,9 @@ class ChangeDetectionService:
         )
 
         self.db.add(new_revision)
-        await self.db.flush()  # Get revision_id without committing
+        await self.db.flush()
 
-        # Step 4: Create change_diff if change was detected
+        # Create ChangeDiff only if a change was detected
         change_diff = None
         if was_change_detected and previous_revision is not None:
             logger.info("Change detected, creating ChangeDiff record.")
@@ -147,7 +202,7 @@ class ChangeDetectionService:
             self.db.add(change_diff)
             logger.info(f"Created change_diff: {change_diff}")
 
-        # Step 5: Commit transaction
+        # Commit and refresh
         await self.db.commit()
         await self.db.refresh(new_revision)
         if change_diff:

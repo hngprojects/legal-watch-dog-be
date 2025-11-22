@@ -1,4 +1,4 @@
-# services/mock_ai_service.py
+
 import hashlib
 
 
@@ -18,9 +18,9 @@ class MockAIService:
     
     @staticmethod
     def generate_summary(raw_content: str) -> str:
-        # Create a hash of the raw content
+      
         content_hash = hashlib.md5(raw_content.encode("utf-8")).hexdigest()
-        # Return a summary based on content hash (deterministic)
+        
         return f"Summary: {raw_content[:50]}... [hash:{content_hash[:8]}]"
     
     @staticmethod
