@@ -78,3 +78,4 @@ class PasswordReuseError(Exception):
     """
 
     pass
+

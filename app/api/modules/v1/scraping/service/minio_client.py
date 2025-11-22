@@ -38,37 +38,26 @@ def get_minio_client() -> Minio:
 
 
 def read_object(bucket: str, object_name: str) -> str:
-    """
-    Read raw object content from MinIO and return it as UTF-8 text.
-    Adds full error handling and logs issues clearly.
-    """
-
     client = get_minio_client()
-
     try:
-        logger.info(f"Reading object '{object_name}' from bucket '{bucket}'...")
         response = client.get_object(bucket, object_name)
     except S3Error as e:
-        logger.error(f"MinIO S3 error while fetching object: {e.code} {e.message}")
-        raise MinioReadError(f"Failed to get object '{object_name}' from bucket '{bucket}'") from e
+        if e.code == "NoSuchKey":
+            raise FileNotFoundError(f"Object {object_name} not found in bucket {bucket}") from e
+        raise MinioReadError(f"Failed to read object {object_name}") from e
     except Exception as e:
-        logger.error(f"Unexpected error while getting object: {e}")
-        raise MinioReadError("Unexpected error while reading object from MinIO") from e
+        raise MinioReadError(f"Unexpected error reading object {object_name}") from e
 
     try:
-        raw_content = response.read()
-    except Exception as e:
-        logger.error(f"Error reading response stream for '{object_name}': {e}")
-        raise MinioReadError("Error reading object content from MinIO") from e
+        content = response.read()
     finally:
         response.close()
         response.release_conn()
 
     try:
-        return raw_content.decode("utf-8", errors="ignore")
+        return content.decode("utf-8", errors="ignore")
     except Exception as e:
-        logger.error(f"Decoding error for '{object_name}': {e}")
-        raise MinioReadError("Failed to decode object content as UTF-8") from e
+        raise MinioReadError(f"Decoding failed for {object_name}") from e
 
 
 def write_object(bucket: str, object_name: str, extracted_data: str):
