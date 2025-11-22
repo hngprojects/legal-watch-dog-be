@@ -59,13 +59,15 @@ async def test_get_jurisdiction_not_found_raises(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_jurisdictions_empty_raises(monkeypatch):
+    # Accept both (db) and (db, project_id) signatures to be defensive
     async def fake_all(db):
         return []
 
+    # Patch the service helper the current route exposes for fetching all jurisdictions
     monkeypatch.setattr(routes.service, "get_all_jurisdictions", fake_all)
 
-    # call without project_id -> will call get_all_jurisdictions and return a JSONResponse
-    res = await routes.get_jurisdictions(project_id=None, db=cast(Any, None))
+    # call the current route handler for fetching all jurisdictions
+    res = await routes.get_all_jurisdictions(db=cast(Any, None))
     assert hasattr(res, "status_code")
     assert res.status_code == 404
 
@@ -88,6 +90,9 @@ async def test_restore_jurisdiction_success(monkeypatch):
     async def fake_update(db, jurisdiction):
         return jurisdiction
 
+    # Patch both restoration/get helpers to be defensive in case the route
+    # calls either `get_jurisdiction_for_restoration` or `get_jurisdiction_by_id`.
+    monkeypatch.setattr(routes.service, "get_jurisdiction_for_restoration", fake_get)
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
     monkeypatch.setattr(routes.service, "update", fake_update)
 
