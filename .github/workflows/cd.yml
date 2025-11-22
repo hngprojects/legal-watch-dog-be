@@ -23,7 +23,7 @@ jobs:
         run: |
           cat <<EOF > .env.staging
           DEBUG=False
-          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8000' }}"
+          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8001' }}"
           APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
           APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
           ENVIRONMENT="staging"
@@ -36,7 +36,7 @@ jobs:
           DB_USER="${{ secrets.DB_USER }}"
           DB_PASS="${{ secrets.DB_PASS }}"
           DB_NAME="${{ secrets.STAGING_DB_NAME }}"
-          DATABASE_URL="postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
+          DATABASE_URL="postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
 
           MAIL_MAILER="${{ vars.MAIL_MAILER || 'smtp' }}"
           SMTP_SERVER="${{ secrets.SMTP_SERVER }}"
@@ -150,10 +150,6 @@ jobs:
             pm2 status
           EOF
 
-      - name: Mark Deployment Result
-        if: failure()
-        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
-
   # DEPLOY TO PRODUCTION (MAIN BRANCH)
   deploy_production:
     name: CD - Backend Deploy (Production)
@@ -167,12 +163,12 @@ jobs:
 
       - name: Generate production environment file
         run: |
-          cat <<EOF > .env.staging
+          cat <<EOF > .env.production
           DEBUG=False
           APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8000' }}"
           APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
           APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
-          ENVIRONMENT="staging"
+          ENVIRONMENT="production"
           SECRET_KEY="${{ secrets.SECRET_KEY }}"
           LEGAL_WATCH_DOG_BASE_URL="${{ secrets.BASE_URL || vars.BASE_URL }}"
 
@@ -181,8 +177,8 @@ jobs:
           DB_PORT="${{ secrets.DB_PORT }}"
           DB_USER="${{ secrets.DB_USER }}"
           DB_PASS="${{ secrets.DB_PASS }}"
-          DB_NAME="${{ secrets.STAGING_DB_NAME }}"
-          DATABASE_URL="postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
+          DB_NAME="${{ secrets.DB_NAME }}"
+          DATABASE_URL="postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
 
           MAIL_MAILER="${{ vars.MAIL_MAILER || 'smtp' }}"
           SMTP_SERVER="${{ secrets.SMTP_SERVER }}"
@@ -202,7 +198,7 @@ jobs:
           JWT_EXPIRY="${{ secrets.JWT_EXPIRY }}"
           ACCESS_TOKEN_EXPIRATION="${{ secrets.ACCESS_TOKEN_EXPIRATION }}"
 
-          ALLOW_TEST_EMAIL_PROVIDERS="${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}"
+          ALLOW_TEST_EMAIL_PROVIDERS="${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'false' }}"
           TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
           ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
           EOF
@@ -296,11 +292,6 @@ jobs:
             echo "Production deployment complete on port $APP_PORT!"
             pm2 status
           EOF
-          
-
-      - name: Mark Deployment Result
-        if: failure()
-        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
 
   # -------------------------
   # 3. Slack Notification
@@ -308,9 +299,7 @@ jobs:
   notify_slack:
     name: Notify Slack
     runs-on: self-hosted
-    needs:
-      - deploy_staging
-      - deploy_production
+    needs: [deploy_staging, deploy_production]
     if: always()
 
     steps:
