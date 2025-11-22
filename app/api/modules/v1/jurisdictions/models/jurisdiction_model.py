@@ -11,8 +11,11 @@ logger = logging.getLogger("app")
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
+<<<<<<< HEAD
     from app.api.modules.v1.scraping.models.source_model import Source
     from app.api.modules.v1.project_audit_log.models.project_audit_log_model import ProjectAuditLog
+=======
+>>>>>>> ddfb8f8 (fix:precommit fix on models)
 
 
 class Jurisdiction(SQLModel, table=True):
