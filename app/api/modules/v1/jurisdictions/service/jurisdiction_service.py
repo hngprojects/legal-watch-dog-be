@@ -141,15 +141,14 @@ class JurisdictionService:
         try:
             stmt = select(Jurisdiction).where(
                 cast(Any, Jurisdiction.project_id) == project_id,
-                cast(Any, Jurisdiction.is_deleted).is_(False)  # only active
+                cast(Any, Jurisdiction.is_deleted).is_(False),  # only active
             )
             result = await db.execute(stmt)
             active_jurisdictions = result.scalars().all()
 
             if not active_jurisdictions:
                 raise HTTPException(
-                    status_code=404,
-                    detail="No active jurisdictions found for this project"
+                    status_code=404, detail="No active jurisdictions found for this project"
                 )
 
             return active_jurisdictions
