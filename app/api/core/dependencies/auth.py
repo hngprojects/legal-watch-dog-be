@@ -228,3 +228,28 @@ class OrganizationFilter:
     def __init__(self, current_user: User = Depends(get_current_user)):
         self.org_id = current_user.organization_id
         self.user = current_user
+
+
+class TenantGuard:
+    """
+    Enforces multi-tenant isolation automatically.
+
+    Provides:
+      - current_user
+      - org_id for query filtering
+      - verify(resource_org_id) for checking access to a specific resource
+    """
+
+    def __init__(self, current_user: User = Depends(get_current_user)):
+        if not current_user.organization_id:
+            raise HTTPException(status_code=403, detail="User does not belong to an organization")
+
+        self.current_user = current_user
+        self.org_id = current_user.organization_id
+
+    def verify(self, resource_org_id):
+        """Validate the resource belongs to the user's org."""
+        if str(resource_org_id) != str(self.org_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource belongs to another organization"
+            )
