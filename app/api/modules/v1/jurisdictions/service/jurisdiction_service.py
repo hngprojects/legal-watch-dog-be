@@ -141,7 +141,7 @@ class JurisdictionService:
         try:
             stmt = select(Jurisdiction).where(
                 cast(Any, Jurisdiction.project_id) == project_id,
-                cast(Any, Jurisdiction.is_deleted).is_(False),  # only active
+                cast(Any, Jurisdiction.is_deleted).is_(False),
             )
             result = await db.execute(stmt)
             active_jurisdictions = result.scalars().all()
@@ -285,7 +285,7 @@ class JurisdictionService:
                 if not jurisdiction:
                     return None
                 jurisdiction.is_deleted = True
-                jurisdiction.deleted_at = datetime.now()
+                jurisdiction.deleted_at = datetime.now(timezone.utc)
                 db.add(jurisdiction)
                 await db.commit()
                 await db.refresh(jurisdiction)
@@ -442,6 +442,9 @@ class JurisdictionService:
                 db.add(j)
 
             await db.commit()
+
+            for j in archived_jurisdictions:
+                await db.refresh(j)
 
             return archived_jurisdictions
 
