@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -10,7 +10,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.core.config import settings
+# Mock Fernet BEFORE any app imports to prevent key validation errors
+mock_fernet = MagicMock()
+mock_fernet.encrypt.return_value.decode.return_value = "mock_encrypted_value"
+mock_fernet.decrypt.return_value.decode.return_value = '{"username": "test", "password": "secret"}'
+patch("cryptography.fernet.Fernet", return_value=mock_fernet).start()
+
+# Mock the get_cipher_suite function to return our mock Fernet
+patch("app.api.core.config.get_cipher_suite", return_value=mock_fernet).start()
+
+# Now import the app modules
+from app.api.core.config import settings  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
