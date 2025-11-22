@@ -61,6 +61,7 @@ async def create_revision_with_change_detection(
                 source_id=revision_data.source_id,
                 scraped_at=datetime.utcnow(),
                 status=revision_data.status,
+                minio_object_key=revision_data.minio_object_key,
                 raw_content=revision_data.raw_content,
                 extracted_data=revision_data.extracted_data,
                 ai_summary=ai_summary,

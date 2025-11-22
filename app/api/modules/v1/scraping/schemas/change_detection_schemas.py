@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class RevisionCreate(BaseModel):
     source_id: str
     raw_content: str
+    minio_object_key: str
     extracted_data: Optional[Dict[str, Any]] = None
     status: str = "processed"
 
@@ -16,7 +17,7 @@ class RevisionResponse(BaseModel):
     source_id: str
     scraped_at: datetime
     status: str
-    ai_summary: Optional[str]
+    ai_summary: Optional[Dict[str, Any]]
     was_change_detected: bool
     created_at: datetime
 
