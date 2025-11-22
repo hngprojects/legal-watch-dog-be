@@ -1,0 +1,407 @@
+name: Backend CD - Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  # DEPLOY TO STAGING (DEV BRANCH)
+  deploy_staging:
+    name: CD - Backend Deploy (Staging)
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/dev'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate staging environment file
+        run: |
+          cat <<EOF > .env.staging
+          DEBUG=False
+          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8001' }}"
+          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
+          ENVIRONMENT="staging"
+          SECRET_KEY="${{ secrets.SECRET_KEY }}"
+          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.BASE_URL || vars.BASE_URL }}"
+
+          DB_TYPE="${{ vars.DB_TYPE || 'postgresql' }}"
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_PORT="${{ secrets.DB_PORT }}"
+          DB_USER="${{ secrets.DB_USER }}"
+          DB_PASS="${{ secrets.DB_PASS }}"
+          DB_NAME="${{ secrets.STAGING_DB_NAME }}"
+          DATABASE_URL="postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
+
+          MAIL_MAILER="${{ vars.MAIL_MAILER || 'smtp' }}"
+          SMTP_SERVER="${{ secrets.SMTP_SERVER }}"
+          SMTP_PORT="${{ secrets.SMTP_PORT }}"
+          MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
+          MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
+          MAIL_ENCRYPTION="${{ secrets.MAIL_ENCRYPTION }}"
+          EMAIL="${{ secrets.EMAIL }}"
+          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME || 'LEGAL WATCH DOG' }}"
+
+          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
+          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+          REDIS_URL="${{ secrets.REDIS_URL }}"
+          REDIS_CACHE_TTL_SECONDS="${{ secrets.REDIS_CACHE_TTL_SECONDS }}"
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          JWT_ALGORITHM="${{ secrets.JWT_ALGORITHM }}"
+          JWT_EXPIRY="${{ secrets.JWT_EXPIRY }}"
+          ACCESS_TOKEN_EXPIRATION="${{ secrets.ACCESS_TOKEN_EXPIRATION }}"
+
+          ALLOW_TEST_EMAIL_PROVIDERS="${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}"
+          TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
+          ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
+          EOF
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Upload .env file to server
+        run: |
+          sshpass -p "${{ secrets.STAGING_PASS }}" scp -o StrictHostKeyChecking=no .env.staging ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_IP }}:/tmp/backend_env
+
+      - name: Set up SSH and Deploy
+        env:
+          SERVER_PASS: ${{ secrets.STAGING_PASS }}
+          SERVER_USER: ${{ secrets.STAGING_USER }}
+          SERVER_IP: ${{ secrets.STAGING_IP }}
+        run: |
+          echo "access gained"
+          echo "deploying to staging server"
+
+          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
+
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be"
+            
+            # Clone if the directory doesn't exist
+            if [ ! -d "$REMOTE_DIR" ]; then
+              cd /home/ifeanyinw/apps/backend/
+              git clone https://github.com/hngprojects/legal-watch-dog-be.git "$REMOTE_DIR"
+            fi
+
+            cd "$REMOTE_DIR"
+            
+            git pull origin dev
+            
+            mv /tmp/backend_env .env
+            
+            # Install uv if not present
+            if ! command -v uv &> /dev/null; then
+              echo "Installing uv..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            
+            uv sync
+
+            uv run alembic upgrade head
+            
+            # Load environment variables
+            set -a 
+            source .env 
+            set +a
+            
+            # PM2 Management
+            PM2_APP_NAME="legal-watchdog-be-${ENVIRONMENT}"
+            
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Clean up any errored PM2 processes
+            echo "Checking for errored PM2 processes..."
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              PM2_STATUS=$(pm2 jlist | jq -r ".[] | select(.name==\"$PM2_APP_NAME\") | .pm2_env.status" 2>/dev/null || echo "stopped")
+              
+              if [ "$PM2_STATUS" == "errored" ] || [ "$PM2_STATUS" == "stopped" ]; then
+                echo "Process is in $PM2_STATUS state. Deleting and recreating..."
+                pm2 delete "$PM2_APP_NAME" || true
+              fi
+            fi
+            
+            # Create startup script for better process management
+            cat > start_app.sh << 'SCRIPT_EOF'
+              #!/bin/bash
+              cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
+              source .env
+              uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
+            SCRIPT_EOF
+            
+            chmod +x start_app.sh
+            
+            # Check if app exists in PM2
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              echo "PM2 app '$PM2_APP_NAME' exists. Restarting..."
+              pm2 restart "$PM2_APP_NAME" --update-env
+            else
+              echo "PM2 app '$PM2_APP_NAME' not found. Starting new instance..."
+              pm2 start ./start_app.sh --name "$PM2_APP_NAME"
+            fi
+            
+            # Save PM2 process list to persist across reboots
+            pm2 save
+            
+            # Setup PM2 startup script (safe to run multiple times)
+            pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
+            
+            echo "Staging deployment complete on port $APP_PORT!"
+            pm2 status
+          EOF
+
+  # DEPLOY TO PRODUCTION (MAIN BRANCH)
+  deploy_production:
+    name: CD - Backend Deploy (Production)
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate production environment file
+        run: |
+          cat <<EOF > .env.production
+          DEBUG=False
+          APP_PORT="${{ secrets.APP_PORT || vars.APP_PORT || '8001' }}"
+          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_VERSION="${{ vars.APP_VERSION || '1.0.0' }}"
+          ENVIRONMENT="production"
+          SECRET_KEY="${{ secrets.SECRET_KEY }}"
+          LEGAL_WATCH_DOG_BASE_URL="${{ secrets.BASE_URL || vars.BASE_URL }}"
+
+          DB_TYPE="${{ vars.DB_TYPE || 'postgresql' }}"
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_PORT="${{ secrets.DB_PORT }}"
+          DB_USER="${{ secrets.DB_USER }}"
+          DB_PASS="${{ secrets.DB_PASS }}"
+          DB_NAME="${{ secrets.DB_NAME }}"
+          DATABASE_URL="postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASS }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}"
+
+          MAIL_MAILER="${{ vars.MAIL_MAILER || 'smtp' }}"
+          SMTP_SERVER="${{ secrets.SMTP_SERVER }}"
+          SMTP_PORT="${{ secrets.SMTP_PORT }}"
+          MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
+          MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
+          MAIL_ENCRYPTION="${{ secrets.MAIL_ENCRYPTION }}"
+          EMAIL="${{ secrets.EMAIL }}"
+          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME || 'LEGAL WATCH DOG' }}"
+
+          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
+          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+          REDIS_URL="${{ secrets.REDIS_URL }}"
+          REDIS_CACHE_TTL_SECONDS="${{ secrets.REDIS_CACHE_TTL_SECONDS }}"
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          JWT_ALGORITHM="${{ secrets.JWT_ALGORITHM }}"
+          JWT_EXPIRY="${{ secrets.JWT_EXPIRY }}"
+          ACCESS_TOKEN_EXPIRATION="${{ secrets.ACCESS_TOKEN_EXPIRATION }}"
+
+          ALLOW_TEST_EMAIL_PROVIDERS="${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'false' }}"
+          TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
+          ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
+          EOF
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Upload .env file to server
+        run: |
+          sshpass -p "${{ secrets.PROD_PASS }}" scp -o StrictHostKeyChecking=no .env.production ${{ secrets.PROD_USER }}@${{ secrets.PROD_IP }}:/tmp/backend_env
+
+      - name: Set up SSH and Deploy
+        env:
+          SERVER_PASS: ${{ secrets.PROD_PASS }}
+          SERVER_USER: ${{ secrets.PROD_USER }}
+          SERVER_IP: ${{ secrets.PROD_IP }}
+        run: |
+          echo "access gained"
+          echo "deploying to production server"
+
+          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
+
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be"
+            
+            # Clone if the directory doesn't exist
+            if [ ! -d "$REMOTE_DIR" ]; then
+              cd /home/ifeanyinw/apps/backend/
+              git clone https://github.com/hngprojects/legal-watch-dog-be.git "$REMOTE_DIR"
+            fi
+
+            cd "$REMOTE_DIR"
+            
+            git pull origin main
+            
+            mv /tmp/backend_env .env
+
+            # Install uv if not present
+            if ! command -v uv &> /dev/null; then
+              echo "Installing uv..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            
+            uv sync
+            
+            # Run database migrations
+            uv run alembic upgrade head
+            
+            # Load environment variables
+            set -a 
+            source .env 
+            set +a
+            
+            # PM2 Management
+            PM2_APP_NAME="legal-watchdog-be-${ENVIRONMENT}"
+            
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Clean up any errored PM2 processes
+            echo "Checking for errored PM2 processes..."
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              PM2_STATUS=$(pm2 jlist | jq -r ".[] | select(.name==\"$PM2_APP_NAME\") | .pm2_env.status" 2>/dev/null || echo "stopped")
+              
+              if [ "$PM2_STATUS" == "errored" ] || [ "$PM2_STATUS" == "stopped" ]; then
+                echo "Process is in $PM2_STATUS state. Deleting and recreating..."
+                pm2 delete "$PM2_APP_NAME" || true
+              fi
+            fi
+            
+            # Create startup script for better process management
+            cat > start_app.sh << 'SCRIPTEND'
+            #!/bin/bash
+            cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
+            source .env
+            uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
+          SCRIPTEND
+            
+            chmod +x start_app.sh
+            
+            # Check if app exists in PM2
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              echo "PM2 app '$PM2_APP_NAME' exists. Restarting..."
+              pm2 restart "$PM2_APP_NAME" --update-env
+            else
+              echo "PM2 app '$PM2_APP_NAME' not found. Starting new instance..."
+              pm2 start ./start_app.sh --name "$PM2_APP_NAME"
+            fi
+            
+            # Save PM2 process list to persist across reboots
+            pm2 save
+            
+            # Setup PM2 startup script (safe to run multiple times)
+            pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
+            
+            echo "Production deployment complete on port $APP_PORT!"
+            pm2 status
+          EOF
+
+  # -------------------------
+  # 3. Slack Notification
+  # -------------------------
+  notify_slack:
+    name: Notify Slack
+    runs-on: self-hosted
+    needs: [deploy_staging, deploy_production]
+    if: always()
+
+    steps:
+      - name: Send Slack Notification
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          STAGING_RESULT: ${{ needs.deploy_staging.result }}
+          PROD_RESULT: ${{ needs.deploy_production.result }}
+        run: |
+          echo "Preparing Slack message..."
+
+          # Get branch name
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          
+          # Determine high-level outcome and set appropriate emoji
+          if ([ "$STAGING_RESULT" == "success" ] || [ "$STAGING_RESULT" == "skipped" ]) && ([ "$PROD_RESULT" == "success" ] || [ "$PROD_RESULT" == "skipped" ]); then
+            MAIN_STATUS="✅ Deployment Successful"
+            STATUS_COLOR="good"
+          else
+            MAIN_STATUS="❌ Deployment Failed"
+            STATUS_COLOR="danger"
+          fi
+
+          # Build detailed status for each stage
+          DETAIL_MSG=""
+
+          # Staging Deploy Stage
+          if [ "$STAGING_RESULT" == "success" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n✅ *Staging Environment:* Successfully deployed to staging server"
+          elif [ "$STAGING_RESULT" == "skipped" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n⏭️ *Staging Environment:* Skipped (not a dev branch)"
+          else
+            DETAIL_MSG="${DETAIL_MSG}\n❌ *Staging Environment:* Failed to deploy to staging server"
+          fi
+
+          # Production Deploy Stage
+          if [ "$PROD_RESULT" == "success" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n✅ *Production API:* Successfully deployed to production server"
+          elif [ "$PROD_RESULT" == "skipped" ]; then
+            DETAIL_MSG="${DETAIL_MSG}\n⏭️ *Production API:* Skipped (not main branch)"
+          else
+            DETAIL_MSG="${DETAIL_MSG}\n❌ *Production API:* Failed to deploy to production server"
+          fi
+
+          # Add branch info
+          DETAIL_MSG="${DETAIL_MSG}\n\n📋 *Branch:* \`${BRANCH_NAME}\`"
+          DETAIL_MSG="${DETAIL_MSG}\n👤 *Triggered by:* ${GITHUB_ACTOR}"
+
+          LOG_LINK="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          # Format Slack JSON with rich formatting
+          PAYLOAD="{
+            \"attachments\": [
+              {
+                \"color\": \"${STATUS_COLOR}\",
+                \"blocks\": [
+                  {
+                    \"type\": \"header\",
+                    \"text\": {
+                      \"type\": \"plain_text\",
+                      \"text\": \"⚙️ Backend Deployment Update\",
+                      \"emoji\": true
+                    }
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*${MAIN_STATUS}*${DETAIL_MSG}\"
+                    }
+                  },
+                  {
+                    \"type\": \"divider\"
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"Need help? Check the <${LOG_LINK}|detailed logs> or contact the development team.\"
+                    }
+                  }
+                ]
+              }
+            ]
+          }"
+
+          curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" $SLACK_WEBHOOK

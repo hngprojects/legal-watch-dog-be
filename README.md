@@ -58,17 +58,79 @@ legal-watch-dog-be/
 │   │   ├── utils/                       # Helper utilities shared across API
 │   │   │   └── __init__.py
 │   │   │
-│   │   ├── v1/                          # Version 1 of the API
-│   │       ├── models/                  # SQLModel ORM models
-│   │       │   └── __init__.py
-│   │       ├── routes/                  # API endpoints (routers)
-│   │       │   └── __init__.py
-│   │       ├── schemas/                 # Pydantic request/response schemas
-│   │       │   └── __init__.py
-│   │       ├── services/                # Business logic layer
-│   │       │   └── __init__.py
-│   │       └── utils/                   # v1-specific utility functions
-│   │           └── __init__.py
+│   │   ├── modules/                     # Modules folder for API versions
+│   │       └── v1/                      # Version 1 of the API
+│   │           ├── __init__.py
+│   │           │
+│   │           ├── api_access/          # API Access module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── auth/                 # Authentication module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── jurisdictions/       # Jurisdictions module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── notifications/       # Notifications module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── organization/        # Organization module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── projects/            # Projects module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── scraping/            # Scraping module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── tickets/             # Tickets module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           ├── users/               # Users module
+│   │           │   ├── __init__.py
+│   │           │   ├── models/
+│   │           │   ├── routes/
+│   │           │   ├── schemas/
+│   │           │   └── service/
+│   │           │
+│   │           └── waitlist/            # Waitlist module
+│   │               ├── __init__.py
+│   │               ├── models/
+│   │               ├── routes/
+│   │               ├── schemas/
+│   │               └── service/
 │
 ├── tests/                               # Test suite (pytest)
 │   └── __init__.py
@@ -91,13 +153,25 @@ legal-watch-dog-be/
 
 ## **Setup Instructions**
 
-1. **Create a virtual environment:**
+1. **Install UV (if not already installed)**
+
+```bash
+# Using curl (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv --version
+
+# Or using pip
+pip install uv
+uv --version
+```
+
+2. **Create a virtual environment:**
 
 ```bash
 python3 -m venv .venv
 ```
 
-2. **Activate the virtual environment:**
+3. **Activate the virtual environment:**
 
 * On macOS/Linux:
 
@@ -111,19 +185,27 @@ source .venv/bin/activate
 .venv\Scripts\Activate
 ```
 
-3. **Install project dependencies with UV:**
+4. **Add or install project dependencies (optional)**
+   If you need to add new packages, run:
 
 ```bash
-uv install
+uv add <package_name>
+uv sync
+```
+   if you need to install packages, run:
+```bash
+uv pip install -r pyproject.toml
 ```
 
-4. **Create a `.env` file from `.env.sample`:**
+> This updates `uv.lock` automatically.
+
+5. **Create a `.env` file from `.env.sample`:**
 
 ```bash
 cp .env.sample .env
 ```
 
-5. **Run the application locally:**
+6. **Run the application locally:**
 
 ```bash
 uv run python main.py --reload
@@ -163,6 +245,7 @@ GRANT ALL PRIVILEGES ON DATABASE legal_watch_dog_db TO db_user;
 ```
 
 ---
+\q
 
 ### Step 4: Update `.env` File
 
@@ -218,21 +301,120 @@ pytest --cov=api
 
 ---
 
+## **Code Quality & Linting**
+
+### Running Linters (Ruff)
+
+1. **Check linting with Ruff:**
+
+```bash
+uv run ruff check .
+```
+
+2. **Check formatting with Ruff:**
+
+```bash
+uv run ruff format --check .
+```
+
+3. **Auto-fix lint errors and formatting:**
+
+```bash
+uv run ruff check . --fix
+uv run ruff format .
+```
+
+---
+
 ## **Pre-Commit Hooks (Code Quality)**
 
-1. **Install pre-commit hooks:**
+To maintain code quality and consistency, this project uses pre-commit hooks for linting and formatting. These hooks automatically run checks before each commit to catch errors early and ensure the codebase stays clean.
+
+**Setup Instructions:**
+
+1. Install the pre-commit package (if not already installed):
+
+```bash
+pip install -r -requirements.txt
+```
+or
+
+```bash
+uv add pre-commit
+```
+
+2. Install the hooks defined in the repository:
 
 ```bash
 pre-commit install
 ```
 
-2. **Manually run on all files:**
+3. Run all hooks against all files manually to check your code before committing:
 
 ```bash
 pre-commit run --all-files
 ```
 
-3. **Fix issues and retry** if a hook fails.
+After this setup, pre-commit will automatically run linting and formatting checks before each commit.
+
+---
+
+## **Testing CI Locally with `act`**
+
+You can run GitHub Actions workflows locally using **act**.
+
+### **Install act**
+
+**macOS (Homebrew):**
+
+```bash
+brew install act
+```
+
+**Linux:**
+
+```bash
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+sudo mv ./bin/act /usr/local/bin/act
+```
+
+**Windows (Chocolatey):**
+
+```powershell
+choco install act-cli
+```
+
+---
+
+### **Run the CI workflow locally**
+
+> Before running act, make sure your local database credentials in your `.env` match those configured in the CI workflow. For example:
+
+```env
+DB_TYPE=postgresql
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=user
+DB_PASS=password
+DB_NAME=dbname
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+```
+
+```bash
+act pull_request
+```
+
+If your workflow uses Docker services (Postgres, Redis), run with a larger image:
+
+```bash
+act pull_request -P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+You can also run with verbose mode:
+
+```bash
+act -v pull_request
+```
 
 ---
 

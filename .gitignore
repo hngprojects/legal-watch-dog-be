@@ -18,15 +18,13 @@ build/
 *.swo
 *.DS_Store
 __pypackages__/
-uv.lock
 
 # Virtual environments
 .venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+
 .env
 
 # VSCode
@@ -82,5 +80,7 @@ alembic/versions/*.pyc
 # Poetry/UV
 pyproject.toml.lock
 poetry.lock
-uv.lock
 __pypackages__/
+
+# Ruff cache
+.ruff_cache/

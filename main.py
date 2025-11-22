@@ -1,58 +1,92 @@
 import os
-import uvicorn
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api.core.config import settings
 from app.api import router as api_router
+from app.api.core.config import settings
+from app.api.core.custom_openapi_docs import custom_openapi
+from app.api.core.exceptions import (
+    general_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+from app.api.core.logger import setup_logging
+from app.api.core.middleware.rate_limiter import RateLimitMiddleware
+from app.api.db.database import Base, engine
+from app.api.utils.response_payloads import success_response
+
+setup_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
 
 app = FastAPI(
-    title="Legal Watch Dog API",
-    description="Legal Watch Dog API for managing projects and endpoints",
-    version="1.0.0",
-    docs_url="/docs" if settings.DEBUG else None,
+    root_path="/api",
+    title=f"{settings.APP_NAME} API",
+    description=f"{settings.APP_NAME} API for managing projects and endpoints",
+    version=settings.APP_VERSION,
+    docs_url="/docs",
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
-
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
 email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
-
+APP_URL = settings.APP_URL
+DEV_URL = settings.DEV_URL
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[APP_URL, DEV_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Add rate limiting middleware - 50 requests per minute while excluding waitlist
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=50,
+    excluded_paths=["/api/v1/waitlist", "/health", "/", "/docs"],
+)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 
-
+app.openapi = lambda: custom_openapi(app)
 app.include_router(api_router)
 
 
 @app.get("/")
 def read_root():
-    return {
-        "message": f"{settings.APP_NAME} API is running...",
-        "version": settings.APP_VERSION,
-        "environment": "Production" if not settings.DEBUG else "Development"
-    }
+    return success_response(
+        status_code=200,
+        message=f"{settings.APP_NAME} API is running...",
+        data={
+            "version": settings.APP_VERSION,
+            "environment": "Production" if not settings.DEBUG else "Development",
+        },
+    )
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return success_response(status_code=200, message="API is healthy")
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=settings.APP_PORT,
-        reload=False
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.APP_PORT, reload=False)

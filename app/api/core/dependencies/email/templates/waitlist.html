@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}You're on the Waitlist - Legal Watchdog{% endblock %}
+
+{% block preheader %}Thanks for joining the Legal Watchdog waitlist. You're now in line for early access.{% endblock %}
+
+{% block header_image_alt %}Waitlist confirmation{% endblock %}
+
+{% block main_heading %}You're on the Waitlist{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      Hello {{ organization_name | default('there') }},
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Thanks for joining the Legal Watchdog waitlist. Your request has been received and you're now in line for early access.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      We're building a dedicated compliance platform that helps teams monitor regulatory changes, manage jurisdictions, and strengthen oversight across their organization. You'll be among the first to try it when we open access.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      We'll share updates, early release dates, and onboarding details as we get closer.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td>
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      If you have any questions, reply directly to this email. We'd love to hear from you.
+    </p>
+  </td>
+</tr>
+{% endblock %}
