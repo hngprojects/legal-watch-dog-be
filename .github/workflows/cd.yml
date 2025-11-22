@@ -45,7 +45,7 @@ jobs:
           MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
           MAIL_ENCRYPTION="${{ secrets.MAIL_ENCRYPTION }}"
           EMAIL="${{ secrets.EMAIL }}"
-          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME "LEGAL WATCH DOG" }}"
+          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME || 'LEGAL WATCH DOG' }}"
 
           APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
@@ -191,7 +191,7 @@ jobs:
           MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
           MAIL_ENCRYPTION="${{ secrets.MAIL_ENCRYPTION }}"
           EMAIL="${{ secrets.EMAIL }}"
-          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME "LEGAL WATCH DOG" }}"
+          MAIL_FROM_NAME="${{ vars.MAIL_FROM_NAME || 'LEGAL WATCH DOG' }}"
 
           APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
