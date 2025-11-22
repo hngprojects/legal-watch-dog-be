@@ -2,8 +2,8 @@ import logging
 
 from sqlalchemy import select
 
-from app.db.models.jurisdiction import Jurisdiction
-from app.db.models.project import Project
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
 
 logger = logging.getLogger(__name__)
 
