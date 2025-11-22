@@ -1,6 +1,6 @@
 """Service Handler For Jurisdiction"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, Union, cast
 from uuid import UUID
 
@@ -295,7 +295,7 @@ class JurisdictionService:
             elif project_id:
                 stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.project_id) == project_id)
                 result = await db.execute(stmt)
-                jurisdictions = result.scalars().all()
+                jurisdictions = list(result.scalars().all())
                 if not jurisdictions:
                     return []
 
