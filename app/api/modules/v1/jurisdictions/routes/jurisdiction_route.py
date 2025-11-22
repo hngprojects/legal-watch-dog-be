@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.db.database import get_db
@@ -112,54 +112,12 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
     jurisdictions = await service.get_all_jurisdictions(db)
 
     if not jurisdictions:
-        return fail_response(status_code=404, message="No jurisdictions found")
+        return error_response(status_code=404, message="No jurisdictions found")
 
     return success_response(
         status_code=200,
         message="All Jurisdictions retrieved successfully",
         data={"jurisdictions": jurisdictions},
-    )
-
-
-@router.delete("/", status_code=status.HTTP_200_OK)
-async def delete_jurisdiction(
-    jurisdiction_id: UUID | None = Query(default=None),
-    project_id: UUID | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Soft delete a jurisdiction or all jurisdictions in a project.
-
-    Args:
-        jurisdiction_id (UUID, optional): ID of the jurisdiction to archive.
-        project_id (UUID, optional): ID of the project to archive all jurisdictions.
-        db (AsyncSession): Database session.
-
-    Returns:
-        JSON response with deleted jurisdiction(s) IDs.
-    """
-    if not jurisdiction_id and not project_id:
-        return fail_response(
-            status_code=400, message="Either jurisdiction_id or project_id must be provided"
-        )
-
-    deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id, project_id=project_id)
-
-    if not deleted:
-        return fail_response(status_code=404, message="No jurisdictions found to delete")
-
-    # Handle single or multiple deletions
-    if isinstance(deleted, list):
-        deleted_ids = [str(j.id) for j in deleted]
-        lendeleted = len(deleted)
-    else:
-        deleted_ids = [str(deleted.id)]
-        lendeleted = 1
-
-    return success_response(
-        status_code=200,
-        message=f"{lendeleted} Jurisdiction(s) archived successfully",
-        data={"jurisdiction_ids": deleted_ids},
     )
 
 
@@ -331,7 +289,29 @@ async def update_jurisdiction(
     except Exception:
         return error_response(status_code=400, message="Failed to update jurisdiction")
 
- 
+
+@router.delete("/{jurisdiction_id}", status_code=status.HTTP_200_OK)
+async def delete_jurisdiction(
+    jurisdiction_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft delete a single jurisdiction by ID.
+    """
+    deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
+
+    if not deleted:
+        return error_response(status_code=404, message="Jurisdiction not found")
+
+    deleted_jurisdiction = cast(Jurisdiction, deleted)
+
+    return success_response(
+        status_code=200,
+        message="Jurisdiction archived successfully",
+        data={"jurisdiction_ids": [str(deleted_jurisdiction.id)]},
+    )
+
+
 @router.post(
     "/{jurisdiction_id}/restoration",
     status_code=status.HTTP_200_OK,
@@ -375,6 +355,30 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     )
 
 
+@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
+async def delete_jurisdictions_by_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft delete all jurisdictions in a project.
+    """
+    deleted = await service.soft_delete(db, project_id=project_id)
+
+    if not deleted:
+        return error_response(status_code=404, message="No jurisdictions found to delete")
+
+    # Cast to list[Jurisdiction] so static type checkers know we can access .id on items
+    deleted_list = cast(List[Jurisdiction], deleted)
+    deleted_ids = [str(j.id) for j in deleted_list]
+
+    return success_response(
+        status_code=200,
+        message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
+        data={"jurisdiction_ids": deleted_ids},
+    )
+
+
 @router.post(
     "/project/{project_id}/restoration",
     status_code=status.HTTP_200_OK,
@@ -398,7 +402,7 @@ async def restore_jurisdictions(project_id: UUID, db: AsyncSession = Depends(get
     restored_jurisdictions = await service.restore_all_archived_jurisdictions(db, project_id)
 
     if not restored_jurisdictions:
-        return fail_response(
+        return error_response(
             status_code=404, message="No archived jurisdictions found for this project"
         )
 

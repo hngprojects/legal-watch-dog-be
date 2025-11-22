@@ -73,6 +73,51 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_delete_jurisdiction_returns_id(monkeypatch):
+    fake_id = uuid4()
+
+    async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
+        # when called with jurisdiction_id should return a single Jurisdiction
+        return Jurisdiction(id=fake_id, project_id=uuid4(), name="x", description="d")
+
+    monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
+
+    res = await routes.delete_jurisdiction(fake_id, db=cast(Any, None))
+    assert hasattr(res, "status_code")
+    assert res.status_code == 200
+    import json
+
+    content = json.loads(res.body)
+    assert "data" in content and "jurisdiction_ids" in content["data"]
+    ids = content["data"]["jurisdiction_ids"]
+    assert isinstance(ids, list) and ids[0] == str(fake_id)
+
+
+@pytest.mark.asyncio
+async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
+    fake_id = uuid4()
+
+    async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
+        # when called with project_id should return a list of jurisdictions
+        return [
+            Jurisdiction(id=fake_id, project_id=project_id or uuid4(), name="x", description="d")
+        ]
+
+    monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
+
+    proj_id = uuid4()
+    res = await routes.delete_jurisdictions_by_project(proj_id, db=cast(Any, None))
+    assert hasattr(res, "status_code")
+    assert res.status_code == 200
+    import json
+
+    content = json.loads(res.body)
+    assert "data" in content and "jurisdiction_ids" in content["data"]
+    ids = content["data"]["jurisdiction_ids"]
+    assert isinstance(ids, list) and ids[0] == str(fake_id)
+
+
+@pytest.mark.asyncio
 async def test_restore_jurisdiction_success(monkeypatch):
     fake_id = uuid4()
 
