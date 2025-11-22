@@ -1,5 +1,6 @@
 import pytest
-from sqlmodel import SQLModel, Field, select
+from sqlmodel import Field, SQLModel, select
+
 
 class TestUser(SQLModel, table=True):
     __test__ = False
@@ -8,16 +9,17 @@ class TestUser(SQLModel, table=True):
 
 
 @pytest.mark.asyncio
-async def test_database_write_and_read(test_session):
+async def test_database_write_and_read(pg_async_session):
     """Test writing and reading a TestUser from the database."""
-    async for session in test_session:
-        user = TestUser(name="John Doe")
-        session.add(user)
-        await session.commit()
 
-        result = await session.exec(select(TestUser))
-        saved_user = result.first()
+    session = pg_async_session
 
-        assert saved_user is not None
-        assert saved_user.name == "John Doe"
+    user = TestUser(name="John Doe")
+    session.add(user)
+    await session.commit()
 
+    result = await session.exec(select(TestUser))
+    saved_user = result.first()
+
+    assert saved_user is not None
+    assert saved_user.name == "John Doe"
