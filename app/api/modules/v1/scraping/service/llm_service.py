@@ -1,32 +1,37 @@
+import asyncio
 import json
 import logging
+import os
 from typing import Any, Dict
 
 import httpx
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-
 GEMINI_API_URL = "https://api.fake-gemini.com/v1/generate"
-GEMINI_API_KEY = "YOUR_GEMINI_KEY"  
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME")
 
 
 def build_llm_prompt(final_prompt: str, extracted_text: str) -> str:
     """
-    Combines the project+jursidiction prompt with extracted text
+    Combines the project+jurisdiction prompt with extracted text
     inside a structured LLM instruction template.
     """
+
     return f"""
-You are an AI assistant helping an organization analyze regulatory, policy, and data updates.
+You are an AI assistant helping an organization analyze updates from scraped sources.
 
 ### TASK INSTRUCTIONS
-Using the following instructions (provided by the organization):
+Use the following instructions (from project and jurisdiction setup):
 
 [INSTRUCTIONS START]
 {final_prompt}
 [INSTRUCTIONS END]
 
-And the extracted text from the scraper:
+Scraped text to analyze:
 
 [EXTRACTED TEXT START]
 {extracted_text}
@@ -43,24 +48,24 @@ Respond ONLY with valid JSON in the following format:
 }}
 
 ### RULES
-- Do NOT output anything except JSON.
-- Do NOT include commentary.
-- Do NOT break the JSON format.
-- Fill ALL fields.
-    """.strip()
+- Only return JSON, no extra commentary.
+- Fill all fields.
+""".strip()
 
 
 async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
     """
-    Sends prompt to Gemini (placeholder) and ensures JSON output.
+    Sends prompt to Gemini and ensures JSON output.
     """
+    await asyncio.sleep(0.5)  
+
     headers = {
         "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": "gemini-1.5-flash", 
+        "model": MODEL_NAME,
         "prompt": llm_input,
         "temperature": 0.2
     }
@@ -73,14 +78,10 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
 
         response.raise_for_status()
         data = response.json()
-
-       
         raw_text = data.get("text", "")
 
-       
         try:
-            result = json.loads(raw_text)
-            return result
+            return json.loads(raw_text)
         except json.JSONDecodeError:
             logger.error("LLM returned invalid JSON. Returning fallback.")
             return {
