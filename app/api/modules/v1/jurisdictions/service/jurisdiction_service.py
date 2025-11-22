@@ -5,7 +5,7 @@ from typing import Any, Optional, Union, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import literal
+from sqlalchemy import literal, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import with_loader_criteria
@@ -293,21 +293,18 @@ class JurisdictionService:
                 return jurisdiction
 
             elif project_id:
-                stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.project_id) == project_id)
+                stmt = (
+                    update(Jurisdiction)
+                    .where(cast(Any, Jurisdiction.project_id) == project_id)
+                    .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
+                    .returning(Jurisdiction)
+                )
+
                 result = await db.execute(stmt)
-                jurisdictions = list(result.scalars().all())
-                if not jurisdictions:
-                    return []
-
-                for j in jurisdictions:
-                    j.is_deleted = True
-                    j.deleted_at = datetime.now()
-                    db.add(j)
-
                 await db.commit()
-                for j in jurisdictions:
-                    await db.refresh(j)
-                return jurisdictions
+                updated_jurisdictions = list(result.scalars().all())
+
+                return updated_jurisdictions
 
             else:
                 raise HTTPException(
