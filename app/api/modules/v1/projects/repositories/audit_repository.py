@@ -22,32 +22,26 @@ class ProjectAuditRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    def log_action(self, audit_log: ProjectAuditLog) -> ProjectAuditLog:
+        
+    async def log_action(self, audit_log: ProjectAuditLog) -> ProjectAuditLog:
         """
         Create an audit log entry.
         Wrapped with robust error handling so audit failures never corrupt the session.
         """
         try:
             self.session.add(audit_log)
-
-            # Flush first to detect constraint/DB errors early
-            self.session.flush()
-
-            self.session.commit()
-            self.session.refresh(audit_log)
+            await self.session.flush()    # must await
+            await self.session.commit()   # must await
+            await self.session.refresh(audit_log)  # must await
             return audit_log
-
         except SQLAlchemyError as e:
-            # rollback protects session from becoming unusable
             try:
-                self.session.rollback()
+                await self.session.rollback()  # rollback is async
             except Exception:
                 pass
-
             logger.error("Failed to write audit log: %s", e, exc_info=True)
-            # Raise a safe error for the service layer to catch
             raise RuntimeError("Audit repository write failed") from e
-
+        
     async def get_project_audit_logs(
         self,
         project_id: UUID,
