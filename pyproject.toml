@@ -34,6 +34,11 @@ dependencies = [
     "sqlalchemy>=2.0.44",
     "sqlmodel>=0.0.27",
     "uvicorn[standard]>=0.38.0",
+
+    "pytest-asyncio>=1.3.0",
+    "aiosmtplib>=5.0.0",
+    "ruff>=0.14.5",
+    "aio-pika>=8.3.0",
 ]
 
 [dependency-groups]
@@ -66,4 +71,11 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+<<<<<<< HEAD
 line-ending = "auto"
+=======
+line-ending = "auto"
+
+[tool.poetry.dependencies]
+aio-pika = "^8.3.0"
+>>>>>>> 9415a51 (feat: improve code formatting and structure across modules)
