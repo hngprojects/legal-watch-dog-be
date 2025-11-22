@@ -321,12 +321,13 @@ class TestSourceServiceUpdate:
         mock_db.get = AsyncMock(return_value=sample_source_db)
         mock_db.commit = AsyncMock(side_effect=Exception("DB Error"))
         mock_db.rollback = AsyncMock()
-        
+
         with pytest.raises(HTTPException) as exc_info:
             await service.update_source(mock_db, sample_source_db.id, update_data)
 
         assert exc_info.value.status_code == 500
         mock_db.rollback.assert_awaited_once()
+
 
 class TestSourceServiceDelete:
     """Tests for SourceService.delete_source()"""
