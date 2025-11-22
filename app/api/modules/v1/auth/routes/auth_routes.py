@@ -153,13 +153,21 @@ async def resend_otp(
     """
     Resend registration OTP for a pending signup.
 
-    Rules:
-    - If the organization already exists -> tell user to log in instead.
-    - If there's a pending registration -> generate a new OTP and resend.
-    - If neither -> tell user to sign up first.
+    Handles resending an OTP to an email that has already started
+    registration but has not yet completed verification.
 
-    This endpoint does NOT create a new registration, it only works with an
-    existing pending registration.
+    Args:
+        payload: Request body containing the email address to resend OTP to.
+        background_tasks: FastAPI background task handler for sending email asynchronously.
+        db: Database session dependency.
+        redis_client: Redis client dependency used to look up pending registrations.
+
+    Returns:
+        RegisterResponse: Success response including the registered email address.
+
+    Raises:
+        HTTPException: 400 if validation fails (no pending registration, already registered),
+                       500 for unexpected server errors.
     """
     try:
         service = RegistrationService(db, redis_client)
