@@ -2,11 +2,12 @@
 """
 Pydantic schemas for Project Audit Log API responses
 """
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
 from datetime import datetime
-from app.api.modules.v1.projects.models.project_audit_log import AuditAction
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
+
+from app.api.modules.v1.projects.models.project_audit_log import AuditAction
 
 # ===== RESPONSE SCHEMAS =====
 
