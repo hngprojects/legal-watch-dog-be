@@ -8,9 +8,9 @@ The API uses three main response functions from `app/api/utils/response_payloads
 
 - `success_response`: For successful operations
 - `auth_response`: For authentication successes (includes access token)
-- `fail_response`: For errors and failures
+- `error_response`: For errors and failures
 
-Global exception handlers are implemented in `main.py` to automatically handle unhandled errors using `fail_response`.
+Global exception handlers are implemented in `main.py` to automatically handle unhandled errors using `error_response`.
 
 ## Response Schema
 
@@ -103,7 +103,7 @@ async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 Import the function:
 ```python
-from app.api.utils.response_payloads import fail_response
+from app.api.utils.response_payloads import error_response
 ```
 
 ### Validation Error Example
@@ -113,7 +113,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     # Check if email exists
     existing = await db.query(User).filter(User.email == user_data.email).first()
     if existing:
-        return fail_response(
+        return error_response(
             status_code=409,
             message="User with this email already exists",
         )
@@ -132,7 +132,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
     project = await db.get(Project, project_id)
     if not project:
-        return fail_response(
+        return error_response(
             status_code=404,
             message="Project not found",
         )
@@ -152,11 +152,11 @@ async def update_project(project_id: int, update_data: ProjectUpdate,
                         db: AsyncSession = Depends(get_db)):
     project = await db.get(Project, project_id)
     if not project:
-        return fail_response(status_code=404, message="Project not found")
+        return error_response(status_code=404, message="Project not found")
     
     # Check permissions
     if project.organization_id != current_user.organization_id:
-        return fail_response(
+        return error_response(
             status_code=403,
             message="You don't have permission to update this project",
         )
@@ -224,8 +224,8 @@ def test_success_response():
     assert data["status"] == "success"
     assert data["data"]["key"] == "value"
 
-def test_fail_response():
-    response = fail_response(400, "Bad Request", {"errors": {"field": ["error"]}})
+def test_error_response():
+    response = error_response(400, "Bad Request", {"errors": {"field": ["error"]}})
     assert response.status_code == 400
     data = response.body
     assert data["status"] == "failure"

@@ -1,41 +1,36 @@
-import logging
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.api.db.database import get_db
-from app.api.modules.v1.scraping.service.scraper_service import scrape_url_and_store
-from app.api.utils.response_payloads import fail_response, success_response
+from app.api.core.dependencies.database import get_db
+from app.api.modules.v1.scraping.models.source_model import Source
 
-router = APIRouter(prefix="/scraper", tags=["Scraper"])
+# Import the Celery task (we will create this in step 2)
+from app.api.modules.v1.scraping.service.scraping_tasks import run_smart_scrape_task
 
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/sources", tags=["Scraping"])
 
+@router.post("/{source_id}/scrape_manual", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_manual_scrape(
+    source_id: UUID, 
+    db: Session = Depends(get_db)
+):
+    """
+    Manually triggers the scraping task for a specific source.
+    Returns immediately so the API doesn't hang.
+    """
+    # 1. Validate Source Exists
+    source = db.query(Source).filter(Source.id == source_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
 
-@router.post(
-    "/scrape",
-    summary="Scrape a URL and store the result",
-    description="Scrapes a webpage using Playwright, stores raw HTML in MinIO.",
-)
-async def scrape(url: str, session: AsyncSession = Depends(get_db)):
-    try:
-        logger.info(f"[SCRAPER] Starting scrape for URL: {url}")
+    # 2. Dispatch to Celery (Background Worker)
+    # .delay() is the standard way to push to the queue
+    task = run_smart_scrape_task.delay(str(source_id))
 
-        result = await scrape_url_and_store(url, session)
-
-        logger.info(f"[SCRAPER] Successfully scraped and stored content for URL: {url}")
-
-        return success_response(
-            status_code=status.HTTP_200_OK,
-            message="Scraping completed successfully",
-            data=result
-        )
-
-    except Exception as e:
-        logger.error(f"[SCRAPER] Error scraping URL {url}: {e}", exc_info=True)
-
-        return fail_response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Failed to scrape the provided URL",
-            error={"detail": str(e)}
-        )
+    return {
+        "message": "Scraping task initiated successfully",
+        "task_id": task.id,
+        "source_id": source_id
+    }
