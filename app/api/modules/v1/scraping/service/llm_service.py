@@ -65,6 +65,7 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
 
     payload = {"model": GEMINI_MODEL, "prompt": llm_input, "temperature": 0.2}
 
+
     logger.info("Sending request to LLM...")
 
     try:
