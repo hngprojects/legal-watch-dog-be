@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 import sqlalchemy
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -48,6 +49,13 @@ async_session_maker = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+@pytest.fixture(autouse=True)
+def mock_encryption(monkeypatch):
+    """Set a valid encryption key for testing"""
+    valid_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(settings, "ENCRYPTION_KEY", valid_key)
+
 
 
 @pytest.fixture(autouse=True, scope="function")
