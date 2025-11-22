@@ -62,7 +62,6 @@ app.add_exception_handler(Exception, general_exception_handler)
 app.include_router(api_router)
 
 
-
 @app.get("/")
 def read_root():
     return success_response(

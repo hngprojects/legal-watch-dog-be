@@ -1,11 +1,13 @@
+import json
+
+import aio_pika
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette import status
-import json
-import aio_pika
 
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
 from app.core.config import settings  # Make sure your settings has RabbitMQ credentials
+
 
 # ----------------- RESPONSE MODEL -----------------
 class ExtractResponse(BaseModel):
@@ -14,13 +16,12 @@ class ExtractResponse(BaseModel):
     text_object: str
     preview: str
 
+
 # ----------------- ROUTER -----------------
-router = APIRouter(
-    prefix="/scraping/extract",
-    tags=["Scraping - Extraction"]
-)
+router = APIRouter(prefix="/scraping/extract", tags=["Scraping - Extraction"])
 
 extractor = TextExtractorService()
+
 
 # ----------------- HELPER FUNCTION -----------------
 async def publish_to_rabbitmq(queue_name: str, message: dict):
@@ -37,9 +38,9 @@ async def publish_to_rabbitmq(queue_name: str, message: dict):
         channel = await connection.channel()
         await channel.declare_queue(queue_name, durable=True)
         await channel.default_exchange.publish(
-            aio_pika.Message(body=json.dumps(message).encode()),
-            routing_key=queue_name
+            aio_pika.Message(body=json.dumps(message).encode()), routing_key=queue_name
         )
+
 
 # ----------------- ENDPOINT -----------------
 @router.post("/{object_name}", response_model=ExtractResponse)
@@ -52,8 +53,7 @@ async def extract_text(object_name: str):
     # --- Input validation ---
     if not object_name.lower().endswith(".html"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="object_name must end with .html"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="object_name must end with .html"
         )
 
     output_name = object_name[:-5] + ".txt"  # safer than replace
@@ -72,7 +72,7 @@ async def extract_text(object_name: str):
             "status": "success",
             "html_object": object_name,
             "text_object": output_name,
-            "preview": text if text else ""
+            "preview": text if text else "",
         }
 
         # --- Publish to RabbitMQ ---
@@ -82,19 +82,16 @@ async def extract_text(object_name: str):
     except FileNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"HTML file '{object_name}' not found in 'scraped-pages' bucket."
+            detail=f"HTML file '{object_name}' not found in 'scraped-pages' bucket.",
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
     # --- Unexpected errors ---
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error during extraction: {e}"
+            detail=f"Unexpected error during extraction: {e}",
         )
 
     # --- Response ---

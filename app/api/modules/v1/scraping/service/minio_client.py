@@ -1,7 +1,9 @@
 import io
 import logging
+
 from minio import Minio
 from minio.error import S3Error
+
 from app.api.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -9,11 +11,13 @@ logger = logging.getLogger(__name__)
 
 class MinioReadError(Exception):
     """Raised when reading from MinIO fails."""
+
     pass
 
 
 class MinioWriteError(Exception):
     """Raised when writing to MinIO fails."""
+
     pass
 
 
