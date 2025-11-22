@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.auth import TenantGuard
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
@@ -19,7 +19,7 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(
-    prefix="/jurisdictions", tags=["Jurisdictions"], dependencies=[Depends(get_current_user)]
+    prefix="/jurisdictions", tags=["Jurisdictions"], dependencies=[Depends(TenantGuard)]
 )
 
 service = JurisdictionService()
