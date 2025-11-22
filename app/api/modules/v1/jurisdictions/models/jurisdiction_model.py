@@ -7,6 +7,9 @@ from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
+    from app.api.modules.v1.project_audit_log.models.project_audit_log_model import (
+        ProjectAuditLog,
+    )
 
 
 class Jurisdiction(SQLModel, table=True):

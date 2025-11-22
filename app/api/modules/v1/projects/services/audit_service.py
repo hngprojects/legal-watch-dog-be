@@ -9,8 +9,13 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from app.api.modules.v1.projects.models.project_audit_log import AuditAction, ProjectAuditLog
-from app.api.modules.v1.projects.repositories.audit_repository import ProjectAuditRepository
+from app.api.modules.v1.projects.models.project_audit_log import (
+    AuditAction,
+    ProjectAuditLog,
+)
+from app.api.modules.v1.projects.repositories.audit_repository import (
+    ProjectAuditRepository,
+)
 from app.api.modules.v1.projects.schemas.audit_schemas import AuditStatsResponse
 
 logger = logging.getLogger(__name__)
@@ -33,9 +38,8 @@ class ProjectAuditService:
 
     async def get_organization_audit_logs(self, **filters):
         return await self.repository.get_organization_audit_logs(**filters)
-    
-    async def _safe_log(self, log: ProjectAuditLog) -> Optional[ProjectAuditLog]:
 
+    async def _safe_log(self, log: ProjectAuditLog) -> Optional[ProjectAuditLog]:
         """
         Wraps all repository calls in safe try/except.
         Audit failures should never break upstream services.
@@ -44,16 +48,19 @@ class ProjectAuditService:
         try:
             return await self.repository.log_action(log)
         except Exception as e:
-            logger.error("Audit logging failed for action %s: %s",
-                        log.action.value, str(e), exc_info=True)
+            logger.error(
+                "Audit logging failed for action %s: %s",
+                log.action.value,
+                str(e),
+                exc_info=True,
+            )
             return None
 
-    
     async def get_audit_statistics(
         self,
         org_id: UUID,
         date_from: Optional[datetime] = None,
-        date_to: Optional[datetime] = None
+        date_to: Optional[datetime] = None,
     ) -> AuditStatsResponse:
         """
         Returns aggregated audit statistics for an organization.
@@ -68,7 +75,7 @@ class ProjectAuditService:
             date_from=date_from,
             date_to=date_to,
             page=1,
-            limit=100000   # Retrieve all logs for aggregation
+            limit=100000,  # Retrieve all logs for aggregation
         )
 
         total_logs = len(logs)
@@ -91,7 +98,7 @@ class ProjectAuditService:
             total_logs=total_logs,
             by_action=by_action,
             by_user=by_user,
-            date_range=date_range
+            date_range=date_range,
         )
 
     # ===== UTILITIES =====
@@ -110,7 +117,7 @@ class ProjectAuditService:
         user_id: UUID,
         details: Dict[str, Any],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         details = self._ensure_dict(details)
         log = ProjectAuditLog(
@@ -120,7 +127,7 @@ class ProjectAuditService:
             action=AuditAction.PROJECT_CREATED,
             details=details,
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -131,7 +138,7 @@ class ProjectAuditService:
         user_id: UUID,
         changes: Dict[str, Any],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         changes = self._ensure_dict(changes)
         log = ProjectAuditLog(
@@ -141,7 +148,7 @@ class ProjectAuditService:
             action=AuditAction.PROJECT_UPDATED,
             details={"changes": changes},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -152,7 +159,7 @@ class ProjectAuditService:
         user_id: UUID,
         reason: Optional[str] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         log = ProjectAuditLog(
             project_id=project_id,
@@ -161,7 +168,7 @@ class ProjectAuditService:
             action=AuditAction.PROJECT_DELETED,
             details={"reason": reason} if reason else {},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -175,7 +182,7 @@ class ProjectAuditService:
         user_id: UUID,
         details: Dict[str, Any],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         details = self._ensure_dict(details)
         log = ProjectAuditLog(
@@ -186,7 +193,7 @@ class ProjectAuditService:
             action=AuditAction.JURISDICTION_CREATED,
             details=details,
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -198,7 +205,7 @@ class ProjectAuditService:
         user_id: UUID,
         changes: Dict[str, Any],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         changes = self._ensure_dict(changes)
         log = ProjectAuditLog(
@@ -209,7 +216,7 @@ class ProjectAuditService:
             action=AuditAction.JURISDICTION_UPDATED,
             details={"changes": changes},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -222,7 +229,7 @@ class ProjectAuditService:
         old_parent_id: Optional[int],
         new_parent_id: Optional[int],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         log = ProjectAuditLog(
             project_id=project_id,
@@ -230,12 +237,9 @@ class ProjectAuditService:
             org_id=org_id,
             user_id=user_id,
             action=AuditAction.JURISDICTION_PARENT_CHANGED,
-            details={
-                "old_parent_id": old_parent_id,
-                "new_parent_id": new_parent_id
-            },
+            details={"old_parent_id": old_parent_id, "new_parent_id": new_parent_id},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -249,19 +253,16 @@ class ProjectAuditService:
         old_prompt: str,
         new_prompt: str,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         log = ProjectAuditLog(
             project_id=project_id,
             org_id=org_id,
             user_id=user_id,
             action=AuditAction.MASTER_PROMPT_UPDATED,
-            details={
-                "old_prompt": old_prompt,
-                "new_prompt": new_prompt
-            },
+            details={"old_prompt": old_prompt, "new_prompt": new_prompt},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -274,7 +275,7 @@ class ProjectAuditService:
         old_prompt: Optional[str],
         new_prompt: Optional[str],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         log = ProjectAuditLog(
             project_id=project_id,
@@ -282,12 +283,9 @@ class ProjectAuditService:
             org_id=org_id,
             user_id=user_id,
             action=AuditAction.OVERRIDE_PROMPT_UPDATED,
-            details={
-                "old_prompt": old_prompt,
-                "new_prompt": new_prompt
-            },
+            details={"old_prompt": old_prompt, "new_prompt": new_prompt},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -302,7 +300,7 @@ class ProjectAuditService:
         user_id: UUID,
         details: Dict[str, Any],
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         details = self._ensure_dict(details)
         log = ProjectAuditLog(
@@ -314,7 +312,7 @@ class ProjectAuditService:
             action=AuditAction.SOURCE_ASSIGNED,
             details=details,
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
@@ -327,7 +325,7 @@ class ProjectAuditService:
         user_id: UUID,
         reason: Optional[str] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
         log = ProjectAuditLog(
             project_id=project_id,
@@ -338,6 +336,6 @@ class ProjectAuditService:
             action=AuditAction.SOURCE_UNASSIGNED,
             details={"reason": reason} if reason else {},
             ip_address=ip_address or "unknown",
-            user_agent=user_agent or "unknown"
+            user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
