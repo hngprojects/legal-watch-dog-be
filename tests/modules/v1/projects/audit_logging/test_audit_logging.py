@@ -2,12 +2,12 @@
 """
 Tests for Audit Logging
 """
-import pytest
-from datetime import datetime
-from sqlmodel import Session, select
 
-from app.api.modules.v1.projects.models.project_audit_log import ProjectAuditLog, AuditAction
+import pytest
 from app.api.modules.v1.projects.service.audit_service import ProjectAuditService
+from sqlmodel import Session
+
+from app.api.modules.v1.projects.models.project_audit_log import AuditAction
 from app.api.modules.v1.projects.repositories.audit_repository import ProjectAuditRepository
 
 

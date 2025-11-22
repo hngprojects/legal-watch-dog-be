@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 
-from .project_routes import router as project_router
 from .audit_routes import router as audit_router
+from .project_routes import router as project_router
+
 # from .jurisdiction_routes import router as jurisdiction_router
 
 router = APIRouter()

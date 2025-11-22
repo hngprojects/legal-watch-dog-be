@@ -5,16 +5,10 @@ Provides logging methods for all project operations
 """
 
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Any, Dict, Optional
 
-from app.api.modules.v1.projects.models.project_audit_log import (
-    ProjectAuditLog,
-    AuditAction
-)
-from app.api.modules.v1.projects.repositories.audit_repository import (
-    ProjectAuditRepository
-)
+from app.api.modules.v1.projects.models.project_audit_log import AuditAction, ProjectAuditLog
+from app.api.modules.v1.projects.repositories.audit_repository import ProjectAuditRepository
 
 logger = logging.getLogger(__name__)
 

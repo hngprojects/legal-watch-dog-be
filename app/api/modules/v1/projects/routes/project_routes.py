@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.projects.routes.audit_routes import router as audit_router
 from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectBase,
     ProjectListResponse,
@@ -31,6 +32,9 @@ from app.api.utils.response_payloads import fail_response, success_response
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 logger = logging.getLogger(__name__)
+
+# Include audit endpoints
+router.include_router(audit_router, prefix="/audit")
 
 
 @router.post(
