@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from starlette import status
 
 from app.api.core.config import settings
-from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
+from app.api.modules.v1.scraping.service.extractor_service import (
+    TextExtractorService,
+)
+
 
 
 
