@@ -58,19 +58,16 @@ def mock_exec_side_effect(session):
     """
 
     def side_effect(statement):
-        # SQLModel's .exec() returns a Result that acts like scalars
         return session.execute(statement).scalars()
 
     return side_effect
 
 
-# --- Fixture Alias ---
 @pytest.fixture
 def sync_session(pg_sync_session):
     return pg_sync_session
 
 
-# Test for the helper function
 @pytest.mark.parametrize(
     "frequency, expected_delta",
     [
@@ -257,7 +254,7 @@ def test_dispatch_due_sources_lock_already_held():
 
         mock_redis_from_url.return_value = mock_redis_instance
 
-        # Run with NO arguments
+        
         result = dispatch_due_sources.run()
 
     assert "Skipped" in result
