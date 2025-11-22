@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, cast
 from uuid import UUID
 
@@ -172,6 +172,30 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
     )
 
 
+@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
+async def delete_jurisdictions_by_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft delete all jurisdictions in a project.
+    """
+    deleted = await service.soft_delete(db, project_id=project_id)
+
+    if not deleted:
+        return error_response(status_code=404, message="No jurisdictions found to delete")
+
+    # Cast to list[Jurisdiction] so static type checkers know we can access .id on items
+    deleted_list = cast(List[Jurisdiction], deleted)
+    deleted_ids = [str(j.id) for j in deleted_list]
+
+    return success_response(
+        status_code=200,
+        message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
+        data={"jurisdiction_ids": deleted_ids},
+    )
+
+
 @router.get(
     "/{jurisdiction_id}",
     status_code=status.HTTP_200_OK,
@@ -274,7 +298,7 @@ async def update_jurisdiction(
 
         if "is_deleted" in payload.model_dump(exclude_unset=True):
             if payload.is_deleted:
-                jurisdiction.deleted_at = datetime.now(timezone.utc)
+                jurisdiction.deleted_at = datetime.now()
             else:
                 jurisdiction.deleted_at = None
 
@@ -352,30 +376,6 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
         status_code=200,
         message="Jurisdiction restored successfully",
         data={"jurisdiction": restored},
-    )
-
-
-@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
-async def delete_jurisdictions_by_project(
-    project_id: UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Soft delete all jurisdictions in a project.
-    """
-    deleted = await service.soft_delete(db, project_id=project_id)
-
-    if not deleted:
-        return error_response(status_code=404, message="No jurisdictions found to delete")
-
-    # Cast to list[Jurisdiction] so static type checkers know we can access .id on items
-    deleted_list = cast(List[Jurisdiction], deleted)
-    deleted_ids = [str(j.id) for j in deleted_list]
-
-    return success_response(
-        status_code=200,
-        message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
-        data={"jurisdiction_ids": deleted_ids},
     )
 
 

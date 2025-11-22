@@ -1,6 +1,6 @@
 """Service Handler For Jurisdiction"""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional, Union, cast
 from uuid import UUID
 
@@ -285,7 +285,7 @@ class JurisdictionService:
                 if not jurisdiction:
                     return None
                 jurisdiction.is_deleted = True
-                jurisdiction.deleted_at = datetime.now(timezone.utc)
+                jurisdiction.deleted_at = datetime.now()
                 db.add(jurisdiction)
                 await db.commit()
                 await db.refresh(jurisdiction)
@@ -296,7 +296,7 @@ class JurisdictionService:
                 stmt = (
                     update(Jurisdiction)
                     .where(cast(Any, Jurisdiction.project_id) == project_id)
-                    .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
+                    .values(is_deleted=True, deleted_at=datetime.now())
                     .returning(Jurisdiction)
                 )
 
