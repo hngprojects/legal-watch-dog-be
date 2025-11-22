@@ -64,7 +64,7 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID)
         and_(User.id == user_id, User.organization_id == organization_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one()
+    return result.scalar_one_or_none()
 
 
 async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id: UUID) -> bool:

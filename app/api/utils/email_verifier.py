@@ -273,20 +273,6 @@ class BusinessEmailVerifier:
         """
         low = local_part.lower()
         return any(low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES)
-        """Detect if the local part corresponds to a role-based address.
-
-        Role-based addresses are like 'support@company.com' or
-        'support+tag@company.com'. Those addresses commonly represent shared
-        inboxes and are often not acceptable for user registration.
-
-        Args:
-            local_part: Local part of an email address.
-
-        Returns:
-            True when local_part is role-like.
-        """
-        low = local_part.lower()
-        return any(low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES)
 
     @lru_cache(maxsize=1024)
     def _verify_mx_records(self, domain: str) -> bool:

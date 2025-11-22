@@ -18,7 +18,7 @@ from app.api.modules.v1.auth.schemas.verify_otp import (
 )
 from app.api.modules.v1.auth.service.register_service import RegistrationService
 from app.api.utils.response_payloads import (
-    fail_response,
+    error_response,
     success_response,
 )
 
@@ -69,7 +69,7 @@ async def company_signup(
 
     except ValueError as e:
         logger.warning("Registration validation failed for email=%s: %s", payload.email, str(e))
-        return fail_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
 
     except Exception as e:
         logger.error(
@@ -78,7 +78,7 @@ async def company_signup(
             str(e),
             exc_info=True,
         )
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Registration failed. Please try again later.",
         )
@@ -124,7 +124,7 @@ async def verify_otp(
         )
 
     except ValueError as e:
-        return fail_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
 
     except Exception as e:
         logger.error(
@@ -133,7 +133,7 @@ async def verify_otp(
             str(e),
             exc_info=True,
         )
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="OTP verification failed. Please try again later.",
         )
@@ -153,13 +153,21 @@ async def resend_otp(
     """
     Resend registration OTP for a pending signup.
 
-    Rules:
-    - If the organization already exists -> tell user to log in instead.
-    - If there's a pending registration -> generate a new OTP and resend.
-    - If neither -> tell user to sign up first.
+    Handles resending an OTP to an email that has already started
+    registration but has not yet completed verification.
 
-    This endpoint does NOT create a new registration, it only works with an
-    existing pending registration.
+    Args:
+        payload: Request body containing the email address to resend OTP to.
+        background_tasks: FastAPI background task handler for sending email asynchronously.
+        db: Database session dependency.
+        redis_client: Redis client dependency used to look up pending registrations.
+
+    Returns:
+        RegisterResponse: Success response including the registered email address.
+
+    Raises:
+        HTTPException: 400 if validation fails (no pending registration, already registered),
+                       500 for unexpected server errors.
     """
     try:
         service = RegistrationService(db, redis_client)
@@ -179,7 +187,7 @@ async def resend_otp(
 
     except ValueError as e:
         logger.warning("Resend OTP validation failed for email=%s: %s", payload.email, str(e))
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
         )
@@ -191,7 +199,7 @@ async def resend_otp(
             str(e),
             exc_info=True,
         )
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to resend OTP. Please try again later.",
         )
