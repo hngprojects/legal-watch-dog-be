@@ -1,8 +1,8 @@
-"""updated_at field in Jurisdiction model set to update automatically
+"""updated_at field in Jurisdiction updated for automatic db level update
 
-Revision ID: a6550cc2c2fe
+Revision ID: faf11c3328eb
 Revises: 568cc1b65e22
-Create Date: 2025-11-22 08:09:20.318694
+Create Date: 2025-11-22 10:45:52.587090
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a6550cc2c2fe'
+revision: str = 'faf11c3328eb'
 down_revision: Union[str, Sequence[str], None] = '568cc1b65e22'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
