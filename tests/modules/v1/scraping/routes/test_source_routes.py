@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
-from app.api.modules.v1.scraping.models.scrape import Source, SourceType
+from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.users.models.users_model import User
 from main import app
 
@@ -162,7 +162,7 @@ class TestCreateSourceEndpoint:
         )
 
         # Assert
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
     async def test_create_source_unauthorized(self, client, test_session, sample_jurisdiction_id):
@@ -521,14 +521,13 @@ class TestDeleteSourceEndpoint:
         )
 
         # Assert
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert data["status"] == "success"
-        assert "deleted" in data["message"].lower()
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert response.content == b""
 
-        # Verify source is actually deleted
+        # Verify source is soft-deleted (default behavior)
         deleted_source = await test_session.get(Source, source_id)
-        assert deleted_source is None
+        assert deleted_source is not None
+        assert deleted_source.is_deleted is True
 
     @pytest.mark.asyncio
     async def test_delete_source_not_found(self, client, test_session, auth_headers, sample_user):

@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
-from app.api.modules.v1.scraping.models.scrape import SourceType
+from app.api.modules.v1.scraping.models.source_model import SourceType
 
 
 class SourceCreate(BaseModel):
@@ -35,6 +35,23 @@ class SourceCreate(BaseModel):
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = {}
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Supreme Court Opinions",
+                "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
+                "source_type": "web",
+                "scrape_frequency": "DAILY",
+                "auth_details": None,
+                "scraping_rules": {
+                    "title_selector": ".opinion-title",
+                    "content_selector": ".opinion-content",
+                    "date_selector": ".opinion-date",
+                },
+            }
+        }
+
 
 class SourceUpdate(BaseModel):
     """
@@ -48,6 +65,7 @@ class SourceUpdate(BaseModel):
     source_type: Optional[SourceType] = None
     scrape_frequency: Optional[str] = Field(None, min_length=1)
     is_active: Optional[bool] = None
+    is_deleted: Optional[bool] = None
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = None
 
@@ -66,6 +84,7 @@ class SourceRead(BaseModel):
         source_type (SourceType): Type of source.
         scrape_frequency (str): Scraping schedule.
         is_active (bool): Whether source is enabled.
+        is_deleted (bool): Whether source is soft-deleted.
         has_auth (bool): Whether source has authentication configured.
         created_at (datetime): Timestamp of creation.
     """
@@ -77,6 +96,7 @@ class SourceRead(BaseModel):
     source_type: SourceType
     scrape_frequency: str
     is_active: bool
+    is_deleted: bool
     has_auth: bool
     created_at: datetime
 
