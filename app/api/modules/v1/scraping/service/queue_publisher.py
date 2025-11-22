@@ -1,16 +1,17 @@
-# scraping/services/queue_publisher.py
-
 import asyncio
 import json
 import logging
+import os
 import random
 from typing import Any, Dict
 
 import aio_pika
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-RABBITMQ_URL = "amqp://guest:guest@localhost/"   
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost/")  
 QUEUE_NAME = "ai.summary"
 
 

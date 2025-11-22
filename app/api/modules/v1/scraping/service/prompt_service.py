@@ -1,73 +1,53 @@
-from typing import Optional
+import logging
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select
 
-from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
-from app.api.modules.v1.projects.models.project_model import Project
+from app.db.models.jurisdiction import Jurisdiction
+from app.db.models.project import Project
+
+logger = logging.getLogger(__name__)
 
 
-async def get_project_prompt(db: AsyncSession, project_id: str) -> Optional[str]:
+async def build_final_prompt(db, project_id: str, jurisdiction_id: str) -> str:
     """
-    Fetch the project's master_prompt.
+    Build a generic LLM prompt by combining:
+    - Project instructions
+    - Jurisdiction instructions (if any)
     """
-    statement = select(Project).where(Project.id == project_id)
-    result = await db.execute(statement)
-    project = result.scalar_one_or_none()
-
-    if not project or not project.master_prompt:
-        return None
-
-    return project.master_prompt
+    logger.info(
+            f"PromptService: Building LLM prompt for project_id={project_id}, "
+            f"jurisdiction_id={jurisdiction_id}"
+        )
 
 
-async def get_jurisdiction_prompt(db: AsyncSession, jurisdiction_id: str) -> Optional[str]:
-    """
-    Fetch the jurisdiction's master_prompt.
-    """
-    statement = select(Jurisdiction).where(Jurisdiction.id == jurisdiction_id)
-    result = await db.execute(statement)
-    jurisdiction = result.scalar_one_or_none()
 
-    if not jurisdiction or not jurisdiction.master_prompt:
-        return None
+    project_query = await db.execute(select(Project).where(Project.id == project_id))
+    project = project_query.scalar_one_or_none()
+    if not project:
+        raise ValueError(f"Project not found (id={project_id})")
 
-    return jurisdiction.master_prompt
-
-
-async def build_final_prompt(
-    db: AsyncSession,
-    project_id: str,
-    jurisdiction_id: Optional[str] = None,
-) -> str:
-    """
-    Combine project + jurisdiction prompt.
-
-    Logic:
-    - Always include project prompt
-    - If jurisdiction prompt exists, append it
-    - If neither exists, return a safe fallback message
-    """
-
-    project_prompt = await get_project_prompt(db, project_id)
-    jurisdiction_prompt = None
-
-    if jurisdiction_id:
-        jurisdiction_prompt = await get_jurisdiction_prompt(db, jurisdiction_id)
-
-    if not project_prompt and not jurisdiction_prompt:
-        return "No prompt has been configured for this project or jurisdiction."
-
-    if project_prompt and not jurisdiction_prompt:
-        return project_prompt
-
-    if jurisdiction_prompt and not project_prompt:
-        return jurisdiction_prompt
-
-    final_prompt = (
-        f"PROJECT INSTRUCTIONS:\n{project_prompt}\n\n"
-        f"JURISDICTION-SPECIFIC INSTRUCTIONS:\n{jurisdiction_prompt}"
+    jurisdiction_query = await db.execute(
+        select(Jurisdiction).where(Jurisdiction.id == jurisdiction_id)
     )
+    jurisdiction = jurisdiction_query.scalar_one_or_none()
+    if not jurisdiction:
+        raise ValueError(f"Jurisdiction not found (id={jurisdiction_id})")
 
-    return final_prompt
+   
+    project_prompt = project.prompt_template or ""
+    jurisdiction_prompt = jurisdiction.prompt_template or ""
+
+    final_prompt = f"""
+Instructions from project:
+{project_prompt}
+
+Instructions from jurisdiction:
+{jurisdiction_prompt}
+
+Use ONLY the scraped data that will be appended after this prompt to complete the task.
+Follow instructions strictly.
+"""
+
+    logger.info("PromptService: Final LLM prompt successfully built.")
+    return final_prompt.strip()
 

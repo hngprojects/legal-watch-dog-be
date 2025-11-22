@@ -1,5 +1,3 @@
-# scraping/processing/processing_pipeline.py
-
 import json
 import logging
 from typing import Any, Dict
