@@ -38,9 +38,9 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.api.modules.v1.scraping.models.scrape import Source
 from sqlmodel import Session
 
+from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
     MAX_RETRIES,
