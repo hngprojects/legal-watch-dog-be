@@ -139,28 +139,20 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.project_id) == project_id)
+            stmt = select(Jurisdiction).where(
+                cast(Any, Jurisdiction.project_id) == project_id,
+                cast(Any, Jurisdiction.is_deleted).is_(False)  # only active
+            )
             result = await db.execute(stmt)
-            jurisdictions = result.scalars().all()
-
-            if not jurisdictions:
-                raise HTTPException(
-                    status_code=404, detail="No jurisdictions found for this project"
-                )
-
-            if all(j.is_deleted for j in jurisdictions):
-                raise HTTPException(
-                    status_code=410, detail="All jurisdictions for this project have been archived"
-                )
-
-            active_jurisdictions = [j for j in jurisdictions if not j.is_deleted]
+            active_jurisdictions = result.scalars().all()
 
             if not active_jurisdictions:
                 raise HTTPException(
-                    status_code=410, detail="All jurisdictions for this project have been archived"
+                    status_code=404,
+                    detail="No active jurisdictions found for this project"
                 )
 
-            return jurisdictions
+            return active_jurisdictions
 
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
