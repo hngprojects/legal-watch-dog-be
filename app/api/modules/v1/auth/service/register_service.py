@@ -144,15 +144,17 @@ class RegistrationService:
         """
         Resend registration OTP for a pending company signup.
 
-        Rules:
-        - If the organization already exists for this email -> raise a ValueError telling the
-            client that registration is already complete and they should log in instead.
-        - If there's a pending registration in Redis -> generate a new OTP, update the stored
-            otp_code and TTL, and send a fresh OTP email.
-        - If neither an organization nor a pending registration exists -> raise a ValueError
-            telling the client to sign up first.
+        Args:
+            email: Email address used for the original registration.
+            background_tasks: FastAPI background task handler for sending email asynchronously.
 
-        This does NOT create a new registration; it only works with an existing pending one.
+        Returns:
+            dict: Dictionary containing the email for which the OTP was resent.
+
+        Raises:
+            ValueError: If the email belongs to an already registered organization
+                        or there is no pending registration for the email.
+            Exception: For unexpected errors during the resend process.
         """
         logger.info("Starting resend OTP for email=%s", email)
 

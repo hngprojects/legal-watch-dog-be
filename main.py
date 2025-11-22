@@ -10,12 +10,14 @@ from fastapi.templating import Jinja2Templates
 
 from app.api import router as api_router
 from app.api.core.config import settings
+from app.api.core.custom_openapi_docs import custom_openapi
 from app.api.core.exceptions import (
     general_exception_handler,
     http_exception_handler,
     validation_exception_handler,
 )
 from app.api.core.logger import setup_logging
+from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 from app.api.db.database import Base, engine
 from app.api.utils.response_payloads import success_response
 
@@ -55,10 +57,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Add rate limiting middleware - 50 requests per minute while excluding waitlist
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=50,
+    excluded_paths=["/api/v1/waitlist", "/health", "/", "/docs"],
+)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
+app.openapi = lambda: custom_openapi(app)
 app.include_router(api_router)
 
 

@@ -1,7 +1,9 @@
+import asyncio
 import logging
 from typing import Optional
 
 import redis.asyncio as redis
+from redis.asyncio.connection import ConnectionPool
 
 from app.api.core.config import settings
 from app.api.core.logger import setup_logging
@@ -11,6 +13,7 @@ logger = logging.getLogger("app")
 
 # Global Redis client instance
 _redis_client: Optional[redis.Redis] = None
+_connection_pool: Optional[ConnectionPool] = None
 
 
 async def get_redis_client() -> redis.Redis:
@@ -19,21 +22,46 @@ async def get_redis_client() -> redis.Redis:
 
     Returns:
         Redis client instance
+
+    Raises:
+        ValueError: If REDIS_URL is not configured
     """
-    global _redis_client
+    global _redis_client, _connection_pool
     if _redis_client is None:
-        _redis_client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
-        logger.info("Redis client initialized")
+        if not settings.REDIS_URL:
+            raise ValueError(
+                "REDIS_URL is not configured. Please set REDIS_URL in your .env file "
+                "with a valid Redis URL (e.g., redis://localhost:6379/0)"
+            )
+
+        # Create connection pool with optimized settings
+        _connection_pool = ConnectionPool.from_url(
+            settings.REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            max_connections=50,
+            socket_connect_timeout=5,
+            socket_timeout=10,
+            socket_keepalive=True,
+            retry_on_timeout=True,
+            health_check_interval=30,
+        )
+
+        _redis_client = redis.Redis(connection_pool=_connection_pool)
+        logger.info(f"Redis client initialized with URL: {settings.REDIS_URL}")
     return _redis_client
 
 
 async def close_redis_client():
-    """Close the Redis client connection."""
-    global _redis_client
+    """Close the Redis client connection and pool."""
+    global _redis_client, _connection_pool
     if _redis_client:
         await _redis_client.close()
         _redis_client = None
-        logger.info("Redis client closed")
+    if _connection_pool:
+        await _connection_pool.disconnect()
+        _connection_pool = None
+        logger.info("Redis client and connection pool closed")
 
 
 # ==================== JWT DENYLIST ====================
@@ -186,15 +214,34 @@ async def store_otp(user_id: str, otp_code: str, ttl_minutes: int = 10) -> bool:
     Returns:
         True if successful
     """
-    try:
-        client = await get_redis_client()
-        key = f"otp:{user_id}"
-        await client.setex(key, ttl_minutes * 60, otp_code)
-        logger.info(f"Stored OTP for user {user_id} with {ttl_minutes}min TTL")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to store OTP: {str(e)}")
-        return False
+    max_retries = 3
+    retry_count = 0
+
+    while retry_count < max_retries:
+        try:
+            client = await get_redis_client()
+            key = f"otp:{user_id}"
+            await client.setex(key, ttl_minutes * 60, otp_code)
+            logger.info(f"Stored OTP for user {user_id} with {ttl_minutes}min TTL")
+            return True
+        except Exception as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                logger.error(
+                    "Failed to store OTP (attempt %s/%s): %s",
+                    retry_count,
+                    max_retries,
+                    str(e),
+                )
+                return False
+            logger.warning(
+                "Store OTP attempt %s/%s failed, retrying: %s",
+                retry_count,
+                max_retries,
+                str(e),
+            )
+            # Wait before retry (exponential backoff)
+            await asyncio.sleep(0.5 * retry_count)
 
 
 async def verify_otp(user_id: str, otp_code: str) -> bool:
@@ -208,22 +255,41 @@ async def verify_otp(user_id: str, otp_code: str) -> bool:
     Returns:
         True if OTP is valid
     """
-    try:
-        client = await get_redis_client()
-        key = f"otp:{user_id}"
-        stored_otp = await client.get(key)
+    max_retries = 3
+    retry_count = 0
 
-        if stored_otp and stored_otp == otp_code:
-            # Delete OTP after successful verification (one-time use)
-            await client.delete(key)
-            logger.info(f"OTP verified and deleted for user {user_id}")
-            return True
+    while retry_count < max_retries:
+        try:
+            client = await get_redis_client()
+            key = f"otp:{user_id}"
+            stored_otp = await client.get(key)
 
-        logger.warning(f"OTP verification failed for user {user_id}")
-        return False
-    except Exception as e:
-        logger.error(f"OTP verification error: {str(e)}")
-        return False
+            if stored_otp and stored_otp == otp_code:
+                # Delete OTP after successful verification (one-time use)
+                await client.delete(key)
+                logger.info(f"OTP verified and deleted for user {user_id}")
+                return True
+
+            logger.warning(f"OTP verification failed for user {user_id}")
+            return False
+        except Exception as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                logger.error(
+                    "OTP verification error (attempt %s/%s): %s",
+                    retry_count,
+                    max_retries,
+                    str(e),
+                )
+                return False
+            logger.warning(
+                "OTP verification attempt %s/%s failed, retrying: %s",
+                retry_count,
+                max_retries,
+                str(e),
+            )
+            # Wait before retry (exponential backoff)
+            await asyncio.sleep(0.5 * retry_count)
 
 
 async def delete_otp(user_id: str) -> bool:
