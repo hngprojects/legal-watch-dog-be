@@ -13,6 +13,7 @@ from sqlmodel import JSON, Column, Field, SQLModel
 
 class SourceType(str, Enum):
     """Enumeration of supported source types."""
+
     WEB = "web"
     PDF = "pdf"
     API = "api"
@@ -23,19 +24,15 @@ class Source(SQLModel, table=True):
     Source entity for web scraping configuration.
     Stores URLs, scraping schedules, and encrypted credentials.
     """
+
     __tablename__ = "sources"
 
     id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        index=True,
-        nullable=False
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
     )
 
     jurisdiction_id: uuid.UUID = Field(
-        foreign_key="jurisdictions.id",
-        nullable=False,
-        index=True
+        foreign_key="jurisdictions.id", nullable=False, index=True
     )
 
     name: str = Field(max_length=255, nullable=False)
@@ -48,8 +45,7 @@ class Source(SQLModel, table=True):
 
     auth_details_encrypted: Optional[str] = Field(default=None)
     scraping_rules: Dict = Field(
-        default_factory=dict,
-        sa_column=Column(JSON, nullable=False)
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
     )
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

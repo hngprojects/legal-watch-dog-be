@@ -26,9 +26,7 @@ def extract_audit_context(request: Request) -> Dict[str, Optional[str]]:
 
 
 def build_change_details(
-    old_obj: Any,
-    new_obj: Any,
-    fields: List[str]
+    old_obj: Any, new_obj: Any, fields: List[str]
 ) -> Dict[str, Dict[str, Any]]:
     """
     Build change details for audit log from old/new objects.
@@ -57,17 +55,15 @@ def build_change_details(
                 "Failed to get change details for field '%s': %s",
                 field,
                 str(e),
-                exc_info=True
+                exc_info=True,
             )
             continue
 
     return changes
 
 
-
 def sanitize_sensitive_data(
-    details: Dict[str, Any],
-    sensitive_fields: Optional[List[str]] = None
+    details: Dict[str, Any], sensitive_fields: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Remove or mask sensitive data from audit log details.
@@ -84,7 +80,9 @@ def sanitize_sensitive_data(
         Sanitized details dictionary
     """
     if not isinstance(details, dict):
-        logger.warning("sanitize_sensitive_data received non-dict details: %s", type(details))
+        logger.warning(
+            "sanitize_sensitive_data received non-dict details: %s", type(details)
+        )
         return {}
 
     if sensitive_fields is None:

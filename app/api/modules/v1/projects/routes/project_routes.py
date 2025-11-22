@@ -109,6 +109,9 @@ async def create_project(
 async def list_projects_in_organization(
     organization_id: UUID,
     q: Optional[str] = Query(None, description="Search query for project title"),
+    owner: Optional[UUID] = Query(
+        None, description="Filter by project owner/creator user ID"
+    ),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     current_user: User = Depends(get_current_user),
