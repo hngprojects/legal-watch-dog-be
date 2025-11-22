@@ -1,11 +1,12 @@
 """Service Handler For Jurisdiction"""
 
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, cast, Optional, Union
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from sqlalchemy.orm import with_loader_criteria
@@ -260,7 +261,12 @@ class JurisdictionService:
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def soft_delete(self, db: AsyncSession, jurisdiction_id: UUID):
+    async def soft_delete(
+        self,
+        db: AsyncSession,
+        jurisdiction_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
+    ) -> Union[Jurisdiction, list[Jurisdiction], None]:
         """
         Soft delete a Jurisdiction by marking it as deleted without removing it from the database.
 
@@ -282,16 +288,41 @@ class JurisdictionService:
                 (e.g., foreign key dependencies).
                 - 500 if a database error occurs during the update.
         """
-        jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
-        if not jurisdiction:
-            return None
         try:
-            jurisdiction.is_deleted = True
-            jurisdiction.deleted_at = datetime.now()
-            db.add(jurisdiction)
-            await db.commit()
-            await db.refresh(jurisdiction)
-            return jurisdiction
+            if jurisdiction_id:
+                jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+                if not jurisdiction:
+                    return None
+                jurisdiction.is_deleted = True
+                jurisdiction.deleted_at = datetime.now()
+                db.add(jurisdiction)
+                await db.commit()
+                await db.refresh(jurisdiction)
+
+                return jurisdiction
+
+            elif project_id:
+                stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.project_id) == project_id)
+                result = await db.execute(stmt)
+                jurisdictions = result.scalars().all()
+                if not jurisdictions:
+                    return []
+
+                for j in jurisdictions:
+                    j.is_deleted = True
+                    j.deleted_at = datetime.now()
+                    db.add(j)
+
+                await db.commit()
+                for j in jurisdictions:
+                    await db.refresh(j)
+                return jurisdictions
+
+            else:
+                raise HTTPException(
+                    status_code=400, detail="Either jurisdiction_id or project_id must be provided."
+                )
+
         except IntegrityError as e:
             await db.rollback()
             raise HTTPException(
@@ -341,3 +372,88 @@ class JurisdictionService:
                 status_code=500,
                 detail=f"Database error occurred while deleting jurisdiction: {str(e)}",
             )
+
+    async def get_jurisdiction_for_restoration(
+        self, db: AsyncSession, jurisdiction_id: UUID
+    ) -> Jurisdiction:
+        """
+        Retrieve a single Jurisdiction by ID for restoration purposes.
+
+        This method will return the Jurisdiction even if it is currently archived (is_deleted=True),
+        so it can be restored. If the jurisdiction does not exist at all, it raises a 404.
+        Any database errors raise a 500.
+
+        Args:
+            db (AsyncSession): Database session.
+            jurisdiction_id (UUID): ID of the jurisdiction.
+
+        Returns:
+            Jurisdiction: The jurisdiction record (archived or active).
+
+        Raises:
+            HTTPException: 404 if not found, 500 on DB error.
+        """
+        try:
+            query = (
+                select(Jurisdiction)
+                .options(
+                    with_loader_criteria(
+                        Jurisdiction,
+                        lambda cls: cls.is_deleted == cls.is_deleted,
+                        include_aliases=True,
+                    )
+                )
+                .where(Jurisdiction.id == jurisdiction_id)
+            )
+            result = await db.execute(query)
+            jurisdiction = result.scalar_one_or_none()
+
+            if not jurisdiction:
+                raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+            return jurisdiction
+
+        except SQLAlchemyError as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    async def restore_all_archived_jurisdictions(
+        self, db: AsyncSession, project_id: UUID | None = None
+    ) -> list[Jurisdiction]:
+        """
+        Restore all archived jurisdictions and return the restored objects.
+        """
+        try:
+            # Use explicit casts for comparisons to avoid DB/driver type mismatches
+            stmt = (
+                select(Jurisdiction)
+                .options(
+                    with_loader_criteria(
+                        Jurisdiction,
+                        lambda cls: literal(True),
+                        include_aliases=True,
+                    )
+                )
+                .where(cast(Any, Jurisdiction.is_deleted).is_(True))
+            )
+
+            if project_id is not None:
+                stmt = stmt.where(cast(Any, Jurisdiction.project_id) == project_id)
+
+            result = await db.execute(stmt)
+            archived_jurisdictions = list(result.scalars().all())
+
+            if not archived_jurisdictions:
+                return []
+
+            for j in archived_jurisdictions:
+                j.is_deleted = False
+                j.deleted_at = None
+                db.add(j)
+
+            await db.commit()
+
+            return archived_jurisdictions
+
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
