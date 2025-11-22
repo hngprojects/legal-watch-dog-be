@@ -50,12 +50,12 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
 )
 
+
 @pytest.fixture(autouse=True)
 def mock_encryption(monkeypatch):
     """Set a valid encryption key for testing"""
     valid_key = Fernet.generate_key().decode()
     monkeypatch.setattr(settings, "ENCRYPTION_KEY", valid_key)
-
 
 
 @pytest.fixture(autouse=True, scope="function")
