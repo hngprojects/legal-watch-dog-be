@@ -29,7 +29,7 @@ from app.api.modules.v1.projects.services.project_service import (
 )
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import (
-    fail_response,
+    error_response,
     success_response,
 )
 
@@ -69,7 +69,7 @@ async def create_project(
 
     except Exception:
         logger.exception(f"Error creating project for user_id={current_user.id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to create project. Please try again.",
         )
@@ -118,7 +118,7 @@ async def list_projects(
 
     except Exception:
         logger.exception(f"Error listing projects for user_id={current_user.id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve projects. Please try again.",
         )
@@ -143,7 +143,7 @@ async def get_project(
         project = await get_project_service(db, project_id, current_user.organization_id)
 
         if not project:
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
             )
@@ -156,7 +156,7 @@ async def get_project(
 
     except Exception:
         logger.exception(f"Error getting project_id={project_id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve project.",
         )
@@ -186,7 +186,7 @@ async def update_project(
         )
 
         if not project:
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
             )
@@ -199,7 +199,7 @@ async def update_project(
 
     except Exception:
         logger.exception(f"Error updating project_id={project_id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to update project. Please try again.",
         )
@@ -224,7 +224,7 @@ async def delete_project(
         deleted = await soft_delete_project_service(db, project_id, current_user.organization_id)
 
         if not deleted:
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
             )
@@ -233,7 +233,7 @@ async def delete_project(
 
     except Exception:
         logger.exception(f"Error deleting project_id={project_id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete project. Please try again.",
         )
@@ -258,7 +258,7 @@ async def restore_project(
         restored = await restore_project_service(db, project_id, current_user.organization_id)
 
         if not restored:
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found or not deleted",
             )
@@ -273,7 +273,7 @@ async def restore_project(
 
     except Exception:
         logger.exception(f"Error restoring project_id={project_id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to restore project. Please try again.",
         )
@@ -301,7 +301,7 @@ async def hard_delete_project(
         deleted = await hard_delete_project_service(db, project_id, current_user.organization_id)
 
         if not deleted:
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
             )
@@ -310,7 +310,7 @@ async def hard_delete_project(
 
     except Exception:
         logger.exception(f"Error during hard delete of project_id={project_id}")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to permanently delete project.",
         )
