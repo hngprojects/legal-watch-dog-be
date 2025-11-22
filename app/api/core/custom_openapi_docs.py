@@ -43,10 +43,12 @@ def custom_openapi(app: FastAPI):
         if new_path != path:
             del schema["paths"][path]
 
+        DEFAULT_ERROR_CODES = ["400", "401", "403", "404", "405", "409", "422", "500"]
+
         for method in path_item.values():
             method.setdefault("responses", {})
-            for code in ["400", "401", "403", "404", "405", "409", "422", "500"]:
-                method["responses"][code] = default_error
+            for code in DEFAULT_ERROR_CODES:
+                method["responses"].setdefault(code, default_error)
 
     app.openapi_schema = schema
     return app.openapi_schema
