@@ -388,7 +388,7 @@ async def restore_jurisdictions(project_id: UUID, db: AsyncSession = Depends(get
         db (AsyncSession): Database session used to retrieve and update the jurisdiction.
 
     Returns:
-        JurisdictionResponseSchema: List of restored jurisdictions with its updated
+        List[JurisdictionResponseSchema]: List of restored jurisdictions with its updated
         deletion status and associated metadata.
 
     Raises:
