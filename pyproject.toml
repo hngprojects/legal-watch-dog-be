@@ -71,11 +71,10 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-<<<<<<< HEAD
-line-ending = "auto"
-=======
+
 line-ending = "auto"
 
 [tool.poetry.dependencies]
 aio-pika = "^8.3.0"
->>>>>>> 9415a51 (feat: improve code formatting and structure across modules)
+google-genai = "^0.3.0"
+
