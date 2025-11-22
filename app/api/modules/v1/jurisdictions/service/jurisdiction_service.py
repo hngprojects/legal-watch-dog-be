@@ -1,15 +1,15 @@
 """Service Handler For Jurisdiction"""
 
 from datetime import datetime
-from typing import Any, cast, Optional, Union
+from typing import Any, Optional, Union, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import literal
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 from sqlalchemy.orm import with_loader_criteria
+from sqlmodel import select
 
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 
