@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.api.core.config import settings
 from app.api.db.database import engine
-from app.api.modules.v1.scraping.models.scrape import Source
+from app.api.modules.v1.scraping.models.source_model import Source
 
 logger = get_task_logger(__name__)
 
