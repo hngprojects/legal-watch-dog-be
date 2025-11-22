@@ -4,6 +4,7 @@ Pydantic schemas for Project Audit Log API responses
 """
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -17,8 +18,8 @@ class AuditLogResponse(BaseModel):
     project_id: Optional[int]
     jurisdiction_id: Optional[int]
     source_id: Optional[int]
-    org_id: int
-    user_id: int
+    org_id: UUID
+    user_id: UUID
     action: AuditAction
     details: Optional[Dict[str, Any]]
     ip_address: Optional[str]
@@ -34,8 +35,8 @@ class AuditLogResponse(BaseModel):
             "example": {
                 "log_id": 123,
                 "project_id": 1,
-                "org_id": 1,
-                "user_id": 10,
+                "org_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "123e4567-e89b-12d3-a456-426614174000",
                 "action": "project_created",
                 "details": {"title": "GDPR Monitoring", "master_prompt": "..."},
                 "ip_address": "192.168.1.1",
@@ -77,7 +78,7 @@ class AuditLogListResponse(BaseModel):
 class AuditLogQueryParams(BaseModel):
     """Query parameters for filtering audit logs"""
     action: Optional[AuditAction] = None
-    user_id: Optional[int] = None
+    user_id: Optional[UUID] = None
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
     page: int = Field(default=1, ge=1)
@@ -103,11 +104,13 @@ class AuditStatsResponse(BaseModel):
                     "source_assigned": 680,
                     "prompt_updated": 200
                 },
+
                 "by_user": {
-                    "10": 500,
-                    "12": 350,
-                    "15": 600
+                    "123e4567-e89b-12d3-a456-426614174000": 500,
+                    "550e8400-e29b-41d4-a716-446655440000": 350
                 },
+
+
                 "date_range": {
                     "start": "2025-01-01T00:00:00Z",
                     "end": "2025-11-20T23:59:59Z"

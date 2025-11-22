@@ -1,15 +1,21 @@
-# app/api/modules/v1/projects/routes/audit_routes.py 
+# app/api/modules/v1/projects/routes/audit_routes.py
 """
 API endpoints for Project Audit Logs
 Provides compliance monitoring and audit trail queries
 """
+
+import csv
+import os
 from datetime import datetime
+from io import StringIO
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Session
 
 from app.api.db.database import get_db as get_session
 from app.api.modules.v1.projects.models.project_audit_log import AuditAction
@@ -26,22 +32,46 @@ router = APIRouter(tags=["Audit"])
 
 # ===== DEPENDENCY INJECTION =====
 
-def get_audit_service(session: Session = Depends(get_session)) -> ProjectAuditService:
-    """Dependency: Get audit service instance"""
+def get_audit_service(session: AsyncSession = Depends(get_session)) -> ProjectAuditService:
     repository = ProjectAuditRepository(session)
     return ProjectAuditService(repository)
 
 
-# TODO: Replace with actual auth dependency
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")  # your login endpoint
 
-def get_current_user():
-    return {
-        "user_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
-        "org_id": UUID("550e8400-e29b-41d4-a716-446655440000"),
-        "role": "ADMIN",
-        "email": "admin@example.com"
-    }
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
+    JWT_SECRET = os.getenv("JWT_SECRET")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+
+    if not JWT_SECRET or not JWT_ALGORITHM:
+        raise RuntimeError("JWT_SECRET and JWT_ALGORITHM must be set in environment")
+
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )    
+        user_id: str = payload.get("user_id")
+        org_id: str = payload.get("org_id")
+        role: str = payload.get("role")
+        email: str = payload.get("email")
+        if not user_id or not org_id:
+            raise credentials_exception
+        return {
+            "user_id": UUID(user_id),
+            "org_id": UUID(org_id),
+            "role": role,
+            "email": email
+        }
+    except JWTError:
+        raise credentials_exception
 
 # ===== ENDPOINTS =====
 
@@ -58,7 +88,8 @@ async def get_project_audit_logs(
     audit_service: ProjectAuditService = Depends(get_audit_service)
 ):
     """Get audit logs for a specific project"""
-    logs, total = await audit_service.repository.get_project_audit_logs(
+    logs, total = await audit_service.get_project_audit_logs(
+        
         project_id=project_id,
         action=action,
         user_id=user_id,
@@ -90,7 +121,7 @@ async def get_jurisdiction_audit_logs(
     audit_service: ProjectAuditService = Depends(get_audit_service)
 ):
     """Get audit logs for a specific jurisdiction"""
-    logs, total = await audit_service.repository.get_jurisdiction_audit_logs(
+    logs, total = await audit_service.get_jurisdiction_audit_logs(
         jurisdiction_id=jurisdiction_id,
         page=page,
         limit=limit
@@ -124,7 +155,7 @@ async def get_organization_audit_logs(
             detail="Only administrators can view organization-wide audit logs"
         )
 
-    logs, total = await audit_service.repository.get_organization_audit_logs(
+    logs, total = await audit_service.get_organization_audit_logs(
         org_id=current_user["org_id"],
         action=action,
         date_from=date_from,
@@ -149,24 +180,14 @@ async def get_organization_audit_logs(
 async def get_audit_log_by_id(
     log_id: int,
     current_user: dict = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    audit_service: ProjectAuditService = Depends(get_audit_service)
 ):
-    """Get a specific audit log entry by ID"""
+    """Get a specific audit log entry by ID via service layer"""
 
-    from sqlmodel import select
-
-    from app.api.modules.v1.projects.models.project_audit_log import ProjectAuditLog
-
-    stmt = (
-        select(ProjectAuditLog)
-        .where(
-            ProjectAuditLog.log_id == log_id,
-            ProjectAuditLog.org_id == current_user["org_id"]
-        )
+    log = await audit_service.get_audit_log_by_id(
+        log_id=log_id,
+        org_id=current_user["org_id"]
     )
-
-    result = await session.execute(stmt)
-    log = result.scalars().first()
 
     if not log:
         raise HTTPException(status_code=404, detail="Audit log not found")
@@ -179,8 +200,8 @@ async def get_audit_log_by_id(
 async def get_audit_statistics(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)  # <-- use AsyncSession
+    current_user: dict[str, UUID | str] = Depends(get_current_user),
+    audit_service: ProjectAuditService = Depends(get_audit_service)
 ):
     """Get audit log statistics for compliance reporting (Admin only)"""
     if current_user["role"] != "ADMIN":
@@ -189,59 +210,19 @@ async def get_audit_statistics(
             detail="Only administrators can view audit statistics"
         )
 
-    from sqlalchemy import func, select
-
-    from app.api.modules.v1.projects.models.project_audit_log import ProjectAuditLog
-
-    base_query = select(ProjectAuditLog).where(ProjectAuditLog.org_id == current_user["org_id"])
-    if date_from:
-        base_query = base_query.where(ProjectAuditLog.created_at >= date_from)
-    if date_to:
-        base_query = base_query.where(ProjectAuditLog.created_at <= date_to)
-
-    # --- Total logs ---
-    result = await session.execute(select(func.count()).select_from(base_query.subquery()))
-    total_logs = result.scalar_one()
-
-    # --- Stats by action ---
-    result = await session.execute(
-        select(ProjectAuditLog.action, func.count(ProjectAuditLog.log_id))
-        .where(ProjectAuditLog.org_id == current_user["org_id"])
-        .group_by(ProjectAuditLog.action)
+    return await audit_service.get_audit_statistics(
+        org_id=current_user["org_id"],
+        date_from=date_from,
+        date_to=date_to
     )
-    by_action_results = result.all()
-    by_action = {str(action): count for action, count in by_action_results}
-
-    # --- Stats by user ---
-    result = await session.execute(
-        select(ProjectAuditLog.user_id, func.count(ProjectAuditLog.log_id))
-        .where(ProjectAuditLog.org_id == current_user["org_id"])
-        .group_by(ProjectAuditLog.user_id)
-    )
-    by_user_results = result.all()
-    by_user = {str(user_id): count for user_id, count in by_user_results}
-
-    date_range = {}
-    if date_from:
-        date_range["start"] = date_from
-    if date_to:
-        date_range["end"] = date_to
-
-    return AuditStatsResponse(
-        total_logs=total_logs,
-        by_action=by_action,
-        by_user=by_user,
-        date_range=date_range
-    )
-
 
 
 @router.get("/export", status_code=200)
 async def export_audit_logs(
-    format: str = Query("csv", regex="^(csv|json)$"),
+    format: str = Query("csv", pattern="^(csv|json)$"),
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict[str, UUID | str] = Depends(get_current_user),
     audit_service: ProjectAuditService = Depends(get_audit_service)
 ):
     """Export audit logs for compliance reporting (Admin only)"""
@@ -251,7 +232,7 @@ async def export_audit_logs(
             detail="Only administrators can export audit logs"
         )
 
-    logs, _ = await audit_service.repository.get_organization_audit_logs(
+    logs, _ = await audit_service.get_organization_audit_logs(
         org_id=current_user["org_id"],
         date_from=date_from,
         date_to=date_to,
@@ -260,10 +241,6 @@ async def export_audit_logs(
     )
 
     if format == "csv":
-        import csv
-        from io import StringIO
-
-        from fastapi.responses import StreamingResponse
 
         output = StringIO()
         writer = csv.writer(output)
