@@ -132,10 +132,10 @@ jobs:
             
             # Create startup script for better process management
             cat > start_app.sh << 'SCRIPT_EOF'
-            #!/bin/bash
-            cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
-            source .env
-            uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
+              #!/bin/bash
+              cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
+              source .env
+              uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
             SCRIPT_EOF
             
             chmod +x start_app.sh
@@ -284,10 +284,10 @@ jobs:
             
             # Create startup script for better process management
             cat > start_app.sh << 'SCRIPT_EOF'
-            #!/bin/bash
-            cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
-            source .env
-            uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
+              #!/bin/bash
+              cd /home/ifeanyinw/apps/backend/legal-watch-dog-be
+              source .env
+              uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT
             SCRIPT_EOF
             
             chmod +x start_app.sh
