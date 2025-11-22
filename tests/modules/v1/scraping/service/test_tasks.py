@@ -87,7 +87,7 @@ def test_get_next_scrape_time(frequency, expected_delta):
     assert abs((next_time - now) - expected_delta) < timedelta(seconds=1)
 
 
-# Tests for the scrape_source task
+
 def test_scrape_source_success(sync_session: Session):
     """Tests the successful scraping of a source."""
     source = Source(
@@ -124,7 +124,6 @@ def test_scrape_source_success(sync_session: Session):
     sync_session.refresh(source)
 
     next_scrape_time = source.next_scrape_time
-    # If the DB returned a naive datetime (common with SQLite), make it aware (UTC)
     if next_scrape_time.tzinfo is None:
         next_scrape_time = next_scrape_time.replace(tzinfo=timezone.utc)
 
@@ -141,8 +140,7 @@ def test_scrape_source_not_found(sync_session: Session):
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
-        # We don't strictly need push_request here if the code doesn't access self.request
-        # before the "not found" check, but it's safer to include it or just run it.
+        
         result = scrape_source.run(str(non_existent_id))
 
     assert "not found" in result
@@ -168,40 +166,39 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
         ) as mock_redis_from_url,
         patch("time.sleep", return_value=None),
     ):
-        # Mock DB
+        
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = Exception("Simulated scraping failure")
 
-        # Mock Redis client
+        
         mock_redis_client = MagicMock()
         mock_redis_from_url.return_value = mock_redis_client
 
-        # Simulate MAX_RETRIES failures
+        
         for i in range(MAX_RETRIES):
             scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=i)
-            with pytest.raises(Exception):  # Expect retry exception
+            with pytest.raises(Exception):  
                 scrape_source.run(str(source.id))
             scrape_source.pop_request()
 
-        # Now, simulate the final retry that should trigger DLQ
+        
         scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=MAX_RETRIES)
 
-        # This should now catch the exception internally and return the DLQ message
+        
         result = scrape_source.run(str(source.id))
         scrape_source.pop_request()
 
         assert "moved to DLQ" in result
         mock_redis_client.lpush.assert_called_once()
 
-        # Verify DLQ entry content
+       
         called_args, _ = mock_redis_client.lpush.call_args
         assert called_args[0] == CELERY_DLQ_KEY
         dlq_entry = json.loads(called_args[1])
         assert dlq_entry["task_id"] == "test_task_id"
 
 
-# Tests for the dispatch_due_sources task
 def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session: Session, mock_redis: MagicMock
 ):
@@ -228,8 +225,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         ) as mock_redis_from_url,
         patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
-    ):  # Mock .app directly
-        # Mock Redis
+    ):  
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
         mock_redis_from_url.return_value = mock_redis_instance
@@ -239,7 +235,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
-        # Mock Celery App send_task
+        
         mock_app.send_task = MagicMock()
 
         # Run with NO arguments (self is injected automatically)
@@ -249,11 +245,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     assert mock_redis_instance.set.call_count == 1
     assert mock_app.send_task.call_count == 2
 
-    # mock_app.send_task.assert_any_call(
-    #     "app.api.modules.v1.scraping.service.tasks.scrape_source",
-    #     args=[str(source1.id)],
-    # )
-
+    
 
 def test_dispatch_due_sources_lock_already_held():
     """Tests that the dispatcher skips if the lock is already held."""

@@ -10,6 +10,7 @@ with retry logic.
 
 import json
 import random
+import time
 from datetime import datetime, timedelta, timezone
 
 import redis
@@ -82,17 +83,8 @@ def scrape_source(self, source_id: str):
                 return f"Source {source_id} not found."
 
             logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
-
-            # --- Placeholder for actual scraping logic ---
-            # Simulate a potential failure
-            # if random.random() < 0.2: # 20% chance of failure
-            #     raise ConnectionError("Simulated scraping failure")
-            # -------------------------------------------
-
-            # Simulate scraping work (in real implementation, this would be actual scraping)
-            import time
-
-            time.sleep(random.uniform(0.1, 0.5))  # Shortened for tests
+        
+            time.sleep(random.uniform(0.1, 0.5)) 
 
             # If scraping is successful
             new_next_scrape_time = get_next_scrape_time(
@@ -115,10 +107,10 @@ def scrape_source(self, source_id: str):
         try:
             redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
 
-            # Exponential backoff with jitter
+            
             retry_count = self.request.retries
             delay = min(MAX_DELAY, BASE_DELAY * (2**retry_count))
-            jitter = random.uniform(0, delay * 0.1)  # Add up to 10% jitter
+            jitter = random.uniform(0, delay * 0.1)  
             countdown = delay + jitter
 
             if retry_count < MAX_RETRIES:
@@ -149,8 +141,7 @@ def scrape_source(self, source_id: str):
                 f"for source {source_id}: {redis_exc}",
                 exc_info=True,
             )
-            # If Redis is down, we can't push to DLQ, so re-raise the original exception
-            # or log and return a failure message without DLQ. For now, re-raise.
+           
             raise exc
         finally:
             if redis_client:
@@ -174,10 +165,8 @@ def dispatch_due_sources(self):
     """
     redis_client = None
     try:
-        # Connect to Redis synchronously
         redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
 
-        # Try to acquire the lock
         lock_acquired = redis_client.set(
             DISPATCH_LOCK_KEY, "locked", nx=True, ex=LOCK_TIMEOUT_SECONDS
         )
@@ -186,7 +175,6 @@ def dispatch_due_sources(self):
             logger.info("Dispatch due sources task is already running. Skipping.")
             return "Skipped: Another dispatch task is already running."
 
-        # --- Lock acquired, proceed with dispatch logic ---
         logger.info("Acquired dispatch lock. Checking for due sources...")
 
         with Session(engine) as db:
@@ -203,7 +191,6 @@ def dispatch_due_sources(self):
                 return "No sources to dispatch."
 
             for src in due_sources:
-                # Call the task by name for robustness
                 self.app.send_task(
                     "app.api.modules.v1.scraping.service.tasks.scrape_source",
                     args=[str(src.id)],
