@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../../../.env"))
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LLM Service")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("MODEL_NAME", "gemini-2.0-flash")
-GEMINI_API_URL = os.getenv("LLM_API_URL", "https://api.fake-gemini.com/v1/generate")
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 
 LLM_COOLDOWN = 0.5  
@@ -62,10 +62,17 @@ Return STRICT JSON with the following structure:
         "Content-Type": "application/json",
     }
 
+    
     payload = {
-        "model": GEMINI_MODEL,
-        "prompt": llm_input,
-        "temperature": 0.2,
+        "contents": [{
+            "parts": [{
+                "text": llm_input
+            }]
+        }],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 800
+        }
     }
 
     try:

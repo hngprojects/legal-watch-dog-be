@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +20,11 @@ from app.api.core.exceptions import (
 from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 from app.api.db.database import Base, engine
+from app.api.modules.v1.scraping.routes.gemini_routes import router as gemini_router
 from app.api.utils.response_payloads import success_response
+
+load_dotenv()  
+
 
 setup_logging()
 
@@ -68,6 +73,12 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 app.openapi = lambda: custom_openapi(app)
 app.include_router(api_router)
+app.include_router(
+    gemini_router,
+    prefix="/scraping",  
+    tags=["scraping"]   
+)
+
 
 
 @app.get("/")
