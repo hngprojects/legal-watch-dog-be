@@ -46,7 +46,6 @@ class JurisdictionUpdateSchema(BaseModel):
     description: Optional[str] = None
     prompt: Optional[str] = None
     scrape_output: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = None
     is_deleted: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
