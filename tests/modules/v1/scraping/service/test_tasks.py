@@ -38,9 +38,9 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app.api.modules.v1.scraping.models.scrape import Source
 from sqlmodel import Session
 
-from app.api.modules.v1.scraping.models.scrape import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
     MAX_RETRIES,
@@ -82,7 +82,6 @@ def test_get_next_scrape_time(frequency, expected_delta):
     now = datetime.now(timezone.utc)
     next_time = get_next_scrape_time(now, frequency)
     assert abs((next_time - now) - expected_delta) < timedelta(seconds=1)
-
 
 
 def test_scrape_source_success(sync_session: Session):
@@ -137,7 +136,6 @@ def test_scrape_source_not_found(sync_session: Session):
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
-        
         result = scrape_source.run(str(non_existent_id))
 
     assert "not found" in result
@@ -163,33 +161,27 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
         ) as mock_redis_from_url,
         patch("time.sleep", return_value=None),
     ):
-        
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = Exception("Simulated scraping failure")
 
-        
         mock_redis_client = MagicMock()
         mock_redis_from_url.return_value = mock_redis_client
 
-        
         for i in range(MAX_RETRIES):
             scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=i)
-            with pytest.raises(Exception):  
+            with pytest.raises(Exception):
                 scrape_source.run(str(source.id))
             scrape_source.pop_request()
 
-        
         scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=MAX_RETRIES)
 
-        
         result = scrape_source.run(str(source.id))
         scrape_source.pop_request()
 
         assert "moved to DLQ" in result
         mock_redis_client.lpush.assert_called_once()
 
-       
         called_args, _ = mock_redis_client.lpush.call_args
         assert called_args[0] == CELERY_DLQ_KEY
         dlq_entry = json.loads(called_args[1])
@@ -222,7 +214,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         ) as mock_redis_from_url,
         patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
-    ):  
+    ):
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
         mock_redis_from_url.return_value = mock_redis_instance
@@ -232,7 +224,6 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
-        
         mock_app.send_task = MagicMock()
 
         # Run with NO arguments (self is injected automatically)
@@ -242,7 +233,6 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     assert mock_redis_instance.set.call_count == 1
     assert mock_app.send_task.call_count == 2
 
-    
 
 def test_dispatch_due_sources_lock_already_held():
     """Tests that the dispatcher skips if the lock is already held."""
@@ -254,7 +244,6 @@ def test_dispatch_due_sources_lock_already_held():
 
         mock_redis_from_url.return_value = mock_redis_instance
 
-        
         result = dispatch_due_sources.run()
 
     assert "Skipped" in result

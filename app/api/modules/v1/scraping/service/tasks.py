@@ -83,8 +83,8 @@ def scrape_source(self, source_id: str):
                 return f"Source {source_id} not found."
 
             logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
-        
-            time.sleep(random.uniform(0.1, 0.5)) 
+
+            time.sleep(random.uniform(0.1, 0.5))
 
             # If scraping is successful
             new_next_scrape_time = get_next_scrape_time(
@@ -107,10 +107,9 @@ def scrape_source(self, source_id: str):
         try:
             redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
 
-            
             retry_count = self.request.retries
             delay = min(MAX_DELAY, BASE_DELAY * (2**retry_count))
-            jitter = random.uniform(0, delay * 0.1)  
+            jitter = random.uniform(0, delay * 0.1)
             countdown = delay + jitter
 
             if retry_count < MAX_RETRIES:
@@ -141,7 +140,7 @@ def scrape_source(self, source_id: str):
                 f"for source {source_id}: {redis_exc}",
                 exc_info=True,
             )
-           
+
             raise exc
         finally:
             if redis_client:
