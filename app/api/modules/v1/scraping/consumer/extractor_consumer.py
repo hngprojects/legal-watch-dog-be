@@ -1,86 +1,110 @@
 import asyncio
 import json
 import logging
+import os
 
 import aio_pika
-from aio_pika import IncomingMessage
-from app.db.database import async_session
-from scraping.services.llm_service import run_llm_analysis
-from scraping.services.prompt_service import build_final_prompt
-from scraping.services.queue_publisher import publish_ai_summary
+import httpx
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
+RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+LLM_SERVICE_URL = os.getenv("LLM_SERVICE_URL")
+EXTRACTOR_QUEUE = "extractor.result" 
 
-RABBITMQ_URL = "amqp://guest:guest@localhost/"
-EXTRACTOR_QUEUE = "extractor.raw_data"  
-
-
-async def process_extracted_message(message: IncomingMessage):
+class ExtractorConsumer:
     """
-    Main handler that processes extracted data from the extractor.
+    Consumes extraction results from RabbitMQ, prepares payload for LLM,
+    and forwards the data to the LLM Prompt Service.
     """
-    async with message.process():
+
+    def __init__(self, rabbitmq_url: str = RABBITMQ_URL):
+        self.rabbitmq_url = rabbitmq_url
+
+    async def connect(self):
+        """
+        Connect to RabbitMQ and declare extractor queue.
+        """
+        logger.info("ExtractorConsumer: Connecting to RabbitMQ...")
+
+        self.connection = await aio_pika.connect_robust(self.rabbitmq_url)
+        self.channel = await self.connection.channel()
+
+        await self.channel.declare_queue(EXTRACTOR_QUEUE, durable=True)
+
+        logger.info("ExtractorConsumer: Connected successfully.")
+
+    async def process_message(self, message: aio_pika.IncomingMessage):
+        """
+        Process incoming extractor message and forward data to LLM.
+        """
+        async with message.process():
+            try:
+                payload = json.loads(message.body.decode("utf-8"))
+                logger.info(f"ExtractorConsumer: Received payload: {payload}")
+
+                
+                cleaned_text = payload.get("preview")
+
+                
+                project_id = payload.get("project_id")
+                jurisdiction_id = payload.get("jurisdiction_id")
+
+                if not project_id or not jurisdiction_id:
+                    logger.error("ExtractorConsumer: Missing project_id or jurisdiction_id")
+                    return
+
+               
+                llm_payload = {
+                    "law_text": cleaned_text,
+                    "project_id": project_id,
+                    "jurisdiction_id": jurisdiction_id,
+                }
+
+                logger.info(f"ExtractorConsumer: Sending LLM Payload → {llm_payload}")
+
+                
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    llm_response = await client.post(LLM_SERVICE_URL, json=llm_payload)
+
+                if llm_response.status_code != 200:
+                    logger.error(
+                        f"ExtractorConsumer: LLM Service Error {llm_response.status_code} — "
+                        f"{llm_response.text}"
+                    )
+
+                    return
+
+                llm_data = llm_response.json()
+                logger.info(f"ExtractorConsumer: LLM Response: {llm_data}")
+
+            except Exception as exc:
+                logger.error(f"ExtractorConsumer: Error processing message — {exc}", exc_info=True)
+
+    async def start(self):
+        """
+        Start listening to the extractor queue.
+        """
+        await self.connect()
+
+        queue = await self.channel.declare_queue(EXTRACTOR_QUEUE, durable=True)
+        logger.info(f"ExtractorConsumer: Listening to queue '{EXTRACTOR_QUEUE}'...")
+
+        await queue.consume(self.process_message)
+
         try:
-            payload = json.loads(message.body.decode())
-
-            project_id = payload.get("project_id")
-            jurisdiction_id = payload.get("jurisdiction_id")
-            extracted_text = payload.get("extracted_text")  
-
-            logger.info(
-    f"Received extracted text for project={project_id}, "
-    f"jurisdiction={jurisdiction_id}"
-)
-
-            
-            async with async_session() as db:
-                final_prompt = await build_final_prompt(
-                    db=db,
-                    project_id=project_id,
-                    jurisdiction_id=jurisdiction_id,
-                )
-
-           
-            llm_input = (
-                final_prompt
-                + "\n\n--- EXTRACTED TEXT BELOW ---\n\n"
-                + extracted_text
-            )
-
-            
-            llm_summary = await run_llm_analysis(llm_input)
-
-           
-            await publish_ai_summary(llm_summary)
-
-            logger.info("Successfully processed and published AI summary.")
-
-        except Exception as exc:
-            logger.error(f"Error processing message: {exc}", exc_info=True)
-          
-
-
-async def start_consumer():
-    """
-    Starts the RabbitMQ consumer that listens to extracted data.
-    """
-    connection = await aio_pika.connect_robust(RABBITMQ_URL)
-    channel = await connection.channel()
-
-    queue = await channel.declare_queue(EXTRACTOR_QUEUE, durable=True)
-
-    logger.info(f"Listening on queue '{EXTRACTOR_QUEUE}'...")
-
-    await queue.consume(process_extracted_message)
-
-    return connection
+            await asyncio.Future()  
+        except asyncio.CancelledError:
+            logger.info("ExtractorConsumer: Shutting down...")
+            await self.connection.close()
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(start_consumer())
-    loop.run_forever()
+    consumer = ExtractorConsumer()
 
-
+    try:
+        asyncio.run(consumer.start())
+    except KeyboardInterrupt:
+        logger.info("ExtractorConsumer: Service stopped manually.")
