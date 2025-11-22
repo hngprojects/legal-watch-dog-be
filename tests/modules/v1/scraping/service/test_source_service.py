@@ -311,7 +311,7 @@ class TestSourceServiceUpdate:
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_source_database_error(self, sample_source_db, mock_encrypt_auth_details):
+    async def test_update_source_database_error(self, sample_source_db, mock_encryption):
         """Test that database errors during update are handled."""
 
         mock_db = AsyncMock(spec=AsyncSession)
@@ -321,13 +321,12 @@ class TestSourceServiceUpdate:
         mock_db.get = AsyncMock(return_value=sample_source_db)
         mock_db.commit = AsyncMock(side_effect=Exception("DB Error"))
         mock_db.rollback = AsyncMock()
-
+        
         with pytest.raises(HTTPException) as exc_info:
             await service.update_source(mock_db, sample_source_db.id, update_data)
 
         assert exc_info.value.status_code == 500
         mock_db.rollback.assert_awaited_once()
-
 
 class TestSourceServiceDelete:
     """Tests for SourceService.delete_source()"""
