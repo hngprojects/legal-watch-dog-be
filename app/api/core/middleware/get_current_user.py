@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -11,17 +11,19 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import decode_token
 
 logger = logging.getLogger("app")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Validate JWT access token, check denylist, and return the current user.
     Raises 401 if token is invalid, expired, or revoked.
     """
+    token = credentials.credentials if credentials else None
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
