@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from starlette import status
 
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
-from app.core.config import settings  # Make sure your settings has RabbitMQ credentials
+from app.api.core.config import settings  # Make sure your settings has RabbitMQ credentials
 
 
 # ----------------- RESPONSE MODEL -----------------
