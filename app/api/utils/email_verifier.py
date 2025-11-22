@@ -6,6 +6,12 @@ from typing import Dict, Optional, Tuple
 
 import dns.resolver
 
+from app.api.core.config import settings
+
+_TEST_EMAIL_PROVIDERS = set()
+if settings.ALLOW_TEST_EMAIL_PROVIDERS:
+    _TEST_EMAIL_PROVIDERS = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
+
 
 class EmailType(Enum):
     BUSINESS = "business"
@@ -223,8 +229,11 @@ class BusinessEmailVerifier:
             domain: Domain portion of an email address.
 
         Returns:
-            True when domain is in FREE_EMAIL_PROVIDERS.
+            True when domain is in FREE_EMAIL_PROVIDERS, unless it's an allowed test provider.
         """
+        # Allow test email providers if configured
+        if settings.ALLOW_TEST_EMAIL_PROVIDERS and domain in _TEST_EMAIL_PROVIDERS:
+            return False
         return domain in self.FREE_EMAIL_PROVIDERS
 
     def _is_disposable_email(self, domain: str) -> bool:
@@ -250,20 +259,6 @@ class BusinessEmailVerifier:
         return domain in self.RESERVED_DOMAINS
 
     def _is_role_based_email(self, local_part: str) -> bool:
-        """Detect if the local part corresponds to a role-based address.
-
-        Role-based addresses are like 'support@company.com' or
-        'support+tag@company.com'. Those addresses commonly represent shared
-        inboxes and are often not acceptable for user registration.
-
-        Args:
-            local_part: Local part of an email address.
-
-        Returns:
-            True when local_part is role-like.
-        """
-        low = local_part.lower()
-        return any(low == r or low.startswith(r + "+") for r in self.ROLE_BASED_PREFIXES)
         """Detect if the local part corresponds to a role-based address.
 
         Role-based addresses are like 'support@company.com' or

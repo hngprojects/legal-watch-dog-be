@@ -21,17 +21,18 @@ from app.api.modules.v1.projects.utils.project_utils import (
     calculate_pagination,
     check_project_user_exists,
     get_project_by_id,
+    get_project_by_id_including_deleted,
     get_user_by_id,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 async def create_project_service(
     db: AsyncSession,
     data: ProjectBase,
     organization_id: UUID,
-    creator_id: UUID,
+    user_id: UUID,
 ) -> Project:
     """
     Create a new project and add creator as member.
@@ -40,14 +41,13 @@ async def create_project_service(
         db: Database session
         data: Project creation data
         organization_id: Organization UUID
-        creator_id: User UUID of creator
+        user_id: User UUID of user
 
     Returns:
         Created Project object
     """
     logger.info(
-        f"Creating project '{data.title}' for organization_id={organization_id}, "
-        f"creator_id={creator_id}"
+        f"Creating project '{data.title}' for organization_id={organization_id}, user_id={user_id}"
     )
 
     project = Project(
@@ -58,17 +58,10 @@ async def create_project_service(
     )
 
     db.add(project)
-    await db.flush()
+    await db.commit()
+    db.refresh(project)
 
     logger.info(f"Created project with id={project.id}")
-
-    project_user = ProjectUser(project_id=project.id, user_id=creator_id)
-    db.add(project_user)
-
-    await db.commit()
-    await db.refresh(project)
-
-    logger.info(f"Added creator to project, project_id={project.id}, user_id={creator_id}")
 
     return project
 
@@ -77,7 +70,6 @@ async def list_projects_service(
     db: AsyncSession,
     organization_id: UUID,
     q: Optional[str] = None,
-    owner: Optional[UUID] = None,
     page: int = 1,
     limit: int = 20,
 ) -> dict:
@@ -96,29 +88,26 @@ async def list_projects_service(
         Dictionary with projects list and pagination metadata
     """
     logger.info(
-        f"Listing projects for organization_id={organization_id}, "
-        f"q={q}, owner={owner}, page={page}, limit={limit}"
+        f"Listing projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
     )
 
-    statement = select(Project).where(Project.org_id == organization_id)
-
+    statement = select(Project).where(
+        and_(Project.org_id == organization_id, Project.is_deleted.is_(False))
+    )
+    logger.info(f"Base SQL: {str(statement)}")
     if q:
         statement = statement.where(Project.title.ilike(f"%{q}%"))
         logger.info(f"Applied search filter: q={q}")
 
-    if owner:
-        statement = statement.join(ProjectUser).where(ProjectUser.user_id == owner)
-        logger.info(f"Applied owner filter: owner={owner}")
-
     count_statement = select(func.count()).select_from(statement.subquery())
     total_result = await db.execute(count_statement)
-    total = total_result.scalar()
+    # ScalarResult from db.exec(); use one() to retrieve the single scalar count
+    total = total_result.scalar_one()
 
     logger.info(f"Found {total} projects matching criteria")
 
     offset = (page - 1) * limit
     statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
-
     result = await db.execute(statement)
     projects = result.scalars().all()
 
@@ -196,9 +185,77 @@ async def update_project_service(
     return project
 
 
-async def delete_project_service(db: AsyncSession, project_id: UUID, organization_id: UUID) -> bool:
+async def soft_delete_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
     """
-    Delete/archive project.
+    soft delete/archive project.
+
+    Args:
+        db: Database session
+        project_id: Project UUID
+        organization_id: Organization UUID
+
+    Returns:
+        True if soft deleted, False if not found
+    """
+    logger.info(f"soft deleting project_id={project_id}")
+
+    project = await get_project_by_id(db, project_id, organization_id)
+
+    if not project:
+        logger.warning(f"Project not found for deletion: project_id={project_id}")
+        return False
+
+    if project.is_deleted:
+        logger.warning(f"Project already deleted: project_id={project_id}")
+        return False
+
+    project.is_deleted = True
+    project.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(project)
+
+    logger.info(f"Project soft deleted successfully: project_id={project_id}")
+
+    return True
+
+
+async def restore_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
+    """
+    Restore a soft-deleted project.
+    """
+    logger.info(f"Restoring project_id={project_id}")
+
+    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
+
+    if not project:
+        logger.warning(f"Project not found: project_id={project_id}")
+        return False
+
+    if not project.is_deleted:
+        logger.warning(f"Project not deleted: project_id={project_id}")
+        return False
+
+    project.is_deleted = False
+    project.deleted_at = None
+    project.updated_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(project)
+
+    logger.info(f"Project restored successfully: project_id={project_id}")
+
+    return True
+
+
+async def hard_delete_project_service(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> bool:
+    """
+    Permanently delete project from database (irreversible), also includes soft deleted projects.
 
     Args:
         db: Database session
@@ -208,18 +265,18 @@ async def delete_project_service(db: AsyncSession, project_id: UUID, organizatio
     Returns:
         True if deleted, False if not found
     """
-    logger.info(f"Deleting project_id={project_id}")
+    logger.warning(f"hard deleting project_id={project_id}")
 
-    project = await get_project_by_id(db, project_id, organization_id)
+    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
 
     if not project:
-        logger.warning(f"Project not found for deletion: project_id={project_id}")
+        logger.warning(f"Project not found for hard delete: project_id={project_id}")
         return False
 
     await db.delete(project)
     await db.commit()
 
-    logger.info(f"Project deleted successfully: project_id={project_id}")
+    logger.warning(f"Project deleted permanently: project_id={project_id}")
 
     return True
 
@@ -247,7 +304,7 @@ async def get_project_users_service(
 
     statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
     result = await db.execute(statement)
-    user_ids = result.scalars().all()
+    user_ids = result.all()
 
     logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
 
@@ -319,8 +376,9 @@ async def remove_user_from_project_service(
     statement = select(ProjectUser).where(
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
+    # prefer SQLModel AsyncSession.execute which returns a ScalarResult
     result = await db.execute(statement)
-    project_user = result.scalar_one_or_none()
+    project_user = result.one_or_none()
 
     if not project_user:
         logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")

@@ -24,10 +24,28 @@ async def get_project_by_id(
         Project object if found and accessible, None otherwise
     """
     statement = select(Project).where(
+        and_(
+            Project.id == project_id,
+            Project.org_id == organization_id,
+            Project.is_deleted.is_(False),
+        )
+    )
+    result = await db.execute(statement)
+    return result.scalars().first()
+
+
+async def get_project_by_id_including_deleted(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> Optional[Project]:
+    """
+    Fetch project by ID including soft deleted ones.
+    For admin/restore purposes.
+    """
+    statement = select(Project).where(
         and_(Project.id == project_id, Project.org_id == organization_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID) -> Optional[User]:
@@ -65,7 +83,7 @@ async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id:
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
     result = await db.execute(statement)
-    return result.scalar_one_or_none() is not None
+    return result.one_or_none() is not None
 
 
 def calculate_pagination(total: int, page: int, limit: int) -> dict:

@@ -21,10 +21,7 @@ from app.api.modules.v1.auth.service.reset_password import (
     verify_reset_code as service_verify_code,
 )
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.response_payloads import (
-    fail_response,
-    success_response,
-)
+from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +45,14 @@ async def request_password_reset(
 
         if not user:
             logger.warning("Password reset requested for non-existent email=%s", payload.email)
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
-                message="Email does not exixt.",
+                message="Email does not exist.",
             )
 
         if not user.is_active:
             logger.warning("Password reset requested for inactive user: email=%s", payload.email)
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_403_FORBIDDEN,
                 message="Account is inactive. Please contact support.",
             )
@@ -71,7 +68,7 @@ async def request_password_reset(
 
     except Exception:
         logger.exception("Error during password reset request for email=%s", payload.email)
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset request failed",
         )
@@ -93,7 +90,7 @@ async def verify_reset_code(
 
         if not reset_token:
             logger.warning("Invalid or expired reset code for email=%s", payload.email)
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired token.",
             )
@@ -107,7 +104,7 @@ async def verify_reset_code(
 
     except Exception:
         logger.exception("Error verifying reset code for email=%s", payload.email)
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error.",
         )
@@ -128,7 +125,7 @@ async def confirm_password_reset(
 
         if not success:
             logger.warning("Invalid or expired reset token")
-            return fail_response(
+            return error_response(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="Invalid or expired reset token.",
             )
@@ -142,14 +139,14 @@ async def confirm_password_reset(
 
     except PasswordReuseError as e:
         logger.warning("Password reuse attempt during reset ()", str(e))
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message="Cannot reuse old password.",
         )
 
     except Exception:
         logger.exception("Error confirming password reset")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error.",
         )
