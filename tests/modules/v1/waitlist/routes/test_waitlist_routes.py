@@ -58,5 +58,6 @@ async def test_signup_waitlist_duplicate_email(app, pg_async_session):
 
     assert response.status_code == 400
     data = response.json()
-    assert data["status"] == "failure"
+    assert data["error"] == "ERROR"
     assert "Email already registered" in data["message"]
+    assert isinstance(data["errors"], dict)

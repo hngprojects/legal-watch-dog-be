@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.api import router as api_router
 from app.api.core.config import settings
+from app.api.core.custom_openapi_docs import custom_openapi
 from app.api.core.exceptions import (
     general_exception_handler,
     http_exception_handler,
@@ -59,6 +60,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
+app.openapi = lambda: custom_openapi(app)
 app.include_router(api_router)
 
 
