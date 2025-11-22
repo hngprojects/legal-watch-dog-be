@@ -316,7 +316,7 @@ async def update_jurisdiction(
 
         if "is_deleted" in payload.model_dump(exclude_unset=True):
             if payload.is_deleted:
-                jurisdiction.deleted_at = datetime.utcnow()
+                jurisdiction.deleted_at = datetime.now(timezone.utc)
             else:
                 jurisdiction.deleted_at = None
 
