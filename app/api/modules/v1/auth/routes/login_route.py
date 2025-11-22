@@ -8,7 +8,7 @@ from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.login import LoginRequest, RefreshTokenRequest
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.response_payloads import fail_response, success_response
+from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
@@ -77,14 +77,14 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         if is_oauth:
             raise
         else:
-            logger.warning("Login failed for email=%s: %s", email or "unknown", e.detail)
-            return fail_response(
+            logger.warning("Login failed for email=%s: %s", login_data.email, e.detail)
+            return error_response(
                 status_code=e.status_code,
                 message=e.detail,
             )
     except Exception:
         logger.exception("Unexpected error during login for email=%s", login_data.email)
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error",
         )
@@ -115,13 +115,13 @@ async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = De
         )
     except HTTPException as e:
         logger.warning("Token refresh failed: %s", e.detail)
-        return fail_response(
+        return error_response(
             status_code=e.status_code,
             message=e.detail,
         )
     except Exception:
         logger.exception("Unexpected error during token refresh")
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error",
         )
@@ -154,13 +154,13 @@ async def logout(
         )
     except HTTPException as e:
         logger.warning("Logout failed for user_id=%s: %s", str(current_user.id), e.detail)
-        return fail_response(
+        return error_response(
             status_code=e.status_code,
             message=e.detail,
         )
     except Exception:
         logger.exception("Unexpected error during logout for user_id=%s", str(current_user.id))
-        return fail_response(
+        return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error",
         )
