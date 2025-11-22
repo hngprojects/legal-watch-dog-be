@@ -24,11 +24,28 @@ async def get_project_by_id(
         Project object if found and accessible, None otherwise
     """
     statement = select(Project).where(
+        and_(
+            Project.id == project_id,
+            Project.org_id == organization_id,
+            Project.is_deleted.is_(False),
+        )
+    )
+    result = await db.execute(statement)
+    return result.scalars().first()
+
+
+async def get_project_by_id_including_deleted(
+    db: AsyncSession, project_id: UUID, organization_id: UUID
+) -> Optional[Project]:
+    """
+    Fetch project by ID including soft deleted ones.
+    For admin/restore purposes.
+    """
+    statement = select(Project).where(
         and_(Project.id == project_id, Project.org_id == organization_id)
     )
-    result = await db.exec(statement)
-    # db.exec() returns a ScalarResult from SQLModel; use one_or_none()
-    return result.one_or_none()
+    result = await db.execute(statement)
+    return result.scalars().first()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID) -> Optional[User]:
@@ -46,8 +63,8 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID)
     statement = select(User).where(
         and_(User.id == user_id, User.organization_id == organization_id)
     )
-    result = await db.exec(statement)
-    return result.one_or_none()
+    result = await db.execute(statement)
+    return result.scalar_one()
 
 
 async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id: UUID) -> bool:
@@ -65,7 +82,7 @@ async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id:
     statement = select(ProjectUser).where(
         and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
     )
-    result = await db.exec(statement)
+    result = await db.execute(statement)
     return result.one_or_none() is not None
 
 

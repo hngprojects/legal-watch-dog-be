@@ -54,7 +54,7 @@ def is_strong_password(password: str) -> str:
         errors.append("one digit")
     # Special character
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        errors.append('one special character (!@#$%^&*(),.?":{}|<>)')
+        errors.append("one special character")
 
     if errors:
         return "Password must contain: " + ", ".join(errors) + "."

@@ -11,6 +11,7 @@ from app.api.modules.v1.organization.service.organization import OrganizationCRU
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.generate_otp import generate_code
+from app.api.utils.get_organization_by_email import get_organization_by_email
 from app.api.utils.organization_validations import (
     validate_no_pending_registration,
     validate_organization_email_available,
@@ -18,6 +19,7 @@ from app.api.utils.organization_validations import (
 from app.api.utils.password import hash_password
 from app.api.utils.redis import (
     delete_organization_credentials,
+    get_organization_credentials,
     store_organization_credentials,
     verify_and_get_credentials,
 )
@@ -74,7 +76,7 @@ class RegistrationService:
 
             otp_code = generate_code()
             hashed_pw = hash_password(payload.password)
-
+            logger.info(f"otp: {otp_code}")
             registration_data = {
                 "name": payload.name,
                 "email": payload.email,
@@ -98,7 +100,9 @@ class RegistrationService:
 
         except ValueError as e:
             logger.warning(
-                "Validation error during registration for email=%s: %s", payload.email, str(e)
+                "Validation error during registration for email=%s: %s",
+                payload.email,
+                str(e),
             )
             raise
         except Exception as e:
@@ -131,6 +135,71 @@ class RegistrationService:
 
         background_tasks.add_task(send_email, "otp.html", "OTP for Registration", email, context)
         logger.debug("OTP email queued for background sending to %s", email)
+
+    async def resend_otp(
+        self,
+        email: str,
+        background_tasks: BackgroundTasks,
+    ) -> dict:
+        """
+        Resend registration OTP for a pending company signup.
+
+        Args:
+            email: Email address used for the original registration.
+            background_tasks: FastAPI background task handler for sending email asynchronously.
+
+        Returns:
+            dict: Dictionary containing the email for which the OTP was resent.
+
+        Raises:
+            ValueError: If the email belongs to an already registered organization
+                        or there is no pending registration for the email.
+            Exception: For unexpected errors during the resend process.
+        """
+        logger.info("Starting resend OTP for email=%s", email)
+
+        try:
+            existing_org = await get_organization_by_email(self.db, email)
+            if existing_org:
+                logger.warning("Resend OTP requested for already registered email=%s", email)
+                raise ValueError(
+                    "Registration already completed for this email. Please log in instead."
+                )
+
+            credentials = await get_organization_credentials(self.redis_client, email)
+
+            if not credentials:
+                logger.warning("No pending registration found for email=%s", email)
+                raise ValueError(
+                    "No pending registration found for this email. Please sign up again."
+                )
+
+            otp_code = generate_code()
+            credentials["otp_code"] = otp_code
+
+            await store_organization_credentials(
+                redis_client=self.redis_client,
+                email=email,
+                registration_data=credentials,
+                ttl_seconds=settings.REDIS_CACHE_TTL_SECONDS,
+            )
+
+            await self._send_otp_email(email, otp_code, background_tasks)
+
+            logger.info("Resent OTP successfully for email=%s", email)
+
+            return {"email": email}
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                "Unexpected error during resend OTP for email=%s: %s",
+                email,
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("An error occurred while resending OTP. Please try again.")
 
     async def verify_otp_and_complete_registration(self, email: str, code: str) -> dict:
         """
@@ -205,7 +274,9 @@ class RegistrationService:
 
         except ValueError as e:
             logger.warning(
-                "Validation error during OTP verification for email=%s: %s", email, str(e)
+                "Validation error during OTP verification for email=%s: %s",
+                email,
+                str(e),
             )
             raise
         except Exception as e:

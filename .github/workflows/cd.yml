@@ -90,16 +90,49 @@ jobs:
             
             uv sync
             
-            # Stop existing process
-            pkill -f "uv run uvicorn.*legal-watch-dog-BE" || true
-            sleep 2
+            # Load environment variables
+            set -a 
+            source .env 
+            set +a
             
-            export $(grep -v '^#' .env | xargs)
+            # PM2 Management
+            PM2_APP_NAME="legal-watchdog-be-${ENVIRONMENT}"
             
-            # Start the application
-            nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Check if app exists in PM2
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              echo "PM2 app '$PM2_APP_NAME' exists. Checking status..."
+              
+              # Get current status
+              PM2_STATUS=$(pm2 jlist | jq -r ".[] | select(.name==\"$PM2_APP_NAME\") | .pm2_env.status" 2>/dev/null || echo "stopped")
+              
+              if [ "$PM2_STATUS" == "online" ]; then
+                echo "App is online. Restarting due to new changes..."
+                pm2 restart "$PM2_APP_NAME" --update-env
+              else
+                echo "App exists but not online. Restarting..."
+                pm2 restart "$PM2_APP_NAME" --update-env
+              fi
+            else
+              echo "PM2 app '$PM2_APP_NAME' not found. Starting new instance..."
+              pm2 start "uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT" \
+                --name "$PM2_APP_NAME" \
+                --interpreter bash
+            fi
+            
+            # Save PM2 process list to persist across reboots
+            pm2 save
+            
+            # Setup PM2 startup script (safe to run multiple times)
+            pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
             
             echo "Staging deployment complete on port $APP_PORT!"
+            pm2 status
           EOF
 
       - name: Mark Deployment Result
@@ -191,17 +224,51 @@ jobs:
             # Run database migrations
             uv run alembic upgrade head
             
-            # Stop existing process
-            pkill -f "uv run uvicorn.*legal-watch-dog-be" || true
-            sleep 2
+            # Load environment variables
+            set -a 
+            source .env 
+            set +a
             
-            export $(grep -v '^#' .env | xargs)
+            # PM2 Management
+            PM2_APP_NAME="legal-watchdog-be-${ENVIRONMENT}"
             
-            # Start the application
-            nohup uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT > app.log 2>&1 &
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Check if app exists in PM2
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              echo "PM2 app '$PM2_APP_NAME' exists. Checking status..."
+              
+              # Get current status
+              PM2_STATUS=$(pm2 jlist | jq -r ".[] | select(.name==\"$PM2_APP_NAME\") | .pm2_env.status" 2>/dev/null || echo "stopped")
+              
+              if [ "$PM2_STATUS" == "online" ]; then
+                echo "App is online. Restarting due to new changes..."
+                pm2 restart "$PM2_APP_NAME" --update-env
+              else
+                echo "App exists but not online. Restarting..."
+                pm2 restart "$PM2_APP_NAME" --update-env
+              fi
+            else
+              echo "PM2 app '$PM2_APP_NAME' not found. Starting new instance..."
+              pm2 start "uv run uvicorn main:app --host 0.0.0.0 --port $APP_PORT" \
+                --name "$PM2_APP_NAME" \
+                --interpreter bash
+            fi
+            
+            # Save PM2 process list to persist across reboots
+            pm2 save
+            
+            # Setup PM2 startup script (safe to run multiple times)
+            pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
             
             echo "Production deployment complete on port $APP_PORT!"
+            pm2 status
           EOF
+          
 
       - name: Mark Deployment Result
         if: failure()

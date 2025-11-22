@@ -31,6 +31,11 @@ class Project(SQLModel, table=True):
         sa_column=Column(Text),
         description="High-level AI prompt for the entire project",
     )
+    is_deleted: bool = Field(default=False)
+    deleted_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+    )
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
@@ -41,7 +46,10 @@ class Project(SQLModel, table=True):
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="projects")
-
-    project_users: List["ProjectUser"] = Relationship(back_populates="project")
-
-    jurisdictions: List["Jurisdiction"] = Relationship(back_populates="project")
+    project_users: List["ProjectUser"] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    jurisdictions: List["Jurisdiction"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )

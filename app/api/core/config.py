@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     SMTP_SERVER: str = config("SMTP_SERVER", default="smtp.test.com")
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
+    # Email Verification
+    ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
+    TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
+
     # MinIO Configuration
     MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="minioadmin")
