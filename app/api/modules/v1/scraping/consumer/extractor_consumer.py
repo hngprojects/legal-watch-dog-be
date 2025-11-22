@@ -12,12 +12,13 @@ load_dotenv()
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL")
 LLM_SERVICE_URL = os.getenv("LLM_SERVICE_URL")
-EXTRACTOR_QUEUE = "extractor.result" 
+EXTRACTOR_QUEUE = "extractor.result"
+
 
 class ExtractorConsumer:
     """
-    Consumes extraction results from RabbitMQ, prepares payload for LLM,
-    and forwards the data to the LLM Prompt Service.
+    Consumes extraction results from RabbitMQ, prepares payload for the LLM Service,
+    and forwards the cleaned content with project & jurisdiction IDs.
     """
 
     def __init__(self, rabbitmq_url: str = RABBITMQ_URL):
@@ -38,7 +39,7 @@ class ExtractorConsumer:
 
     async def process_message(self, message: aio_pika.IncomingMessage):
         """
-        Process incoming extractor message and forward data to LLM.
+        Process incoming extraction results and forward them to the LLM API.
         """
         async with message.process():
             try:
@@ -56,16 +57,15 @@ class ExtractorConsumer:
                     logger.error("ExtractorConsumer: Missing project_id or jurisdiction_id")
                     return
 
-               
+                
                 llm_payload = {
-                    "law_text": cleaned_text,
+                    "content": cleaned_text,
                     "project_id": project_id,
                     "jurisdiction_id": jurisdiction_id,
                 }
 
                 logger.info(f"ExtractorConsumer: Sending LLM Payload → {llm_payload}")
 
-                
                 async with httpx.AsyncClient(timeout=60.0) as client:
                     llm_response = await client.post(LLM_SERVICE_URL, json=llm_payload)
 
@@ -74,14 +74,16 @@ class ExtractorConsumer:
                         f"ExtractorConsumer: LLM Service Error {llm_response.status_code} — "
                         f"{llm_response.text}"
                     )
-
                     return
 
                 llm_data = llm_response.json()
                 logger.info(f"ExtractorConsumer: LLM Response: {llm_data}")
 
             except Exception as exc:
-                logger.error(f"ExtractorConsumer: Error processing message — {exc}", exc_info=True)
+                logger.error(
+                    f"ExtractorConsumer: Error processing message — {exc}",
+                    exc_info=True
+                )
 
     async def start(self):
         """
