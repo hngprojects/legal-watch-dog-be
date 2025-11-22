@@ -1,10 +1,11 @@
 import logging
-from bs4 import BeautifulSoup
-from readability import Document
-from fastapi.concurrency import run_in_threadpool
-from app.api.modules.v1.scraping.service.minio_client import read_object, write_object
 import re
 
+from bs4 import BeautifulSoup
+from fastapi.concurrency import run_in_threadpool
+from readability import Document
+
+from app.api.modules.v1.scraping.service.minio_client import read_object, write_object
 
 logger = logging.getLogger(__name__)
 EXTRACTOR_VERSION = "1.1.0"
@@ -63,7 +64,8 @@ class TextExtractorService:
         # Clean extracted text
         cleaned_text = clean_text(extracted)
 
-        logger.info(f"Extraction complete. Raw chars={len(raw_html)}, Cleaned chars={len(cleaned_text)}")
+        logger.info("complete")
+
         return cleaned_text
 
     async def extract_and_save(
@@ -103,19 +105,21 @@ class TextExtractorService:
         for tag in soup(noisy_tags):
             tag.decompose()
 
-
-            
     def _remove_noise_elements(self, soup: BeautifulSoup):
-        """
-        Remove HTML elements containing noisy content (banners, popups, modals, ads, cookie notices, etc.)
-        Uses a single regex for both id and class attributes to improve performance on large HTML.
-        """
         noise_keywords = [
-            "cookie", "popup", "modal", "banner", "footer",
-            "header", "ads", "tracking", "subscribe",
-            "newsletter", "consent"
+            "cookie",
+            "popup",
+            "modal",
+            "banner",
+            "footer",
+            "header",
+            "ads",
+            "tracking",
+            "subscribe",
+            "newsletter",
+            "consent",
         ]
-        
+
         # Compile regex pattern to match any noise keyword
         pattern = re.compile("|".join(noise_keywords), re.IGNORECASE)
 
