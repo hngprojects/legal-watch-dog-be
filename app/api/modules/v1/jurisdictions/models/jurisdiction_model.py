@@ -11,11 +11,8 @@ logger = logging.getLogger("app")
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
-<<<<<<< HEAD
     from app.api.modules.v1.scraping.models.source_model import Source
     from app.api.modules.v1.project_audit_log.models.project_audit_log_model import ProjectAuditLog
-=======
->>>>>>> ddfb8f8 (fix:precommit fix on models)
 
 
 class Jurisdiction(SQLModel, table=True):
@@ -116,6 +113,14 @@ class Jurisdiction(SQLModel, table=True):
     is_active: bool = Field(default=True, nullable=False)
 
     # Soft-delete fields (from first file)
+    scrape_output: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    deleted_at: Optional[datetime] = None
     is_deleted: bool = Field(default=False)
 
     # Timestamps — preserved *exactly* from first file
