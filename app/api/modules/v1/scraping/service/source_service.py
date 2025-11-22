@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.security import encrypt_auth_details
-from app.api.modules.v1.scraping.models.scrape import Source
-from app.api.modules.v1.scraping.schemas.scrape import (
+from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceRead,
     SourceUpdate,
@@ -55,7 +55,7 @@ class SourceService:
             SourceRead: The created source with sanitized fields.
 
         Raises:
-            HTTPException: If validation fails or database error occurs.
+            HTTPException: 400 if source URL already exists, 500 if creation fails.
 
         Examples:
             >>> service = SourceService()
@@ -64,6 +64,16 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
+            # Check if source URL already exists
+            existing_source = await db.scalar(
+                select(Source).where(Source.url == str(source_data.url))
+            )
+            if existing_source:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Source with this URL already exists",
+                )
+
             # Handle encryption of auth details
             encrypted_auth = None
             if source_data.auth_details:
@@ -90,6 +100,8 @@ class SourceService:
             # Return sanitized response
             return self._to_read_schema(db_source)
 
+        except HTTPException:
+            raise
         except Exception as e:
             await db.rollback()
             logger.error(f"Failed to create source: {str(e)}", exc_info=True)
@@ -102,6 +114,7 @@ class SourceService:
         self,
         db: AsyncSession,
         source_id: uuid.UUID,
+        include_deleted: bool = True,
     ) -> SourceRead:
         """
         Retrieve a single source by ID.
@@ -109,6 +122,8 @@ class SourceService:
         Args:
             db (AsyncSession): Database session.
             source_id (uuid.UUID): The source UUID.
+            include_deleted (bool): If True, include soft-deleted sources.
+                Default is True (for recovery).
 
         Returns:
             SourceRead: The source with sanitized fields.
@@ -130,6 +145,14 @@ class SourceService:
                 detail="Source not found",
             )
 
+        # Allow access to soft-deleted sources for recovery purposes
+        if source.is_deleted and not include_deleted:
+            logger.warning(f"Source is deleted and cannot be accessed: {source_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source not found",
+            )
+
         logger.info(f"Retrieved source: {source_id}")
         return self._to_read_schema(source)
 
@@ -140,6 +163,7 @@ class SourceService:
         limit: int = 100,
         jurisdiction_id: Optional[uuid.UUID] = None,
         is_active: Optional[bool] = None,
+        include_deleted: bool = False,
     ) -> List[SourceRead]:
         """
         Retrieve a list of sources with optional filtering.
@@ -150,6 +174,7 @@ class SourceService:
             limit (int): Maximum number of records to return.
             jurisdiction_id (Optional[uuid.UUID]): Filter by jurisdiction.
             is_active (Optional[bool]): Filter by active status.
+            include_deleted (bool): If True, include soft-deleted sources. Default is False.
 
         Returns:
             List[SourceRead]: List of sources with sanitized fields.
@@ -166,6 +191,10 @@ class SourceService:
             query = query.where(Source.jurisdiction_id == jurisdiction_id)
         if is_active is not None:
             query = query.where(Source.is_active == is_active)
+
+        # Exclude soft-deleted sources by default
+        if not include_deleted:
+            query = query.where(~Source.is_deleted)
 
         # Apply pagination
         query = query.offset(skip).limit(limit)
@@ -199,7 +228,6 @@ class SourceService:
         Examples:
             >>> updated = await service.update_source(db, source_id, update_data)
             >>> print(updated.scrape_frequency)
-            'HOURLY'
         """
         source = await db.get(Source, source_id)
 
@@ -209,6 +237,9 @@ class SourceService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Source not found",
             )
+
+        # Allow updating soft-deleted sources (for undo delete)
+        logger.debug(f"Updating source {source_id}, is_deleted={source.is_deleted}")
 
         try:
             # Update fields (excluding unset values)
@@ -247,13 +278,15 @@ class SourceService:
         self,
         db: AsyncSession,
         source_id: uuid.UUID,
+        permanent: bool = False,
     ) -> Dict[str, Any]:
         """
-        Delete a source by ID.
+        Delete a source by ID (soft delete by default, hard delete if permanent=True).
 
         Args:
             db (AsyncSession): Database session.
             source_id (uuid.UUID): The source UUID to delete.
+            permanent (bool): If True, perform hard delete; otherwise soft delete.
 
         Returns:
             Dict[str, Any]: Confirmation message.
@@ -265,6 +298,9 @@ class SourceService:
             >>> result = await service.delete_source(db, source_id)
             >>> print(result["message"])
             'Source successfully deleted'
+            >>> result = await service.delete_source(db, source_id, permanent=True)
+            >>> print(result["message"])
+            'Source permanently deleted'
         """
         source = await db.get(Source, source_id)
 
@@ -276,14 +312,25 @@ class SourceService:
             )
 
         try:
-            await db.delete(source)
-            await db.commit()
-
-            logger.info(f"Successfully deleted source: {source_id}")
-            return {
-                "message": "Source successfully deleted",
-                "source_id": str(source_id),
-            }
+            if permanent:
+                # Hard delete: remove from database
+                await db.delete(source)
+                await db.commit()
+                logger.info(f"Permanently deleted source: {source_id}")
+                return {
+                    "message": "Source permanently deleted",
+                    "source_id": str(source_id),
+                }
+            else:
+                # Soft delete: mark as deleted
+                source.is_deleted = True
+                await db.commit()
+                await db.refresh(source)
+                logger.info(f"Soft deleted source: {source_id}")
+                return {
+                    "message": "Source successfully deleted",
+                    "source_id": str(source_id),
+                }
 
         except Exception as e:
             await db.rollback()
@@ -313,6 +360,7 @@ class SourceService:
             source_type=source.source_type,
             scrape_frequency=source.scrape_frequency,
             is_active=source.is_active,
+            is_deleted=source.is_deleted,
             has_auth=bool(source.auth_details_encrypted),
             created_at=source.created_at,
         )

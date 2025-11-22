@@ -1,44 +1,80 @@
 import logging
-import uuid
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 
-from app.api.utils.response_payloads import fail_response
+from app.api.utils.response_payloads import error_response
 
 logger = logging.getLogger("app")
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = {err["loc"][-1]: [err["msg"]] for err in exc.errors()}
-    trace_id = str(uuid.uuid4())
-    logger.error(f"Validation error: {exc.errors()}, trace_id: {trace_id}")
-    return fail_response(
-        status_code=400,
-        message="Validation failed",
-        data={"errors": errors, "trace_id": trace_id},
+    """
+    Handle Pydantic request validation errors and return a standardized JSON response.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        exc (RequestValidationError): The validation error raised by FastAPI/Pydantic.
+
+    Returns:
+        JSONResponse: Standardized error response containing field-level validation messages.
+    """
+    errors = {}
+    for err in exc.errors():
+        loc = err["loc"][-1]
+        msg = err["msg"]
+        if msg.startswith("Value error,"):
+            msg = msg.replace("Value error,", "").strip()
+        errors[loc] = [msg]
+
+    return error_response(
+        status_code=422, message="Validation failed", error="VALIDATION_ERROR", errors=errors
     )
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):
-    trace_id = str(uuid.uuid4())
-    logger.error(f"HTTP exception: {exc.detail}, status: {exc.status_code}, trace_id: {trace_id}")
-    return fail_response(
+    """
+    Handle HTTP exceptions (4xx/5xx) and return a standardized JSON response.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        exc (HTTPException): The HTTP exception raised by FastAPI.
+
+    Returns:
+        JSONResponse: Standardized error response with HTTP status code and message.
+    """
+    logger.error(f"HTTP exception: {exc.detail} ({exc.status_code})")
+
+    return error_response(
         status_code=exc.status_code,
+        error="HTTP_ERROR",
         message=exc.detail,
-        data={"trace_id": trace_id},
     )
 
 
 async def general_exception_handler(request: Request, exc: Exception):
-    trace_id = str(uuid.uuid4())
-    logger.exception(f"Unhandled exception: {exc}, trace_id: {trace_id}")
-    return fail_response(
+    """
+    Handle uncaught exceptions and return a standardized JSON response.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        exc (Exception): The unhandled exception.
+
+    Returns:
+        JSONResponse: Standardized 500 error response.
+    """
+    logger.exception(f"Unhandled exception: {exc}")
+
+    return error_response(
         status_code=500,
+        error="INTERNAL_SERVER_ERROR",
         message="Internal server error",
-        data={"trace_id": trace_id},
     )
 
 
 class PasswordReuseError(Exception):
+    """
+    Custom exception to indicate that a user is trying to reuse a previously used password.
+    """
+
     pass

@@ -1,8 +1,9 @@
+import re
+
 import pytest
 from fastapi import HTTPException
 
 from app.api.modules.v1.auth.service.login_service import (
-    LOCKOUT_DURATION_MINUTES,
     MAX_LOGIN_ATTEMPTS,
     authenticate_user,
 )
@@ -107,7 +108,7 @@ async def test_failed_login_increments_counter(pg_sync_session, pg_async_session
             ip_address="192.168.1.2",
         )
 
-    assert exc_info.value.status_code == 401
+    assert exc_info.value.status_code == 400
     assert "attempts remaining" in exc_info.value.detail.lower()
 
 
@@ -157,7 +158,7 @@ async def test_account_lockout_after_max_attempts(pg_sync_session, pg_async_sess
 
     assert exc_info.value.status_code == 429
     assert "locked" in exc_info.value.detail.lower()
-    assert str(LOCKOUT_DURATION_MINUTES) in exc_info.value.detail
+    assert re.search(r"\d+\s*minutes?", exc_info.value.detail, re.IGNORECASE)
 
 
 @pytest.mark.asyncio

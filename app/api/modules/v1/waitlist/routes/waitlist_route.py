@@ -9,7 +9,7 @@ from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
     WaitlistSignup,
 )
 from app.api.modules.v1.waitlist.service.waitlist_service import waitlist_service
-from app.api.utils.response_payloads import fail_response, success_response
+from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/waitlist", tags=["Waitlist"])
 logger = logging.getLogger("app")
@@ -34,7 +34,7 @@ async def signup_waitlist(
         return success_response(
             201,
             "Successfully added to waitlist. Confirmation email will be sent shortly.",
-            data=result.dict(),
+            data=result.model_dump(),
         )
     except HTTPException as e:
-        return fail_response(e.status_code, e.detail)
+        return error_response(status_code=e.status_code, message=e.detail)
