@@ -1,8 +1,8 @@
 """updated_at field in Jurisdiction updated for automatic db level update
 
-Revision ID: faf11c3328eb
+Revision ID: bb476a7882b8
 Revises: 568cc1b65e22
-Create Date: 2025-11-22 10:45:52.587090
+Create Date: 2025-11-22 10:54:05.238162
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'faf11c3328eb'
+revision: str = 'bb476a7882b8'
 down_revision: Union[str, Sequence[str], None] = '568cc1b65e22'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
