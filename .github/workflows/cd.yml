@@ -102,6 +102,8 @@ jobs:
             fi
             
             uv sync
+
+            uv run alembic upgrade head
             
             # Load environment variables
             set -a 
