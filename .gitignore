@@ -84,3 +84,5 @@ __pypackages__/
 
 # Ruff cache
 .ruff_cache/
+
+dump.rdb
