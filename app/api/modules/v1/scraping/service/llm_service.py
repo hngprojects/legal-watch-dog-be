@@ -59,21 +59,14 @@ async def run_gemini_analysis(gemini_input: str) -> Dict[str, Any]:
     """
     await asyncio.sleep(0.5)
 
-<<<<<<< HEAD
-    headers = {"Authorization": f"Bearer {GEMINI_API_KEY}", "Content-Type": "application/json"}
 
-<<<<<<< HEAD
-    payload = {"model": GEMINI_MODEL, "prompt": llm_input, "temperature": 0.2}
-=======
-=======
     headers = {
         "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json",
     }
->>>>>>> 627fc92 (chore: reformat code to pass CI checks)
+
 
     payload = {"model": GEMINI_MODEL, "prompt": gemini_input, "temperature": 0.2}
->>>>>>> ee5e5a6 (feat(prompt_service & processing_pipeline): include project master prompt in jurisdiction)
 
     logger.info("Sending request to Gemini...")
 
