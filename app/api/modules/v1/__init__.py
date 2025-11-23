@@ -9,8 +9,8 @@ from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
 from app.api.modules.v1.projects.routes.project_routes import router as project_router
-from app.api.modules.v1.scraping.routes import router as extraction_router
 from app.api.modules.v1.scraping.routes import router as scraping_router
+from app.api.modules.v1.scraping.routes.extractor_route import router as extraction_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
 router = APIRouter(prefix="/v1")
