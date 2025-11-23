@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
-     # =========================
+    # =========================
     # RabbitMQ
     # =========================
     RABBIT_HOST: str = config("RABBIT_HOST", default="localhost")
@@ -69,11 +69,9 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="minioadmin")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="minioadmin")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
-    
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
- 
 
 settings = Settings()
 
