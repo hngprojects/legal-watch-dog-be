@@ -24,7 +24,6 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
     fake_id = uuid4()
 
     async def fake_create(db, jurisdiction):
-        # return a Jurisdiction-like object
         return Jurisdiction(
             id=fake_id,
             project_id=jurisdiction.project_id,
@@ -38,7 +37,6 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     res = await routes.create_jurisdiction(payload, db=cast(Any, None))
 
-    # route returns a JSONResponse; decode and assert payload
     assert hasattr(res, "status_code")
     assert res.status_code == 201
     body = res.body
@@ -85,7 +83,6 @@ async def test_get_jurisdiction_not_found_raises(monkeypatch):
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
 
     res = await routes.get_jurisdiction(uuid4(), db=cast(Any, None))
-    # route returns a failure JSONResponse with 404
     assert hasattr(res, "status_code")
     assert res.status_code == 404
 
@@ -109,7 +106,6 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
     - The fake service is implemented as `async def fake_all(db): return []`.
     - The test verifies route-level behavior (404 on empty result), not service logic.
     """
-    # Accept both (db) and (db, project_id) signatures to be defensive
 
     async def fake_all(db):
         """
@@ -128,10 +124,8 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
         return []
 
-    # Patch the service helper the current route exposes for fetching all jurisdictions
     monkeypatch.setattr(routes.service, "get_all_jurisdictions", fake_all)
 
-    # call the current route handler for fetching all jurisdictions
     res = await routes.get_all_jurisdictions(db=cast(Any, None))
     assert hasattr(res, "status_code")
     assert res.status_code == 404
