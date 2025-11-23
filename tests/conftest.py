@@ -58,6 +58,15 @@ def mock_encryption(monkeypatch):
     monkeypatch.setattr(settings, "ENCRYPTION_KEY", valid_key)
 
 
+# placeholder
+@pytest.fixture
+def mock_encrypt_auth_details():
+    """Mock the encrypt_auth_details utility function."""
+    with patch("app.api.modules.v1.scraping.service.source_service.encrypt_auth_details") as mock:
+        mock.return_value = "mock_encrypted_value"
+        yield mock
+
+
 @pytest.fixture(autouse=True, scope="function")
 def mock_redis():
     """
