@@ -88,6 +88,7 @@ __pypackages__/
 # Environment files
 .env.dev
 .env.prod
+.env.stage
 ecosystem.config.js
 start_app.sh
 
