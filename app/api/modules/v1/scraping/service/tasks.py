@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.api.core.config import settings
 from app.api.db.database import engine
-from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
 
 logger = get_task_logger(__name__)
 
@@ -37,23 +37,25 @@ LOCK_TIMEOUT_SECONDS = 60  # 1 minute
 CELERY_DLQ_KEY = "celery:scraping_dlq"
 
 
-def get_next_scrape_time(current_time: datetime, frequency: str) -> datetime:
+def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> datetime:
     """Calculates the next scrape time based on frequency.
 
     Args:
         current_time (datetime): The current time from which to calculate the next scrape.
-        frequency (str): The scraping frequency (e.g., "DAILY", "WEEKLY", "MONTHLY", "HOURLY").
+        frequency (ScrapeFrequency): The scraping frequency enum.
 
     Returns:
         datetime: The calculated next scrape time.
     """
     frequency_map = {
-        "DAILY": timedelta(days=1),
-        "WEEKLY": timedelta(weeks=1),
-        "MONTHLY": timedelta(days=30),  # Approximation for monthly
-        "HOURLY": timedelta(hours=1),
+        ScrapeFrequency.DAILY: timedelta(days=1),
+        ScrapeFrequency.WEEKLY: timedelta(weeks=1),
+        ScrapeFrequency.MONTHLY: timedelta(days=30),  # Approximation for monthly
+        ScrapeFrequency.HOURLY: timedelta(hours=1),
     }
-    delta = frequency_map.get(frequency.upper(), timedelta(days=1))  # Default to daily
+    delta = frequency_map.get(
+        frequency, timedelta(days=1)
+    )  # Default to daily
     return current_time + delta
 
 
