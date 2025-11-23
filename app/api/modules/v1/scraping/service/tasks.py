@@ -24,8 +24,7 @@ from app.api.modules.v1.scraping.models.source_model import Source
 
 logger = get_task_logger(__name__)
 
-redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
-
+# Define retry settings for exponential backoff with jitter
 MAX_RETRIES = 5
 BASE_DELAY = 60  # seconds
 MAX_DELAY = 3600  # seconds (1 hour)
@@ -106,6 +105,8 @@ def scrape_source(self, source_id: str):
     except Exception as exc:
         redis_client = None
         try:
+            redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
+
             retry_count = self.request.retries
             delay = min(MAX_DELAY, BASE_DELAY * (2**retry_count))
             jitter = random.uniform(0, delay * 0.1)
@@ -163,6 +164,8 @@ def dispatch_due_sources(self):
     """
     redis_client = None
     try:
+        redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
+
         lock_acquired = redis_client.set(
             DISPATCH_LOCK_KEY, "locked", nx=True, ex=LOCK_TIMEOUT_SECONDS
         )
