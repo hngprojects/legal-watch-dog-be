@@ -201,7 +201,7 @@ async def soft_delete_jurisdictions_by_project(
     deleted_ids = [str(j.id) for j in deleted_list]
 
     return success_response(
-        status_code=200,
+        status_code=204,
         message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
     )
 
@@ -345,7 +345,7 @@ async def soft_delete_jurisdiction(
     # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
     return success_response(
-        status_code=200,
+        status_code=204,
         message="Jurisdiction archived successfully",
     )
 
