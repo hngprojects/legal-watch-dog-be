@@ -84,12 +84,16 @@ jobs:
           ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
           EOF
 
-      - name: Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ steps.vars.outputs.server_pass }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ steps.vars.outputs.server_ip }} >> ~/.ssh/known_hosts
 
       - name: Upload .env file to server
         run: |
-          sshpass -p "${{ steps.vars.outputs.server_pass }}" scp -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/deploy_key \
             .env.${{ steps.vars.outputs.environment }} \
             ${{ steps.vars.outputs.server_user }}@${{ steps.vars.outputs.server_ip }}:/tmp/backend_env
 
@@ -106,7 +110,7 @@ jobs:
           echo "access gained"
           echo "deploying to $ENVIRONMENT server"
 
-          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+          ssh -i ~/.ssh/deploy_key $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
             REMOTE_DIR="${REMOTE_DIR}"
