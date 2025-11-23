@@ -16,9 +16,7 @@ class VerifyOTPRequest(BaseModel):
     code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
 
     class Config:
-        json_schema_extra = {
-            "example": {"email": "admin@techcorp.com", "code": "123456"}
-        }
+        json_schema_extra = {"example": {"email": "admin@techcorp.com", "code": "123456"}}
 
 
 class VerifyOTPResponse(BaseModel):

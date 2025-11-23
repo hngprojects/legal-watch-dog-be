@@ -11,7 +11,9 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "gemini-2.0-flash"
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent"
+GEMINI_API_URL = (
+    f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent"
+)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 

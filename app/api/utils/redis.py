@@ -44,15 +44,11 @@ async def store_organization_credentials(
         return True
 
     except Exception as e:
-        logger.error(
-            "Failed to store credentials for email=%s: %s", email, str(e), exc_info=True
-        )
+        logger.error("Failed to store credentials for email=%s: %s", email, str(e), exc_info=True)
         raise Exception("Failed to store registration data")
 
 
-async def get_organization_credentials(
-    redis_client: Redis, email: str
-) -> Optional[Dict[str, Any]]:
+async def get_organization_credentials(redis_client: Redis, email: str) -> Optional[Dict[str, Any]]:
     """
     Retrieve user registration credentials from Redis.
 
@@ -82,9 +78,7 @@ async def get_organization_credentials(
         return registration_data
 
     except json.JSONDecodeError as e:
-        logger.error(
-            "Failed to decode JSON for email=%s: %s", email, str(e), exc_info=True
-        )
+        logger.error("Failed to decode JSON for email=%s: %s", email, str(e), exc_info=True)
         return None
     except Exception as e:
         logger.error(
@@ -172,7 +166,5 @@ async def verify_and_get_credentials(
         return credentials
 
     except Exception as e:
-        logger.error(
-            "Failed to verify OTP for email=%s: %s", email, str(e), exc_info=True
-        )
+        logger.error("Failed to verify OTP for email=%s: %s", email, str(e), exc_info=True)
         raise Exception("Failed to verify OTP")

@@ -101,9 +101,7 @@ def create_access_token(
         "jti": jti,  # JWT ID for revocation
     }
 
-    encoded_jwt = pyjwt.encode(
-        payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
-    )
+    encoded_jwt = pyjwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     logger.info(f"Created JWT for user {user_id}, org {organization_id}, jti: {jti}")
     return encoded_jwt
 
@@ -123,9 +121,7 @@ def decode_token(token: str) -> Dict[str, Any]:
         jwt.InvalidTokenError: If token is invalid
     """
     try:
-        payload = pyjwt.decode(
-            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = pyjwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         return payload
     except Exception as e:
         # Could be PyJWT's ExpiredSignatureError / InvalidTokenError or

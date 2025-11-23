@@ -165,9 +165,7 @@ class TestCreateSourceEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
-    async def test_create_source_unauthorized(
-        self, client, test_session, sample_jurisdiction_id
-    ):
+    async def test_create_source_unauthorized(self, client, test_session, sample_jurisdiction_id):
         """Test that unauthenticated requests are rejected."""
         # Arrange
         payload = {
@@ -268,9 +266,7 @@ class TestGetSourcesEndpoint:
         assert "sources" in data["data"]
 
     @pytest.mark.asyncio
-    async def test_get_sources_pagination(
-        self, client, test_session, auth_headers, sample_user
-    ):
+    async def test_get_sources_pagination(self, client, test_session, auth_headers, sample_user):
         """Test pagination parameters."""
 
         # Override dependencies
@@ -341,9 +337,7 @@ class TestGetSourceEndpoint:
         assert "auth_details_encrypted" not in data["data"]["source"]
 
     @pytest.mark.asyncio
-    async def test_get_source_not_found(
-        self, client, test_session, auth_headers, sample_user
-    ):
+    async def test_get_source_not_found(self, client, test_session, auth_headers, sample_user):
         """Test 404 when source doesn't exist."""
         non_existent_id = uuid.uuid4()
 
@@ -462,9 +456,7 @@ class TestUpdateSourceEndpoint:
         assert data["data"]["source"]["is_active"] is False
 
     @pytest.mark.asyncio
-    async def test_update_source_not_found(
-        self, client, test_session, auth_headers, sample_user
-    ):
+    async def test_update_source_not_found(self, client, test_session, auth_headers, sample_user):
         """Test update of non-existent source."""
         non_existent_id = uuid.uuid4()
         update_payload = {"name": "New Name"}
@@ -538,9 +530,7 @@ class TestDeleteSourceEndpoint:
         assert deleted_source.is_deleted is True
 
     @pytest.mark.asyncio
-    async def test_delete_source_not_found(
-        self, client, test_session, auth_headers, sample_user
-    ):
+    async def test_delete_source_not_found(self, client, test_session, auth_headers, sample_user):
         """Test deletion of non-existent source."""
         non_existent_id = uuid.uuid4()
 
