@@ -26,12 +26,12 @@ logger = get_task_logger(__name__)
 
 # Define retry settings for exponential backoff with jitter
 MAX_RETRIES = 5
-BASE_DELAY = 60  # seconds
-MAX_DELAY = 3600  # seconds (1 hour)
+BASE_DELAY = 60  
+MAX_DELAY = 3600  
 
 # Define lock constants
 DISPATCH_LOCK_KEY = "celery:dispatch_due_sources_lock"
-LOCK_TIMEOUT_SECONDS = 60  # 1 minute
+LOCK_TIMEOUT_SECONDS = 60 
 
 # Define DLQ constants
 CELERY_DLQ_KEY = "celery:scraping_dlq"
