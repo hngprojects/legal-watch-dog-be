@@ -77,7 +77,9 @@ def client(app_with_rate_limiter):
     redis_mock.expire = AsyncMock(return_value=True)
     redis_mock.zrange = AsyncMock(return_value=[])
 
-    with patch("app.api.core.middleware.rate_limiter.get_redis_client") as mock_get_redis:
+    with patch(
+        "app.api.core.middleware.rate_limiter.get_redis_client"
+    ) as mock_get_redis:
         mock_get_redis.return_value = redis_mock
         yield TestClient(app_with_rate_limiter), redis_mock
 
@@ -283,8 +285,8 @@ def test_rate_limiter_get_client_ip():
     middleware = RateLimitMiddleware(app)
 
     request = MagicMock()
-    request.headers.get = (
-        lambda key: "203.0.113.1, 198.51.100.1" if key == "X-Forwarded-For" else None
+    request.headers.get = lambda key: (
+        "203.0.113.1, 198.51.100.1" if key == "X-Forwarded-For" else None
     )
     request.client.host = "192.168.1.1"
     assert middleware._get_client_ip(request) == "203.0.113.1"
@@ -318,7 +320,9 @@ def test_rate_limiter_is_excluded_path():
     from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 
     app = MagicMock()
-    middleware = RateLimitMiddleware(app, excluded_paths=["/api/v1/waitlist", "/health", "/docs"])
+    middleware = RateLimitMiddleware(
+        app, excluded_paths=["/api/v1/waitlist", "/health", "/docs"]
+    )
 
     assert middleware._is_excluded_path("/api/v1/waitlist")
     assert middleware._is_excluded_path("/api/v1/waitlist/join")
