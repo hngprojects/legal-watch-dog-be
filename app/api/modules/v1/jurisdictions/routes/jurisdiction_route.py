@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, cast
 from uuid import UUID
 
@@ -15,11 +15,14 @@ from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
 )
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     JurisdictionService,
+    OrgResourceGuard,
 )
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(
-    prefix="/jurisdictions", tags=["Jurisdictions"], dependencies=[Depends(TenantGuard)]
+    prefix="/jurisdictions",
+    tags=["Jurisdictions"],
+    dependencies=[Depends(TenantGuard), Depends(OrgResourceGuard)],
 )
 
 service = JurisdictionService()
@@ -175,13 +178,18 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
     )
 
 
-@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
+@router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_jurisdictions_by_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Soft delete all jurisdictions in a project.
+    Args:
+        project_id
+         db (AsyncSession): Database session.
+    Return:
+           Archived ids
     """
     deleted = await service.soft_delete(db, project_id=project_id)
 
@@ -301,7 +309,7 @@ async def update_jurisdiction(
 
         if "is_deleted" in payload.model_dump(exclude_unset=True):
             if payload.is_deleted:
-                jurisdiction.deleted_at = datetime.now()
+                jurisdiction.deleted_at = datetime.now(timezone.utc)
             else:
                 jurisdiction.deleted_at = None
 
@@ -317,13 +325,18 @@ async def update_jurisdiction(
         return error_response(status_code=400, message="Failed to update jurisdiction")
 
 
-@router.delete("/{jurisdiction_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_jurisdiction(
     jurisdiction_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Soft delete a single jurisdiction by ID.
+    Args:
+        jurisdiction_id
+        db (AsyncSession): Database session.
+    Return:
+           Archived ids
     """
     deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
 

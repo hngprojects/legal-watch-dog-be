@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -68,12 +68,15 @@ class Jurisdiction(SQLModel, table=True):
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
     scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )
     updated_at: Optional[datetime] = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
     )
-    deleted_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     is_deleted: bool = Field(default=False)
 
     project: "Project" = Relationship(back_populates="jurisdictions")

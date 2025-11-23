@@ -1,17 +1,20 @@
 """Service Handler For Jurisdiction"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, Union, cast
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import literal, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import with_loader_criteria
 from sqlmodel import select
 
+from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.users.models.users_model import User
 
 
 class JurisdictionService:
@@ -285,7 +288,7 @@ class JurisdictionService:
                 if not jurisdiction:
                     return None
                 jurisdiction.is_deleted = True
-                jurisdiction.deleted_at = datetime.now()
+                jurisdiction.deleted_at = datetime.now(timezone.utc)
                 db.add(jurisdiction)
                 await db.commit()
                 await db.refresh(jurisdiction)
@@ -296,7 +299,7 @@ class JurisdictionService:
                 stmt = (
                     update(Jurisdiction)
                     .where(cast(Any, Jurisdiction.project_id) == project_id)
-                    .values(is_deleted=True, deleted_at=datetime.now())
+                    .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
                     .returning(Jurisdiction)
                 )
 
@@ -409,6 +412,17 @@ class JurisdictionService:
     ) -> list[Jurisdiction]:
         """
         Restore all archived jurisdictions and return the restored objects.
+        Args:
+            db (AsyncSession): Database session.
+            project_id (UUID): ID of the Project,
+            the jurisdictions are under
+            .
+
+        Returns:
+            Jurisdictions: The jurisdiction records (archived or active).
+
+        Raises:
+            HTTPException: 404 if not found, 500 on DB error.
         """
         try:
             # Use explicit casts for comparisons to avoid DB/driver type mismatches
@@ -448,3 +462,68 @@ class JurisdictionService:
         except SQLAlchemyError as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+class OrgResourceGuard:
+    """
+    Automatically enforces that resources belong to the current user's organization.
+
+    This guard checks resource ownership based on path parameters such as
+    `project_id` or `jurisdiction_id`. If a resource belongs to a different
+    organization than the current user, it raises an HTTP 403 Forbidden error.
+
+    Router-Level Use Case:
+        Apply this guard to an APIRouter to enforce multi-tenant isolation
+        across all routes automatically, without calling `verify()` in each route.
+
+    Example:
+        from fastapi import APIRouter, Depends
+
+        router = APIRouter(
+            prefix="/jurisdictions",
+            tags=["Jurisdictions"],
+            dependencies=[
+                Depends(TenantGuard),
+                Depends(OrgResourceGuard)
+            ]
+        )
+
+        @router.get("/{jurisdiction_id}")
+        async def get_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+            # No manual verification required
+            jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+            return jurisdiction
+
+    Key Points:
+        - Works at the router level: all routes inherit the guard.
+        - Automatically resolves project from jurisdiction if needed.
+        - Raises 404 if the resource is not found.
+        - Raises 403 if a cross-organization access attempt is detected.
+    """
+
+    def __init__(self, request: Request, current_user: User = Depends(get_current_user)):
+        self.request = request
+        self.user = current_user
+
+    async def __call__(self):
+        # Extract IDs from path params
+        path_params = self.request.path_params
+
+        project_id = path_params.get("project_id")
+        jurisdiction_id = path_params.get("jurisdiction_id")
+
+        db: AsyncSession = self.request.state.db
+
+        if jurisdiction_id:
+            jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+            if not jurisdiction:
+                raise HTTPException(404, "Jurisdiction not found")
+            project_id = jurisdiction.project_id
+
+        if project_id:
+            project = await db.get(Project, project_id)
+            if not project:
+                raise HTTPException(404, "Project not found")
+
+            if str(project.org_id) != str(self.user.organization_id):
+                raise HTTPException(403, "Cross-organization access denied")
