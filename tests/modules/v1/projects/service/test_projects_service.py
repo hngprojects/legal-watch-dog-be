@@ -109,14 +109,37 @@ async def test_get_project_service_found_and_not_found(pg_async_session: AsyncSe
 
 
 @pytest.mark.asyncio
-async def test_update_project_service(pg_async_session: AsyncSession):
+async def test_update_project_service_not_found(pg_async_session: AsyncSession):
     """Test updating a project."""
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
     data = ProjectUpdate(title="Updated Title")
 
-    project = await update_project_service(pg_async_session, project_id, org_id, data)
-    assert project is None or project.title == "Updated Title"
+    project, message = await update_project_service(pg_async_session, project_id, org_id, data)
+    assert project is None
+    assert "not found" in message.lower()
+
+
+@pytest.mark.asyncio
+async def test_update_project_service_success(pg_async_session: AsyncSession):
+    """Test successfully updating an existing project."""
+    org = Organization(name="Test Org")
+    pg_async_session.add(org)
+    await pg_async_session.flush()
+
+    project = Project(title="Original Title", org_id=org.id)
+    pg_async_session.add(project)
+    await pg_async_session.flush()
+    await pg_async_session.refresh(project)
+
+    data = ProjectUpdate(title="Updated Title")
+    updated_project, message = await update_project_service(
+        pg_async_session, project.id, org.id, data
+    )
+
+    assert updated_project is not None
+    assert updated_project.title == "Updated Title"
+    assert "success" in message.lower()
 
 
 @pytest.mark.asyncio
