@@ -84,3 +84,10 @@ __pypackages__/
 
 # Ruff cache
 .ruff_cache/
+
+# Environment files
+.env.dev
+.env.prod
+ecosystem.config.js
+start_app.sh
+
