@@ -178,8 +178,8 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
     )
 
 
-@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
-async def delete_jurisdictions_by_project(
+@router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def soft_delete_jurisdictions_by_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
@@ -203,7 +203,6 @@ async def delete_jurisdictions_by_project(
     return success_response(
         status_code=200,
         message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
-        data={"jurisdiction_ids": deleted_ids},
     )
 
 
@@ -325,8 +324,8 @@ async def update_jurisdiction(
         return error_response(status_code=400, message="Failed to update jurisdiction")
 
 
-@router.delete("/{jurisdiction_id}", status_code=status.HTTP_200_OK)
-async def delete_jurisdiction(
+@router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def soft_delete_jurisdiction(
     jurisdiction_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
@@ -343,12 +342,11 @@ async def delete_jurisdiction(
     if not deleted:
         return error_response(status_code=404, message="Jurisdiction not found")
 
-    deleted_jurisdiction = cast(Jurisdiction, deleted)
+    # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
     return success_response(
         status_code=200,
         message="Jurisdiction archived successfully",
-        data={"jurisdiction_ids": [str(deleted_jurisdiction.id)]},
     )
 
 
