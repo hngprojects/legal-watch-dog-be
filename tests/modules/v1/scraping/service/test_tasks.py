@@ -1,37 +1,3 @@
-"""
-Unit Tests for Scraping Service Tasks
-=====================================
-
-This module contains the test suite for the Celery tasks defined in
-`app.api.modules.v1.scraping.service.tasks`. It verifies the logic for scheduling,
-executing, and managing scraping jobs, ensuring robustness against failures and
-concurrency issues.
-
-Key Scenarios Tested:
----------------------
-1. **Helper Functions**:
-   - Validates `get_next_scrape_time` logic across various frequencies (HOURLY, DAILY, etc.).
-
-2. **Scrape Execution (`scrape_source`)**:
-   - **Success**: Ensures the scrape updates the `next_scrape_time` correctly in the DB.
-   - **Failure & Retries**: Verifies that exceptions trigger Celery's retry mechanism with
-     exponential backoff.
-   - **Dead Letter Queue (DLQ)**: Confirms that after `MAX_RETRIES`, the failed task payload
-     is pushed to Redis for manual inspection, preventing infinite loops.
-
-3. **Task Dispatching (`dispatch_due_sources`)**:
-   - **Selection**: Ensures only sources that are due (or new) are selected.
-   - **Distributed Locking**: Verifies that Redis locks prevent multiple workers from
-     dispatching the same tasks simultaneously (race condition prevention).
-   - **Idempotency**: Checks that if the lock is held, the task exits gracefully without action.
-
-Mocks & Fixtures:
------------------
-- Uses `unittest.mock` to simulate Redis interactions (locking, pushing to DLQ) and
-  Database sessions to avoid side effects during testing.
-- Relies on `pytest` fixtures for database session management.
-"""
-
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -50,7 +16,6 @@ from app.api.modules.v1.scraping.service.tasks import (
 )
 
 
-# --- Helper to bridge SQLModel .exec() to SQLAlchemy .execute() ---
 def mock_exec_side_effect(session):
     """
     Creates a side_effect function that translates SQLModel's db.exec()
