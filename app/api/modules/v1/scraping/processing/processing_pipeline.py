@@ -28,7 +28,6 @@ async def process_single_message(message: aio_pika.IncomingMessage):
             payload: Dict[str, Any] = json.loads(message.body.decode())
             logger.info(f"Received extractor payload: {payload}")
 
-            
             project_id = payload.get("project_id")
             jurisdiction_id = payload.get("jurisdiction_id")
             html_object = payload.get("html_object")
@@ -36,32 +35,30 @@ async def process_single_message(message: aio_pika.IncomingMessage):
             cleaned_text = payload.get("preview")
             meta = payload.get("meta", {})
 
-            
-            final_prompt = await build_final_prompt(db=None,  
-                                                    project_id=project_id,
-                                                    jurisdiction_id=jurisdiction_id)
+            final_prompt = await build_final_prompt(
+                db=None, project_id=project_id, jurisdiction_id=jurisdiction_id
+            )
 
-            
             llm_input = build_llm_prompt(final_prompt, cleaned_text)
 
-            
             llm_result = await run_llm_analysis(llm_input)
             logger.info(f"LLM Result: {llm_result}")
 
-           
             publisher = RabbitMQPublisher(RABBITMQ_URL)
-            await publisher.publish({
-                "project_id": project_id,
-                "jurisdiction_id": jurisdiction_id,
-                "html_object": html_object,
-                "text_object": text_object,
-                "preview": cleaned_text,
-                "meta": meta,
-                "summary": llm_result.get("summary"),
-                "changes_detected": llm_result.get("changes_detected"),
-                "risk_level": llm_result.get("risk_level"),
-                "recommendation": llm_result.get("recommendation"),
-            })
+            await publisher.publish(
+                {
+                    "project_id": project_id,
+                    "jurisdiction_id": jurisdiction_id,
+                    "html_object": html_object,
+                    "text_object": text_object,
+                    "preview": cleaned_text,
+                    "meta": meta,
+                    "summary": llm_result.get("summary"),
+                    "changes_detected": llm_result.get("changes_detected"),
+                    "risk_level": llm_result.get("risk_level"),
+                    "recommendation": llm_result.get("recommendation"),
+                }
+            )
             await publisher.close()
 
         except Exception as exc:

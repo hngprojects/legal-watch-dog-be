@@ -10,6 +10,7 @@ SYSTEM_PROMPT = """
 You are a helpful assistant for answering questions.
 """
 
+
 class GeminiClient:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
@@ -26,12 +27,12 @@ class GeminiClient:
                 config={
                     "system_instruction": SYSTEM_PROMPT,
                     "temperature": 0.7,
-                    "max_output_tokens": 300
-                }
+                    "max_output_tokens": 300,
+                },
             )
-            if hasattr(response, 'text'):
+            if hasattr(response, "text"):
                 return response.text.strip()
-            elif hasattr(response, 'candidates') and response.candidates:
+            elif hasattr(response, "candidates") and response.candidates:
                 return response.candidates[0].content.parts[0].text.strip()
             else:
                 return str(response)

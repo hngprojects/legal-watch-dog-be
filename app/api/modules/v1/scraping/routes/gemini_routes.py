@@ -6,8 +6,10 @@ from app.api.modules.v1.scraping.service.gemini_client import GeminiClient
 router = APIRouter()
 gemini = GeminiClient()
 
+
 class MessageRequest(BaseModel):
     message: str
+
 
 @router.post("/ask/")
 async def ask_gemini(req: MessageRequest):

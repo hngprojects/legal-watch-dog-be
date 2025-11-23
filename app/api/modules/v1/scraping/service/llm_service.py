@@ -10,9 +10,11 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-GEMINI_API_URL = "https://api.fake-gemini.com/v1/generate"
+GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_API_URL = (
+    f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent"
+)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME")
 
 
 def build_llm_prompt(final_prompt: str, extracted_text: str) -> str:
@@ -57,18 +59,11 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
     """
     Sends prompt to Gemini and ensures JSON output.
     """
-    await asyncio.sleep(0.5)  
+    await asyncio.sleep(0.5)
 
-    headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {GEMINI_API_KEY}", "Content-Type": "application/json"}
 
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": llm_input,
-        "temperature": 0.2
-    }
+    payload = {"model": GEMINI_MODEL, "prompt": llm_input, "temperature": 0.2}
 
     logger.info("Sending request to LLM...")
 
@@ -88,7 +83,7 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
                 "summary": "Could not parse summary",
                 "changes_detected": "",
                 "risk_level": "Low",
-                "recommendation": ""
+                "recommendation": "",
             }
 
     except Exception as exc:
@@ -97,5 +92,5 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
             "summary": "LLM processing failed",
             "changes_detected": "",
             "risk_level": "Low",
-            "recommendation": ""
+            "recommendation": "",
         }
