@@ -198,6 +198,8 @@ async def update_project_service(
         await db.commit()
         await db.refresh(project)
 
+    logger.info(f"Project updated successfully: project_id={project_id}")
+
     return project, success_message
 
 
