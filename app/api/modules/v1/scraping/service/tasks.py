@@ -50,10 +50,10 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
     frequency_map = {
         ScrapeFrequency.DAILY: timedelta(days=1),
         ScrapeFrequency.WEEKLY: timedelta(weeks=1),
-        ScrapeFrequency.MONTHLY: timedelta(days=30), 
+        ScrapeFrequency.MONTHLY: timedelta(days=30),
         ScrapeFrequency.HOURLY: timedelta(hours=1),
     }
-    delta = frequency_map.get(frequency, timedelta(days=1)) 
+    delta = frequency_map.get(frequency, timedelta(days=1))
     return current_time + delta
 
 
