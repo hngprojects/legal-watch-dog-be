@@ -147,108 +147,58 @@ async def update_project_service(
     project_id: UUID,
     organization_id: UUID,
     data: ProjectUpdate,
-) -> Optional[Project]:
+) -> tuple[Optional[Project], str]:
     """
-    Update project with provided data.
+    Update project with provided data,  including soft delete/restore
 
     Args:
         db: Database session
         project_id: Project UUID
         organization_id: Organization UUID
         data: Update data
-
-    Returns:
-        Updated Project object if found, None otherwise
     """
     logger.info(f"Updating project_id={project_id}")
-
-    project = await get_project_by_id(db, project_id, organization_id)
-
-    if not project:
-        logger.warning(f"Project not found for update: project_id={project_id}")
-        return None
-
-    update_data = data.model_dump(exclude_unset=True)
-
-    for field, value in update_data.items():
-        setattr(project, field, value)
-        logger.info(f"Updated field '{field}' for project_id={project_id}")
-
-    project.updated_at = datetime.now(timezone.utc)
-
-    db.add(project)
-    await db.commit()
-    await db.refresh(project)
-
-    logger.info(f"Project updated successfully: project_id={project_id}")
-
-    return project
-
-
-async def soft_delete_project_service(
-    db: AsyncSession, project_id: UUID, organization_id: UUID
-) -> bool:
-    """
-    soft delete/archive project.
-
-    Args:
-        db: Database session
-        project_id: Project UUID
-        organization_id: Organization UUID
-
-    Returns:
-        True if soft deleted, False if not found
-    """
-    logger.info(f"soft deleting project_id={project_id}")
-
-    project = await get_project_by_id(db, project_id, organization_id)
-
-    if not project:
-        logger.warning(f"Project not found for deletion: project_id={project_id}")
-        return False
-
-    if project.is_deleted:
-        logger.warning(f"Project already deleted: project_id={project_id}")
-        return False
-
-    project.is_deleted = True
-    project.deleted_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(project)
-
-    logger.info(f"Project soft deleted successfully: project_id={project_id}")
-
-    return True
-
-
-async def restore_project_service(
-    db: AsyncSession, project_id: UUID, organization_id: UUID
-) -> bool:
-    """
-    Restore a soft-deleted project.
-    """
-    logger.info(f"Restoring project_id={project_id}")
 
     project = await get_project_by_id_including_deleted(db, project_id, organization_id)
 
     if not project:
-        logger.warning(f"Project not found: project_id={project_id}")
-        return False
+        logger.warning(f"Project not found for update: project_id={project_id}")
+        return None, "Project not found"
 
-    if not project.is_deleted:
-        logger.warning(f"Project not deleted: project_id={project_id}")
-        return False
+    update_data = data.model_dump(exclude_unset=True)
+    success_message = "Project updated successfully"
+    changes_made = False
 
-    project.is_deleted = False
-    project.deleted_at = None
-    project.updated_at = datetime.now(timezone.utc)
+    if "is_deleted" in update_data:
+        requested_state = update_data["is_deleted"]
+        current_state = project.is_deleted
 
-    await db.commit()
-    await db.refresh(project)
+        if requested_state != current_state:
+            project.is_deleted = requested_state
+            project.deleted_at = datetime.now(timezone.utc) if requested_state else None
+            success_message = (
+                "Project archived successfully"
+                if requested_state
+                else "Project restored successfully"
+            )
+            changes_made = True
+        else:
+            success_message = f"Project is already {'archived' if current_state else 'active'}"
 
-    logger.info(f"Project restored successfully: project_id={project_id}")
+        del update_data["is_deleted"]
 
-    return True
+    for field, value in update_data.items():
+        setattr(project, field, value)
+        changes_made = True
+        logger.info(f"Updated field '{field}' for project_id={project_id}")
+
+    if changes_made:
+        project.updated_at = datetime.now(timezone.utc)
+        db.add(project)
+        await db.commit()
+        await db.refresh(project)
+
+    return project, success_message
 
 
 async def hard_delete_project_service(
