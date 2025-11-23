@@ -59,12 +59,10 @@ async def run_gemini_analysis(gemini_input: str) -> Dict[str, Any]:
     """
     await asyncio.sleep(0.5)
 
-
     headers = {
         "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json",
     }
-
 
     payload = {"model": GEMINI_MODEL, "prompt": gemini_input, "temperature": 0.2}
 
