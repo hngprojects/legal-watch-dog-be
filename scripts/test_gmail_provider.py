@@ -70,7 +70,9 @@ def test_email_verification():
 
         # Show if it's a test provider
         if settings.ALLOW_TEST_EMAIL_PROVIDERS:
-            test_providers = {p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")}
+            test_providers = {
+                p.strip().lower() for p in settings.TEST_EMAIL_PROVIDERS.split(",")
+            }
             if domain in test_providers:
                 print("  Note: This domain is in TEST_EMAIL_PROVIDERS")
 

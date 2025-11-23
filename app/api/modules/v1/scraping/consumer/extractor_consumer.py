@@ -51,7 +51,9 @@ class ExtractorConsumer:
                 jurisdiction_id = payload.get("jurisdiction_id")
 
                 if not project_id or not jurisdiction_id:
-                    logger.error("ExtractorConsumer: Missing project_id or jurisdiction_id")
+                    logger.error(
+                        "ExtractorConsumer: Missing project_id or jurisdiction_id"
+                    )
                     return
 
                 gemini_payload = {
@@ -60,10 +62,14 @@ class ExtractorConsumer:
                     "jurisdiction_id": jurisdiction_id,
                 }
 
-                logger.info(f"ExtractorConsumer: Sending Gemini Payload → {gemini_payload}")
+                logger.info(
+                    f"ExtractorConsumer: Sending Gemini Payload → {gemini_payload}"
+                )
 
                 async with httpx.AsyncClient(timeout=60.0) as client:
-                    gemini_response = await client.post(GEMINI_API_URL, json=gemini_payload)
+                    gemini_response = await client.post(
+                        GEMINI_API_URL, json=gemini_payload
+                    )
 
                 if gemini_response.status_code != 200:
                     logger.error(
@@ -76,7 +82,10 @@ class ExtractorConsumer:
                 logger.info(f"ExtractorConsumer: Gemini Response: {llm_data}")
 
             except Exception as exc:
-                logger.error(f"ExtractorConsumer: Error processing message — {exc}", exc_info=True)
+                logger.error(
+                    f"ExtractorConsumer: Error processing message — {exc}",
+                    exc_info=True,
+                )
 
     async def start(self):
         """

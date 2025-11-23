@@ -18,7 +18,9 @@ class ProjectUser(SQLModel, table=True):
     __tablename__ = "project_users"
 
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True, ondelete="CASCADE")
+    project_id: uuid.UUID = Field(
+        foreign_key="projects.id", primary_key=True, ondelete="CASCADE"
+    )
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),

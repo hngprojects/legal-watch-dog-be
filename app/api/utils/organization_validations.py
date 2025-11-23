@@ -21,10 +21,14 @@ async def validate_organization_email_available(db: AsyncSession, email: str) ->
         ValueError: If organization with email already exists
     """
     existing_org = await get_organization_by_email(db, email)
-    logger.debug("Organization existence check for email=%s: %s", email, bool(existing_org))
+    logger.debug(
+        "Organization existence check for email=%s: %s", email, bool(existing_org)
+    )
 
     if existing_org:
-        logger.warning("Validation failed: Organization already exists with email=%s", email)
+        logger.warning(
+            "Validation failed: Organization already exists with email=%s", email
+        )
         raise ValueError("An organization with this email already exists.")
 
 
@@ -42,5 +46,9 @@ async def validate_no_pending_registration(redis_client: Redis, email: str) -> N
     pending = await get_organization_credentials(redis_client, email)
 
     if pending:
-        logger.warning("Validation failed: Pending registration exists for email=%s", email)
-        raise ValueError("A registration with this email is already pending OTP verification.")
+        logger.warning(
+            "Validation failed: Pending registration exists for email=%s", email
+        )
+        raise ValueError(
+            "A registration with this email is already pending OTP verification."
+        )

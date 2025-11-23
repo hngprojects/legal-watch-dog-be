@@ -21,7 +21,9 @@ router = APIRouter(prefix="/jurisdictions", tags=["Jurisdictions"])
 service = JurisdictionService()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=JurisdictionResponseSchema)
+@router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=JurisdictionResponseSchema
+)
 async def create_jurisdiction(
     payload: JurisdictionCreateSchema, db: AsyncSession = Depends(get_db)
 ):
@@ -76,8 +78,12 @@ async def create_jurisdiction(
         return error_response(status_code=400, message="Failed to create jurisdiction")
 
 
-@router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
-async def get_jurisdictions(project_id: UUID | None = None, db: AsyncSession = Depends(get_db)):
+@router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema]
+)
+async def get_jurisdictions(
+    project_id: UUID | None = None, db: AsyncSession = Depends(get_db)
+):
     """
     Retrieve jurisdictions from the system.
 
@@ -241,7 +247,9 @@ async def update_jurisdiction(
 
 
 @router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_jurisdiction(
+    jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)
+):
     """
     Archive (soft delete) a jurisdiction.
 
@@ -280,7 +288,9 @@ async def delete_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(
     status_code=status.HTTP_200_OK,
     response_model=JurisdictionResponseSchema,
 )
-async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+async def restore_jurisdiction(
+    jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)
+):
     """
     Restore a previously archived (soft-deleted) jurisdiction.
 
@@ -305,7 +315,9 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
 
     if not jurisdiction or not jurisdiction.is_deleted:
-        return error_response(status_code=404, message="Jurisdiction not found or not deleted")
+        return error_response(
+            status_code=404, message="Jurisdiction not found or not deleted"
+        )
 
     jurisdiction.is_deleted = False
     jurisdiction.deleted_at = None

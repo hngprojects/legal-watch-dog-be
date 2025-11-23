@@ -8,7 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 async def store_organization_credentials(
-    redis_client: Redis, email: str, registration_data: Dict[str, Any], ttl_seconds: int = 600
+    redis_client: Redis,
+    email: str,
+    registration_data: Dict[str, Any],
+    ttl_seconds: int = 600,
 ) -> bool:
     """
     Store user registration credentials in Redis with TTL.
@@ -34,16 +37,22 @@ async def store_organization_credentials(
         await redis_client.setex(name=key, time=ttl_seconds, value=data_json)
 
         logger.info(
-            "Stored registration credentials for email=%s with TTL=%d seconds", email, ttl_seconds
+            "Stored registration credentials for email=%s with TTL=%d seconds",
+            email,
+            ttl_seconds,
         )
         return True
 
     except Exception as e:
-        logger.error("Failed to store credentials for email=%s: %s", email, str(e), exc_info=True)
+        logger.error(
+            "Failed to store credentials for email=%s: %s", email, str(e), exc_info=True
+        )
         raise Exception("Failed to store registration data")
 
 
-async def get_organization_credentials(redis_client: Redis, email: str) -> Optional[Dict[str, Any]]:
+async def get_organization_credentials(
+    redis_client: Redis, email: str
+) -> Optional[Dict[str, Any]]:
     """
     Retrieve user registration credentials from Redis.
 
@@ -73,11 +82,16 @@ async def get_organization_credentials(redis_client: Redis, email: str) -> Optio
         return registration_data
 
     except json.JSONDecodeError as e:
-        logger.error("Failed to decode JSON for email=%s: %s", email, str(e), exc_info=True)
+        logger.error(
+            "Failed to decode JSON for email=%s: %s", email, str(e), exc_info=True
+        )
         return None
     except Exception as e:
         logger.error(
-            "Failed to retrieve credentials for email=%s: %s", email, str(e), exc_info=True
+            "Failed to retrieve credentials for email=%s: %s",
+            email,
+            str(e),
+            exc_info=True,
         )
         raise Exception("Failed to retrieve registration data")
 
@@ -111,7 +125,12 @@ async def delete_organization_credentials(redis_client: Redis, email: str) -> bo
             return False
 
     except Exception as e:
-        logger.error("Failed to delete credentials for email=%s: %s", email, str(e), exc_info=True)
+        logger.error(
+            "Failed to delete credentials for email=%s: %s",
+            email,
+            str(e),
+            exc_info=True,
+        )
         raise Exception("Failed to delete registration data")
 
 
@@ -142,7 +161,10 @@ async def verify_and_get_credentials(
         stored_otp = credentials.get("otp_code")
         if stored_otp != otp_code:
             logger.warning(
-                "OTP mismatch for email=%s. Expected=%s, Provided=%s", email, stored_otp, otp_code
+                "OTP mismatch for email=%s. Expected=%s, Provided=%s",
+                email,
+                stored_otp,
+                otp_code,
             )
             return None
 
@@ -150,5 +172,7 @@ async def verify_and_get_credentials(
         return credentials
 
     except Exception as e:
-        logger.error("Failed to verify OTP for email=%s: %s", email, str(e), exc_info=True)
+        logger.error(
+            "Failed to verify OTP for email=%s: %s", email, str(e), exc_info=True
+        )
         raise Exception("Failed to verify OTP")

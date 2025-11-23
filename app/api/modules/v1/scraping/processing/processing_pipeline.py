@@ -40,7 +40,6 @@ async def process_single_message(message: aio_pika.IncomingMessage):
             )
             logger.info(f"ProcessingPipeline: Final prompt →\n{final_prompt}")
 
-
             gemini_input = build_gemini_prompt(final_prompt, cleaned_text)
 
             gemini_result = await run_gemini_analysis(gemini_input)

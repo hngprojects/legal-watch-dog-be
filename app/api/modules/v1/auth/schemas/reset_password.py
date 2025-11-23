@@ -9,7 +9,9 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetVerify(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
-    code: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+    code: str = Field(
+        ..., min_length=6, max_length=6, description="6-digit verification code"
+    )
 
     @field_validator("code")
     @classmethod
@@ -25,7 +27,9 @@ class PasswordResetVerify(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     reset_token: str = Field(..., description="Temporary reset token from verify step")
-    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+    new_password: str = Field(
+        ..., min_length=8, max_length=100, description="New password"
+    )
     confirm_password: str = Field(..., description="Confirm new password")
 
     @field_validator("new_password")
