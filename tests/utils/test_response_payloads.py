@@ -26,7 +26,9 @@ def test_success_response_no_data():
 
 
 def test_auth_response_merges_data_and_token():
-    resp = response_payloads.auth_response(201, "Logged in", "token123", {"user": {"id": 1}})
+    resp = response_payloads.auth_response(
+        201, "Logged in", "token123", {"user": {"id": 1}}
+    )
     assert resp.status_code == 201
     body = _get_json(resp)
     assert body["status"] == "success"

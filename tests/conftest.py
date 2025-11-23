@@ -13,7 +13,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 # Mock Fernet BEFORE any app imports to prevent key validation errors
 mock_fernet = MagicMock()
 mock_fernet.encrypt.return_value.decode.return_value = "mock_encrypted_value"
-mock_fernet.decrypt.return_value.decode.return_value = '{"username": "test", "password": "secret"}'
+mock_fernet.decrypt.return_value.decode.return_value = (
+    '{"username": "test", "password": "secret"}'
+)
 patch("cryptography.fernet.Fernet", return_value=mock_fernet).start()
 
 # Mock the get_cipher_suite function to return our mock Fernet

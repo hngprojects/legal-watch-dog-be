@@ -38,9 +38,9 @@ async def build_final_prompt(db, project_id: str, jurisdiction_id: str) -> str:
         if project_prompt:
             jurisdiction_prompt = (
                 f"{project_prompt}\n{jurisdiction_prompt}"
-                if jurisdiction_prompt else project_prompt
+                if jurisdiction_prompt
+                else project_prompt
             )
-
 
     final_prompt = f"""
 Instructions from project + jurisdiction:
@@ -52,4 +52,3 @@ Follow instructions strictly.
 
     logger.info("PromptService: Final LLM prompt successfully built.")
     return final_prompt.strip()
-

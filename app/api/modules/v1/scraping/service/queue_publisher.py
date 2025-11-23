@@ -65,7 +65,9 @@ class RabbitMQPublisher:
                     routing_key=QUEUE_NAME,
                 )
 
-                logger.info(f"Published AI summary to queue '{QUEUE_NAME}'. Attempt {attempt + 1}")
+                logger.info(
+                    f"Published AI summary to queue '{QUEUE_NAME}'. Attempt {attempt + 1}"
+                )
                 return True
 
             except Exception as exc:

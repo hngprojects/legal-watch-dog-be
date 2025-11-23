@@ -15,7 +15,9 @@ def render_template(template_name: str, context: dict) -> str:
         Rendered HTML string
     """
     # Navigate from utils/ to core/dependencies/email/templates/
-    template_dir = Path(__file__).parent.parent / "core" / "dependencies" / "email" / "templates"
+    template_dir = (
+        Path(__file__).parent.parent / "core" / "dependencies" / "email" / "templates"
+    )
 
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),

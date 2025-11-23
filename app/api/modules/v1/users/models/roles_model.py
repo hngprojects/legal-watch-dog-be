@@ -12,11 +12,17 @@ if TYPE_CHECKING:
 
 class Role(SQLModel, table=True):
     __tablename__ = "roles"
-    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_org_role_name"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_org_role_name"),
+    )
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
-    organization_id: uuid.UUID = Field(foreign_key="organizations.id", nullable=False, index=True)
+    organization_id: uuid.UUID = Field(
+        foreign_key="organizations.id", nullable=False, index=True
+    )
 
     name: str = Field(max_length=50, nullable=False, index=True)
 

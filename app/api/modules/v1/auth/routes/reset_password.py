@@ -44,14 +44,18 @@ async def request_password_reset(
         user = await db.scalar(select(User).where(User.email == payload.email))
 
         if not user:
-            logger.warning("Password reset requested for non-existent email=%s", payload.email)
+            logger.warning(
+                "Password reset requested for non-existent email=%s", payload.email
+            )
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Email does not exist.",
             )
 
         if not user.is_active:
-            logger.warning("Password reset requested for inactive user: email=%s", payload.email)
+            logger.warning(
+                "Password reset requested for inactive user: email=%s", payload.email
+            )
             return error_response(
                 status_code=status.HTTP_403_FORBIDDEN,
                 message="Account is inactive. Please contact support.",
@@ -59,7 +63,9 @@ async def request_password_reset(
 
         await service_request_reset(db, user, background_tasks)
 
-        logger.info("Password reset code sent for email=%s, user_id=%s", payload.email, user.id)
+        logger.info(
+            "Password reset code sent for email=%s, user_id=%s", payload.email, user.id
+        )
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Reset code sent to email.",
@@ -67,7 +73,9 @@ async def request_password_reset(
         )
 
     except Exception:
-        logger.exception("Error during password reset request for email=%s", payload.email)
+        logger.exception(
+            "Error during password reset request for email=%s", payload.email
+        )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Password reset request failed",
@@ -118,10 +126,14 @@ async def confirm_password_reset(
     """
     Reset user password using the temporary reset token.
     """
-    logger.info("Confirming password reset for reset_token=%s", payload.reset_token[:10])
+    logger.info(
+        "Confirming password reset for reset_token=%s", payload.reset_token[:10]
+    )
 
     try:
-        success = await service_reset_password(db, payload.reset_token, payload.new_password)
+        success = await service_reset_password(
+            db, payload.reset_token, payload.new_password
+        )
 
         if not success:
             logger.warning("Invalid or expired reset token")
