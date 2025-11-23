@@ -178,7 +178,7 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
     )
 
 
-@router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/project/{project_id}", status_code=status.HTTP_200_OK)
 async def delete_jurisdictions_by_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -325,7 +325,7 @@ async def update_jurisdiction(
         return error_response(status_code=400, message="Failed to update jurisdiction")
 
 
-@router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{jurisdiction_id}", status_code=status.HTTP_200_OK)
 async def delete_jurisdiction(
     jurisdiction_id: UUID,
     db: AsyncSession = Depends(get_db),
