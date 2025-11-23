@@ -26,7 +26,7 @@ async def test_create_revision_first_time():
         "summary": "A new update happened.",
         "changes_detected": "Initial scrape.",
         "risk_level": "Low",
-        "key_points": ["Point A", "Point B"]
+        "key_points": ["Point A", "Point B"],
     }
 
     extracted_data = {"title": "Sample"}
@@ -38,7 +38,7 @@ async def test_create_revision_first_time():
         raw_content="Raw text here",
         minio_object_key="file.txt",
         extracted_data=extracted_data,
-        ai_summary=ai_summary
+        ai_summary=ai_summary,
     )
 
     assert new_rev is not None
@@ -62,11 +62,11 @@ async def test_revision_with_change_detected():
             "summary": "Old summary",
             "changes_detected": "None",
             "risk_level": "Low",
-            "key_points": ["A"]
+            "key_points": ["A"],
         },
         was_change_detected=False,
         created_at=datetime.utcnow(),
-        deleted_at=None
+        deleted_at=None,
     )
 
     fake_result = MagicMock()
@@ -83,7 +83,7 @@ async def test_revision_with_change_detected():
         "summary": "Fees increased by 90% this week.",
         "changes_detected": "Fee changed from $100 to $190",
         "risk_level": "High",
-        "key_points": ["Nigeria to Ghana", "$190 current", "$100 old"]
+        "key_points": ["Nigeria to Ghana", "$190 current", "$100 old"],
     }
 
     new_rev, diff = await service.create_revision_with_detection(
@@ -93,7 +93,7 @@ async def test_revision_with_change_detected():
         raw_content="Updated raw content",
         minio_object_key="new.txt",
         extracted_data={"title": "New"},
-        ai_summary=new_ai
+        ai_summary=new_ai,
     )
 
     assert new_rev.was_change_detected is True
@@ -117,11 +117,11 @@ async def test_revision_with_no_change():
             "summary": "Same text",
             "changes_detected": "None",
             "risk_level": "Low",
-            "key_points": ["A", "B"]
+            "key_points": ["A", "B"],
         },
         was_change_detected=False,
         created_at=datetime.utcnow(),
-        deleted_at=None
+        deleted_at=None,
     )
 
     fake_result = MagicMock()
@@ -138,7 +138,7 @@ async def test_revision_with_no_change():
         "summary": "Same text",
         "changes_detected": "None",
         "risk_level": "Low",
-        "key_points": ["A", "B"]
+        "key_points": ["A", "B"],
     }
 
     new_rev, diff = await service.create_revision_with_detection(
@@ -148,7 +148,7 @@ async def test_revision_with_no_change():
         raw_content="Old raw content",
         minio_object_key="same.txt",
         extracted_data={"title": "Old"},
-        ai_summary=new_ai
+        ai_summary=new_ai,
     )
 
     assert new_rev.was_change_detected is False
