@@ -28,319 +28,324 @@ from app.api.modules.v1.projects.utils.project_utils import (
 logger = logging.getLogger("app")
 
 
-async def create_project_service(
-    db: AsyncSession,
-    data: ProjectBase,
-    organization_id: UUID,
-    user_id: UUID,
-) -> Project:
+class ProjectService:
     """
-    Create a new project and add creator as member.
+    Service class for project-related business logic operations.
 
-    Args:
-        db: Database session
-        data: Project creation data
-        organization_id: Organization UUID
-        user_id: User UUID of user
-
-    Returns:
-        Created Project object
+    This class encapsulates all project operations including creation,
+    retrieval, updates, deletion, and user management.
     """
-    logger.info(
-        f"Creating project '{data.title}' for organization_id={organization_id}, user_id={user_id}"
-    )
 
-    project = Project(
-        title=data.title,
-        description=data.description,
-        master_prompt=data.master_prompt,
-        org_id=organization_id,
-    )
+    def __init__(self, db: AsyncSession):
+        """
+        Initialize the ProjectService with a database session.
 
-    db.add(project)
-    await db.commit()
-    db.refresh(project)
+        Args:
+            db (AsyncSession): The database session for executing queries.
+        """
+        self.db = db
 
-    logger.info(f"Created project with id={project.id}")
+    async def create_project(
+        self,
+        data: ProjectBase,
+        organization_id: UUID,
+        user_id: UUID,
+    ) -> Project:
+        """
+        Create a new project and add creator as member.
 
-    return project
+        Args:
+            db: Database session
+            data: Project creation data
+            organization_id: Organization UUID
+            user_id: User UUID of user
 
+        Returns:
+            Created Project object
+        """
+        logger.info(
+            f"Creating '{data.title}' for organization_id={organization_id}, user_id={user_id}"
+        )
 
-async def list_projects_service(
-    db: AsyncSession,
-    organization_id: UUID,
-    q: Optional[str] = None,
-    page: int = 1,
-    limit: int = 20,
-) -> dict:
-    """
-    List projects with filtering and pagination.
+        project = Project(
+            title=data.title,
+            description=data.description,
+            master_prompt=data.master_prompt,
+            org_id=organization_id,
+        )
 
-    Args:
-        db: Database session
-        organization_id: Organization UUID
-        q: Search query for title
-        owner: Filter by owner user ID
-        page: Page number
-        limit: Items per page
+        self.db.add(project)
+        await self.db.commit()
+        await self.db.refresh(project)
 
-    Returns:
-        Dictionary with projects list and pagination metadata
-    """
-    logger.info(
-        f"Listing projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
-    )
+        logger.info(f"Created project with id={project.id}")
 
-    statement = select(Project).where(
-        and_(Project.org_id == organization_id, Project.is_deleted.is_(False))
-    )
-    logger.info(f"Base SQL: {str(statement)}")
-    if q:
-        statement = statement.where(Project.title.ilike(f"%{q}%"))
-        logger.info(f"Applied search filter: q={q}")
+        return project
 
-    count_statement = select(func.count()).select_from(statement.subquery())
-    total_result = await db.execute(count_statement)
-    # ScalarResult from db.exec(); use one() to retrieve the single scalar count
-    total = total_result.scalar_one()
+    async def list_projects(
+        self,
+        organization_id: UUID,
+        q: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> dict:
+        """
+        List projects with filtering and pagination.
 
-    logger.info(f"Found {total} projects matching criteria")
+        Args:
+            db: Database session
+            organization_id: Organization UUID
+            q: Search query for title
+            owner: Filter by owner user ID
+            page: Page number
+            limit: Items per page
 
-    offset = (page - 1) * limit
-    statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
-    result = await db.execute(statement)
-    projects = result.scalars().all()
+        Returns:
+            Dictionary with projects list and pagination metadata
+        """
+        logger.info(
+            f"Projects for organization_id={organization_id}, q={q}, page={page}, limit={limit}"
+        )
 
-    pagination = calculate_pagination(total, page, limit)
+        statement = select(Project).where(
+            and_(Project.org_id == organization_id, Project.is_deleted.is_(False))
+        )
+        logger.info(f"Base SQL: {str(statement)}")
+        if q:
+            statement = statement.where(Project.title.ilike(f"%{q}%"))
+            logger.info(f"Applied search filter: q={q}")
 
-    return {"data": projects, **pagination}
+        count_statement = select(func.count()).select_from(statement.subquery())
+        total_result = await self.db.execute(count_statement)
+        total = total_result.scalar_one()
 
+        logger.info(f"Found {total} projects matching criteria")
 
-async def get_project_service(
-    db: AsyncSession, project_id: UUID, organization_id: UUID
-) -> Optional[Project]:
-    """
-    Get project by ID with access verification.
+        offset = (page - 1) * limit
+        statement = statement.offset(offset).limit(limit).order_by(Project.created_at.desc())
+        result = await self.db.execute(statement)
+        projects = result.scalars().all()
 
-    Args:
-        db: Database session
-        project_id: Project UUID
-        organization_id: Organization UUID
+        pagination = calculate_pagination(total, page, limit)
 
-    Returns:
-        Project object if found and accessible, None otherwise
-    """
-    logger.info(f"Fetching project_id={project_id} for organization_id={organization_id}")
+        return {"data": projects, **pagination}
 
-    project = await get_project_by_id(db, project_id, organization_id)
+    async def get_project_by_id(self, project_id: UUID, organization_id: UUID) -> Optional[Project]:
+        """
+        Get project by ID with access verification.
 
-    if project:
-        logger.info(f"Project found: {project.title}")
-    else:
-        logger.warning(f"Project not found or no access: project_id={project_id}")
+        Args:
+            db: Database session
+            project_id: Project UUID
+            organization_id: Organization UUID
 
-    return project
+        Returns:
+            Project object if found and accessible, None otherwise
+        """
+        logger.info(f"Fetching project_id={project_id} for organization_id={organization_id}")
 
+        project = await get_project_by_id(self.db, project_id, organization_id)
 
-async def update_project_service(
-    db: AsyncSession,
-    project_id: UUID,
-    organization_id: UUID,
-    data: ProjectUpdate,
-) -> tuple[Optional[Project], str]:
-    """
-    Update project with provided data,  including soft delete/restore
-
-    Args:
-        db: Database session
-        project_id: Project UUID
-        organization_id: Organization UUID
-        data: Update data
-    """
-    logger.info(f"Updating project_id={project_id}")
-
-    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
-
-    if not project:
-        logger.warning(f"Project not found for update: project_id={project_id}")
-        return None, "Project not found"
-
-    update_data = data.model_dump(exclude_unset=True)
-    success_message = "Project updated successfully"
-    changes_made = False
-
-    if "is_deleted" in update_data:
-        requested_state = update_data["is_deleted"]
-        current_state = project.is_deleted
-
-        if requested_state != current_state:
-            project.is_deleted = requested_state
-            project.deleted_at = datetime.now(timezone.utc) if requested_state else None
-            success_message = (
-                "Project archived successfully"
-                if requested_state
-                else "Project restored successfully"
-            )
-            changes_made = True
+        if project:
+            logger.info(f"Project found: {project.title}")
         else:
-            success_message = f"Project is already {'archived' if current_state else 'active'}"
+            logger.warning(f"Project not found or no access: project_id={project_id}")
 
-        del update_data["is_deleted"]
+        return project
 
-    for field, value in update_data.items():
-        setattr(project, field, value)
-        changes_made = True
-        logger.info(f"Updated field '{field}' for project_id={project_id}")
+    async def update_project(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+        data: ProjectUpdate,
+    ) -> tuple[Optional[Project], str]:
+        """
+        Update project with provided data,  including soft delete/restore
 
-    if changes_made:
-        project.updated_at = datetime.now(timezone.utc)
-        db.add(project)
-        await db.commit()
-        await db.refresh(project)
+        Args:
+            db: Database session
+            project_id: Project UUID
+            organization_id: Organization UUID
+            data: Update data
+        """
+        logger.info(f"Updating project_id={project_id}")
 
-    logger.info(f"Project updated successfully: project_id={project_id}")
+        project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
-    return project, success_message
+        if not project:
+            logger.warning(f"Project not found for update: project_id={project_id}")
+            return None, "Project not found"
 
+        update_data = data.model_dump(exclude_unset=True)
+        success_message = "Project updated successfully"
+        changes_made = False
 
-async def hard_delete_project_service(
-    db: AsyncSession, project_id: UUID, organization_id: UUID
-) -> bool:
-    """
-    Permanently delete project from database (irreversible), also includes soft deleted projects.
+        if "is_deleted" in update_data:
+            requested_state = update_data["is_deleted"]
+            current_state = project.is_deleted
 
-    Args:
-        db: Database session
-        project_id: Project UUID
-        organization_id: Organization UUID
+            if requested_state != current_state:
+                project.is_deleted = requested_state
+                project.deleted_at = datetime.now(timezone.utc) if requested_state else None
+                success_message = (
+                    "Project archived successfully"
+                    if requested_state
+                    else "Project restored successfully"
+                )
+                changes_made = True
+            else:
+                success_message = f"Project is already {'archived' if current_state else 'active'}"
 
-    Returns:
-        True if deleted, False if not found
-    """
-    logger.warning(f"hard deleting project_id={project_id}")
+            del update_data["is_deleted"]
 
-    project = await get_project_by_id_including_deleted(db, project_id, organization_id)
+        for field, value in update_data.items():
+            setattr(project, field, value)
+            changes_made = True
+            logger.info(f"Updated field '{field}' for project_id={project_id}")
 
-    if not project:
-        logger.warning(f"Project not found for hard delete: project_id={project_id}")
-        return False
+        if changes_made:
+            project.updated_at = datetime.now(timezone.utc)
+            self.db.add(project)
+            await self.db.commit()
+            await self.db.refresh(project)
 
-    await db.delete(project)
-    await db.commit()
+        logger.info(f"Project updated successfully: project_id={project_id}")
 
-    logger.warning(f"Project deleted permanently: project_id={project_id}")
+        return project, success_message
 
-    return True
+    async def delete_project(self, project_id: UUID, organization_id: UUID) -> bool:
+        """
+        Permanently delete project from database (irreversible).
 
+        Args:
+            db: Database session
+            project_id: Project UUID
+            organization_id: Organization UUID
 
-async def get_project_users_service(
-    db: AsyncSession, project_id: UUID, organization_id: UUID
-) -> Optional[List[UUID]]:
-    """
-    Get list of user IDs in project.
+        Returns:
+            True if deleted, False if not found
+        """
+        logger.warning(f"hard deleting project_id={project_id}")
 
-    Args:
-        db: Database session
-        project_id: Project UUID
-        organization_id: Organization UUID
+        project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
-    Returns:
-        List of user UUIDs if project exists, None otherwise
-    """
-    logger.info(f"Fetching users for project_id={project_id}")
+        if not project:
+            logger.warning(f"Project not found for hard delete: project_id={project_id}")
+            return False
 
-    project = await get_project_by_id(db, project_id, organization_id)
-    if not project:
-        logger.warning(f"Project not found: project_id={project_id}")
-        return None
+        await self.db.delete(project)
+        await self.db.commit()
 
-    statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
-    result = await db.execute(statement)
-    user_ids = result.all()
+        logger.warning(f"Project deleted permanently: project_id={project_id}")
 
-    logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
+        return True
 
-    return list(user_ids)
+    async def get_users(self, project_id: UUID, organization_id: UUID) -> Optional[List[UUID]]:
+        """
+        Get list of user IDs in project.
 
+        Args:
+            db: Database session
+            project_id: Project UUID
+            organization_id: Organization UUID
 
-async def add_user_to_project_service(
-    db: AsyncSession, project_id: UUID, user_id: UUID, organization_id: UUID
-) -> tuple[bool, str]:
-    """
-    Add user to project.
+        Returns:
+            List of user UUIDs if project exists, None otherwise
+        """
+        logger.info(f"Fetching users for project_id={project_id}")
 
-    Args:
-        db: Database session
-        project_id: Project UUID
-        user_id: User UUID to add
-        organization_id: Organization UUID
+        project = await get_project_by_id(self.db, project_id, organization_id)
+        if not project:
+            logger.warning(f"Project not found: project_id={project_id}")
+            return None
 
-    Returns:
-        Tuple of (success: bool, message: str)
-    """
-    logger.info(f"Adding user_id={user_id} to project_id={project_id}")
+        statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
+        result = await self.db.execute(statement)
+        user_ids = result.all()
 
-    project = await get_project_by_id(db, project_id, organization_id)
-    if not project:
-        logger.warning(f"Project not found: project_id={project_id}")
-        return False, "Project not found or you don't have access to it"
+        logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
 
-    user = await get_user_by_id(db, user_id, organization_id)
-    if not user:
-        logger.warning(f"User not found in organization: user_id={user_id}")
-        return False, "User not found in your organization"
+        return list(user_ids)
 
-    if await check_project_user_exists(db, project_id, user_id):
-        logger.warning(f"User already in project: user_id={user_id}, project_id={project_id}")
-        return False, "User already added to project"
+    async def add_user(
+        self, project_id: UUID, user_id: UUID, organization_id: UUID
+    ) -> tuple[bool, str]:
+        """
+        Add user to project.
 
-    project_user = ProjectUser(project_id=project_id, user_id=user_id)
-    db.add(project_user)
-    await db.commit()
+        Args:
+            db: Database session
+            project_id: Project UUID
+            user_id: User UUID to add
+            organization_id: Organization UUID
 
-    logger.info(f"User added to project successfully: user_id={user_id}, project_id={project_id}")
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        logger.info(f"Adding user_id={user_id} to project_id={project_id}")
 
-    return True, "User successfully added to project"
+        project = await get_project_by_id(self.db, project_id, organization_id)
+        if not project:
+            logger.warning(f"Project not found: project_id={project_id}")
+            return False, "Project not found or you don't have access to it"
 
+        user = await get_user_by_id(self.db, user_id, organization_id)
+        if not user:
+            logger.warning(f"User not found in organization: user_id={user_id}")
+            return False, "User not found in your organization"
 
-async def remove_user_from_project_service(
-    db: AsyncSession, project_id: UUID, user_id: UUID, organization_id: UUID
-) -> tuple[bool, str]:
-    """
-    Remove user from project.
+        if await check_project_user_exists(self.db, project_id, user_id):
+            logger.warning(f"User already in project: user_id={user_id}, project_id={project_id}")
+            return False, "User already added to project"
 
-    Args:
-        db: Database session
-        project_id: Project UUID
-        user_id: User UUID to remove
-        organization_id: Organization UUID
+        project_user = ProjectUser(project_id=project_id, user_id=user_id)
+        self.db.add(project_user)
+        await self.db.commit()
 
-    Returns:
-        Tuple of (success: bool, message: str)
-    """
-    logger.info(f"Removing user_id={user_id} from project_id={project_id}")
+        logger.info(
+            f"User added to project successfully: user_id={user_id}, project_id={project_id}"
+        )
 
-    project = await get_project_by_id(db, project_id, organization_id)
-    if not project:
-        logger.warning(f"Project not found: project_id={project_id}")
-        return False, "Project not found or you don't have access to it"
+        return True, "User successfully added to project"
 
-    statement = select(ProjectUser).where(
-        and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
-    )
-    # prefer SQLModel AsyncSession.execute which returns a ScalarResult
-    result = await db.execute(statement)
-    project_user = result.one_or_none()
+    async def remove_user(
+        self, project_id: UUID, user_id: UUID, organization_id: UUID
+    ) -> tuple[bool, str]:
+        """
+        Remove user from project.
 
-    if not project_user:
-        logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
-        return False, "User is not a member of this project"
+        Args:
+            db: Database session
+            project_id: Project UUID
+            user_id: User UUID to remove
+            organization_id: Organization UUID
 
-    await db.delete(project_user)
-    await db.commit()
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        logger.info(f"Removing user_id={user_id} from project_id={project_id}")
 
-    logger.info(
-        f"User removed from project successfully: user_id={user_id}, project_id={project_id}"
-    )
+        project = await get_project_by_id(self.db, project_id, organization_id)
+        if not project:
+            logger.warning(f"Project not found: project_id={project_id}")
+            return False, "Project not found or you don't have access to it"
 
-    return True, "User successfully removed from project"
+        statement = select(ProjectUser).where(
+            and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
+        )
+        # prefer SQLModel AsyncSession.execute which returns a ScalarResult
+        result = await self.db.execute(statement)
+        project_user = result.one_or_none()
+
+        if not project_user:
+            logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
+            return False, "User is not a member of this project"
+
+        await self.db.delete(project_user)
+        await self.db.commit()
+
+        logger.info(
+            f"User removed from project successfully: user_id={user_id}, project_id={project_id}"
+        )
+
+        return True, "User successfully removed from project"
