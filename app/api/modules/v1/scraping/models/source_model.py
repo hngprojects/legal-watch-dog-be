@@ -20,6 +20,15 @@ class SourceType(str, Enum):
     API = "api"
 
 
+class ScrapeFrequency(str, Enum):
+    """Enumeration of supported scrape frequencies."""
+
+    HOURLY = "HOURLY"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
 class Source(SQLModel, table=True):
     """
     Source entity for web scraping configuration.
@@ -37,7 +46,7 @@ class Source(SQLModel, table=True):
     url: str
     source_type: SourceType = Field(default=SourceType.WEB)
 
-    scrape_frequency: str = Field(default="DAILY")
+    scrape_frequency: ScrapeFrequency = Field(default=ScrapeFrequency.DAILY)
     next_scrape_time: Optional[datetime] = Field(default=None)
     is_active: bool = Field(default=True)
     is_deleted: bool = Field(default=False, index=True)
