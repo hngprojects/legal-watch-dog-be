@@ -142,9 +142,7 @@ async def check_rate_limit(
             await client.expire(key, window_seconds)
 
         if current > max_attempts:
-            logger.warning(
-                f"Rate limit exceeded for {identifier}: {current}/{max_attempts}"
-            )
+            logger.warning(f"Rate limit exceeded for {identifier}: {current}/{max_attempts}")
             return False
 
         return True

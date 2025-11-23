@@ -94,7 +94,6 @@ class ChangeDetectionService:
 
         # Handle different types
         if type(old_val) is not type(new_val):
-
             return True
 
         # Handle strings with semantic comparison
@@ -108,9 +107,7 @@ class ChangeDetectionService:
         # Handle other types with simple comparison
         return old_val != new_val
 
-    def _compare_text_semantic(
-        self, text1: str, text2: str, threshold: float = 0.85
-    ) -> bool:
+    def _compare_text_semantic(self, text1: str, text2: str, threshold: float = 0.85) -> bool:
         """
         Compare text using semantic similarity.
         Returns True if texts are meaningfully different.
@@ -257,9 +254,7 @@ class ChangeDetectionService:
 
         # Compare summaries
         if previous_ai_summary is not None:
-            was_change_detected = self.compare_json_summaries(
-                previous_ai_summary, ai_summary
-            )
+            was_change_detected = self.compare_json_summaries(previous_ai_summary, ai_summary)
         else:
             # First revision or no previous valid summary
             was_change_detected = True

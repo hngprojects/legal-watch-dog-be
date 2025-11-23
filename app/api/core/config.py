@@ -16,9 +16,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = config("ENVIRONMENT", default="dev")
     APP_PORT: int = config("APP_PORT", default=8000, cast=int)
     SECRET_KEY: str = config("SECRET_KEY", default="your-secret-key-for-sessions")
-    LEGAL_WATCH_DOG_BASE_URL: str = config(
-        "LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net"
-    )
+    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net")
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
 
@@ -35,14 +33,10 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
-    REDIS_CACHE_TTL_SECONDS: int = config(
-        "REDIS_CACHE_TTL_SECONDS", default=300, cast=int
-    )
+    REDIS_CACHE_TTL_SECONDS: int = config("REDIS_CACHE_TTL_SECONDS", default=300, cast=int)
 
     # JWT Authentication
-    JWT_SECRET: str = config(
-        "JWT_SECRET", default="your-super-secret-jwt-key-change-in-production"
-    )
+    JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
@@ -57,9 +51,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
     # Email Verification
-    ALLOW_TEST_EMAIL_PROVIDERS: bool = config(
-        "ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool
-    )
+    ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")

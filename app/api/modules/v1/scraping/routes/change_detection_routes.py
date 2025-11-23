@@ -54,27 +54,21 @@ async def create_revision_with_change_detection(
         ai_summary = MockAIService.generate_summary(revision_data.raw_content)
 
         detection_service = ChangeDetectionService(db)
-        new_revision, change_diff = (
-            await detection_service.create_revision_with_detection(
-                source_id=revision_data.source_id,
-                scraped_at=datetime.utcnow(),
-                status=revision_data.status,
-                minio_object_key=revision_data.minio_object_key,
-                raw_content=revision_data.raw_content,
-                extracted_data=revision_data.extracted_data,
-                ai_summary=ai_summary,
-            )
+        new_revision, change_diff = await detection_service.create_revision_with_detection(
+            source_id=revision_data.source_id,
+            scraped_at=datetime.utcnow(),
+            status=revision_data.status,
+            minio_object_key=revision_data.minio_object_key,
+            raw_content=revision_data.raw_content,
+            extracted_data=revision_data.extracted_data,
+            ai_summary=ai_summary,
         )
 
         return RevisionWithDiffResponse(
             revision=RevisionResponse.from_orm(new_revision),
-            change_diff=(
-                ChangeDiffResponse.from_orm(change_diff) if change_diff else None
-            ),
+            change_diff=(ChangeDiffResponse.from_orm(change_diff) if change_diff else None),
         )
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Error creating revision: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error creating revision: {str(e)}")
