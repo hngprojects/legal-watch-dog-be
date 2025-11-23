@@ -112,9 +112,7 @@ async def test_require_any_permission(pg_async_session):
         session.add(user)
         await session.commit()
 
-        checker = require_any_permission(
-            Permission.CREATE_PROJECTS, Permission.VIEW_PROJECTS
-        )
+        checker = require_any_permission(Permission.CREATE_PROJECTS, Permission.VIEW_PROJECTS)
 
         # Should succeed because the role has VIEW_PROJECTS
         result = await checker(user_role=(user, role))

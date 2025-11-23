@@ -111,9 +111,7 @@ async def create_source(
 async def get_sources(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
-    jurisdiction_id: Optional[uuid.UUID] = Query(
-        None, description="Filter by jurisdiction"
-    ),
+    jurisdiction_id: Optional[uuid.UUID] = Query(None, description="Filter by jurisdiction"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -375,9 +373,7 @@ async def delete_source(
         - GET /sources/{id} will return 404
         ```
     """
-    logger.info(
-        f"User {current_user.id} deleting source: {source_id}, permanent={permanent}"
-    )
+    logger.info(f"User {current_user.id} deleting source: {source_id}, permanent={permanent}")
 
     service = SourceService()
     await service.delete_source(db, source_id, permanent=permanent)

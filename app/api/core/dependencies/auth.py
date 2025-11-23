@@ -62,9 +62,7 @@ async def get_current_user(
         user = await db.scalar(select(User).where(User.id == user_id))
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
         if not user.is_active:
             raise HTTPException(
@@ -72,21 +70,15 @@ async def get_current_user(
             )
 
         if not user.is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified")
 
         logger.info(f"Authenticated user: {user.email}")
         return user
 
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     except HTTPException:
         raise
     except Exception as e:
@@ -172,9 +164,7 @@ def require_any_permission(*permissions: Permission):
         user, role = user_role
 
         # Check if user has ANY of the required permissions
-        has_permission = any(
-            role.permissions.get(perm.value, False) for perm in permissions
-        )
+        has_permission = any(role.permissions.get(perm.value, False) for perm in permissions)
 
         if not has_permission:
             perm_names = [p.value for p in permissions]

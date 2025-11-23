@@ -89,9 +89,7 @@ async def test_list_projects_service(pg_async_session: AsyncSession):
     page = 1
     limit = 10
 
-    result = await list_projects_service(
-        pg_async_session, org_id, page=page, limit=limit
-    )
+    result = await list_projects_service(pg_async_session, org_id, page=page, limit=limit)
 
     assert "data" in result
     assert "total" in result

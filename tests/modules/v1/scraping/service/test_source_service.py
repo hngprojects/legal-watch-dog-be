@@ -85,9 +85,7 @@ class TestSourceServiceCreate:
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
-        mock_db.refresh = AsyncMock(
-            side_effect=lambda x: setattr(x, "id", created_source.id)
-        )
+        mock_db.refresh = AsyncMock(side_effect=lambda x: setattr(x, "id", created_source.id))
 
         result = await service.create_source(mock_db, sample_source_create)
         assert isinstance(result, SourceRead)

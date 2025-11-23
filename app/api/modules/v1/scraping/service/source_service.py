@@ -95,9 +95,7 @@ class SourceService:
             await db.commit()
             await db.refresh(db_source)
 
-            logger.info(
-                f"Successfully created source: {db_source.id} - {db_source.name}"
-            )
+            logger.info(f"Successfully created source: {db_source.id} - {db_source.name}")
 
             # Return sanitized response
             return self._to_read_schema(db_source)
@@ -270,9 +268,7 @@ class SourceService:
 
         except Exception as e:
             await db.rollback()
-            logger.error(
-                f"Failed to update source {source_id}: {str(e)}", exc_info=True
-            )
+            logger.error(f"Failed to update source {source_id}: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to update source",
@@ -338,9 +334,7 @@ class SourceService:
 
         except Exception as e:
             await db.rollback()
-            logger.error(
-                f"Failed to delete source {source_id}: {str(e)}", exc_info=True
-            )
+            logger.error(f"Failed to delete source {source_id}: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete source",
