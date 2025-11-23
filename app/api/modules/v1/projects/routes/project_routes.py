@@ -215,7 +215,7 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Delete a project. This removes the project from
+    Soft delete a project. This removes the project from
     active listings but preserves historical data for audit purposes.
     """
     logger.info(f"Deleting project_id={project_id} for user_id={current_user.id}")
@@ -239,7 +239,7 @@ async def delete_project(
         )
 
 
-@router.post(
+@router.patch(
     "/{project_id}/undo-delete",
     response_model=ProjectResponse,
     status_code=status.HTTP_200_OK,
