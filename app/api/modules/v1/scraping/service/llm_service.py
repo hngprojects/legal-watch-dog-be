@@ -17,10 +17,10 @@ GEMINI_API_URL = (
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
-def build_llm_prompt(final_prompt: str, extracted_text: str) -> str:
+def build_gemini_prompt(final_prompt: str, extracted_text: str) -> str:
     """
     Combines the project+jurisdiction prompt with extracted text
-    inside a structured LLM instruction template.
+    inside a structured gemini instruction template.
     """
 
     return f"""
@@ -55,7 +55,7 @@ Respond ONLY with valid JSON in the following format:
 """.strip()
 
 
-async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
+async def run_gemini_analysis(gemini_input: str) -> Dict[str, Any]:
     """
     Sends prompt to Gemini and ensures JSON output.
     """
@@ -63,10 +63,15 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
 
     headers = {"Authorization": f"Bearer {GEMINI_API_KEY}", "Content-Type": "application/json"}
 
+<<<<<<< HEAD
     payload = {"model": GEMINI_MODEL, "prompt": llm_input, "temperature": 0.2}
+=======
+
+    payload = {"model": GEMINI_MODEL, "prompt": gemini_input, "temperature": 0.2}
+>>>>>>> ee5e5a6 (feat(prompt_service & processing_pipeline): include project master prompt in jurisdiction)
 
 
-    logger.info("Sending request to LLM...")
+    logger.info("Sending request to Gemini...")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -79,7 +84,7 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
         try:
             return json.loads(raw_text)
         except json.JSONDecodeError:
-            logger.error("LLM returned invalid JSON. Returning fallback.")
+            logger.error("Gemini returned invalid JSON. Returning fallback.")
             return {
                 "summary": "Could not parse summary",
                 "changes_detected": "",
@@ -88,9 +93,9 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
             }
 
     except Exception as exc:
-        logger.error(f"LLM request failed: {exc}", exc_info=True)
+        logger.error(f"Gemini request failed: {exc}", exc_info=True)
         return {
-            "summary": "LLM processing failed",
+            "summary": "Gemini processing failed",
             "changes_detected": "",
             "risk_level": "Low",
             "recommendation": "",
