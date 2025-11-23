@@ -23,8 +23,6 @@ from app.api.modules.v1.projects.services.project_service import (
     get_project_service,
     hard_delete_project_service,
     list_projects_service,
-    restore_project_service,
-    soft_delete_project_service,
     update_project_service,
 )
 from app.api.modules.v1.users.models.users_model import User
@@ -175,17 +173,21 @@ async def update_project(
     """
     Update project information. Only provided fields will be updated.
 
+    Can be used for:
     - **title**: Updated project title (optional)
     - **description**: Updated project description (optional)
+    - **master_prompt**: Updated master prompt (optional)
+    - **is_deleted**: Set to True to soft delete/archive, False to restore (optional)
     """
+
     logger.info(f"Updating project_id={project_id} for user_id={current_user.id}")
 
     try:
-        project = await update_project_service(
+        project, message = await update_project_service(
             db, project_id, current_user.organization_id, payload
         )
 
-        if not project:
+        if project is None:
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
@@ -193,7 +195,7 @@ async def update_project(
 
         return success_response(
             status_code=status.HTTP_200_OK,
-            message="Project updated successfully",
+            message=message,
             data=ProjectResponse.model_validate(project).model_dump(),
         )
 
@@ -202,80 +204,6 @@ async def update_project(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to update project. Please try again.",
-        )
-
-
-@router.delete(
-    "/{project_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_project(
-    project_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Soft delete a project. This removes the project from
-    active listings but preserves historical data for audit purposes.
-    """
-    logger.info(f"Deleting project_id={project_id} for user_id={current_user.id}")
-
-    try:
-        deleted = await soft_delete_project_service(db, project_id, current_user.organization_id)
-
-        if not deleted:
-            return error_response(
-                status_code=status.HTTP_404_NOT_FOUND,
-                message="Project not found",
-            )
-
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    except Exception:
-        logger.exception(f"Error deleting project_id={project_id}")
-        return error_response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Failed to delete project. Please try again.",
-        )
-
-
-@router.patch(
-    "/{project_id}/undo-delete",
-    response_model=ProjectResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def restore_project(
-    project_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Restore a soft-deleted project.
-    """
-    logger.info(f"Restoring project_id={project_id}")
-
-    try:
-        restored = await restore_project_service(db, project_id, current_user.organization_id)
-
-        if not restored:
-            return error_response(
-                status_code=status.HTTP_404_NOT_FOUND,
-                message="Project not found or not deleted",
-            )
-
-        project = await get_project_service(db, project_id, current_user.organization_id)
-
-        return success_response(
-            status_code=status.HTTP_200_OK,
-            message="Project restored successfully",
-            data=ProjectResponse.model_validate(project),
-        )
-
-    except Exception:
-        logger.exception(f"Error restoring project_id={project_id}")
-        return error_response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Failed to restore project. Please try again.",
         )
 
 
@@ -295,7 +223,7 @@ async def hard_delete_project(
 
     Requires admin privileges or special confirmation.
     """
-    logger.info(f"hard deleting project_id={project_id}")
+    logger.info(f"Permanently deleting project_id={project_id}")
 
     try:
         deleted = await hard_delete_project_service(db, project_id, current_user.organization_id)
