@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api.modules.v1.scraping.models.change_diff_model import ChangeDiff
-from app.api.modules.v1.scraping.models.data_revision_model import DataRevision
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
 
 logger = logging.getLogger(__name__)
 
