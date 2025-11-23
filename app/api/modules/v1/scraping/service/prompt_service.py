@@ -15,11 +15,9 @@ async def build_final_prompt(db, project_id: str, jurisdiction_id: str) -> str:
     - Jurisdiction instructions (if any)
     """
     logger.info(
-            f"PromptService: Building LLM prompt for project_id={project_id}, "
-            f"jurisdiction_id={jurisdiction_id}"
-        )
-
-
+        f"PromptService: Building LLM prompt for project_id={project_id}, "
+        f"jurisdiction_id={jurisdiction_id}"
+    )
 
     project_query = await db.execute(select(Project).where(Project.id == project_id))
     project = project_query.scalar_one_or_none()
@@ -33,7 +31,6 @@ async def build_final_prompt(db, project_id: str, jurisdiction_id: str) -> str:
     if not jurisdiction:
         raise ValueError(f"Jurisdiction not found (id={jurisdiction_id})")
 
-   
     project_prompt = project.prompt_template or ""
     jurisdiction_prompt = jurisdiction.prompt_template or ""
 
@@ -50,4 +47,3 @@ Follow instructions strictly.
 
     logger.info("PromptService: Final LLM prompt successfully built.")
     return final_prompt.strip()
-

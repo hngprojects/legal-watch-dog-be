@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost/")  
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost/")
 QUEUE_NAME = "ai.summary"
 
 
@@ -36,7 +36,6 @@ class RabbitMQPublisher:
             self.connection = await aio_pika.connect_robust(self.url)
             self.channel = await self.connection.channel()
 
-            
             await self.channel.declare_queue(QUEUE_NAME, durable=True)
 
             logger.info("Connected to RabbitMQ successfully.")
@@ -50,9 +49,9 @@ class RabbitMQPublisher:
         Publish message to RabbitMQ with retry + exponential backoff.
         """
         payload = json.dumps(message).encode("utf-8")
-        backoff = 1 
+        backoff = 1
 
-        for attempt in range(5):  
+        for attempt in range(5):
             try:
                 if not self.channel:
                     await self.connect()
@@ -66,22 +65,17 @@ class RabbitMQPublisher:
                     routing_key=QUEUE_NAME,
                 )
 
-                logger.info(
-                    f"Published AI summary to queue '{QUEUE_NAME}'. Attempt {attempt + 1}"
-                )
+                logger.info(f"Published AI summary to queue '{QUEUE_NAME}'. Attempt {attempt + 1}")
                 return True
 
             except Exception as exc:
-                logger.error(
-                    f"Publish failed (attempt {attempt + 1}). Error: {exc}"
-                )
+                logger.error(f"Publish failed (attempt {attempt + 1}). Error: {exc}")
 
-               
                 sleep_time = backoff + random.uniform(0, 1)
                 logger.info(f"Retrying in {sleep_time:.2f} seconds...")
                 await asyncio.sleep(sleep_time)
 
-                backoff *= 2  
+                backoff *= 2
 
         logger.error("Max retries exceeded. Message not published.")
         return False

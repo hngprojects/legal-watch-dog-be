@@ -46,10 +46,8 @@ class ExtractorConsumer:
                 payload = json.loads(message.body.decode("utf-8"))
                 logger.info(f"ExtractorConsumer: Received payload: {payload}")
 
-                
                 cleaned_text = payload.get("preview")
 
-                
                 project_id = payload.get("project_id")
                 jurisdiction_id = payload.get("jurisdiction_id")
 
@@ -57,7 +55,6 @@ class ExtractorConsumer:
                     logger.error("ExtractorConsumer: Missing project_id or jurisdiction_id")
                     return
 
-                
                 llm_payload = {
                     "content": cleaned_text,
                     "project_id": project_id,
@@ -80,10 +77,7 @@ class ExtractorConsumer:
                 logger.info(f"ExtractorConsumer: LLM Response: {llm_data}")
 
             except Exception as exc:
-                logger.error(
-                    f"ExtractorConsumer: Error processing message — {exc}",
-                    exc_info=True
-                )
+                logger.error(f"ExtractorConsumer: Error processing message — {exc}", exc_info=True)
 
     async def start(self):
         """
@@ -97,7 +91,7 @@ class ExtractorConsumer:
         await queue.consume(self.process_message)
 
         try:
-            await asyncio.Future()  
+            await asyncio.Future()
         except asyncio.CancelledError:
             logger.info("ExtractorConsumer: Shutting down...")
             await self.connection.close()
