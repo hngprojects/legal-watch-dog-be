@@ -26,12 +26,12 @@ logger = get_task_logger(__name__)
 
 # Define retry settings for exponential backoff with jitter
 MAX_RETRIES = 5
-BASE_DELAY = 60  
-MAX_DELAY = 3600  
+BASE_DELAY = 60
+MAX_DELAY = 3600
 
 # Define lock constants
 DISPATCH_LOCK_KEY = "celery:dispatch_due_sources_lock"
-LOCK_TIMEOUT_SECONDS = 60 
+LOCK_TIMEOUT_SECONDS = 60
 
 # Define DLQ constants
 CELERY_DLQ_KEY = "celery:scraping_dlq"
@@ -53,9 +53,7 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
         ScrapeFrequency.MONTHLY: timedelta(days=30),  # Approximation for monthly
         ScrapeFrequency.HOURLY: timedelta(hours=1),
     }
-    delta = frequency_map.get(
-        frequency, timedelta(days=1)
-    )  # Default to daily
+    delta = frequency_map.get(frequency, timedelta(days=1))  # Default to daily
     return current_time + delta
 
 
