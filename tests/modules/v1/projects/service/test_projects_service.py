@@ -98,7 +98,7 @@ async def test_get_project_service_found_and_not_found(pg_async_session: AsyncSe
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
 
-    project = await project_service.get_project(project_id, org_id)
+    project = await project_service.get_project_by_id(project_id, org_id)
 
     assert project is None or isinstance(project, Project)
 
