@@ -67,7 +67,9 @@ class Jurisdiction(SQLModel, table=True):
     name: str
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
-    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    scrape_output: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)

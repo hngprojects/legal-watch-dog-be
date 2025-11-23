@@ -110,7 +110,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             request_count = await redis_client.zcard(redis_key)
 
             if request_count >= self.requests_per_minute:
-                oldest_request = await redis_client.zrange(redis_key, 0, 0, withscores=True)
+                oldest_request = await redis_client.zrange(
+                    redis_key, 0, 0, withscores=True
+                )
                 if oldest_request:
                     oldest_timestamp = oldest_request[0][1]
                     reset_time = int(oldest_timestamp + 60 - current_time)

@@ -19,11 +19,8 @@ class DataRevision(SQLModel, table=True):
     raw_content: Optional[str] = None
     minio_object_key: str = Field(nullable=False)
     extracted_data: Optional[dict] = Field(default=None, sa_column=Column(JSONB))
-    
-    ai_summary: Optional[dict] = Field(     
-        default=None,
-        sa_column=Column(JSONB)
-    )
+
+    ai_summary: Optional[dict] = Field(default=None, sa_column=Column(JSONB))
     was_change_detected: Optional[bool] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     deleted_at: Optional[datetime] = None

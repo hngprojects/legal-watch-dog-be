@@ -43,7 +43,7 @@ class MockAIService:
             "changes_detected": "Tax rate dropped by 5%.",
             "risk_level": "Low",
             "recommendation": "Update tax calculation systems.",
-        }
+        },
     ]
 
     @staticmethod
@@ -88,5 +88,5 @@ class MockAIService:
             "recommendation": f"Recommendation {version}",
             "meta": {"version": version},
             "html_object": "<p>Test HTML</p>",
-            "text_object": f"Test text for version {version}"
+            "text_object": f"Test text for version {version}",
         }

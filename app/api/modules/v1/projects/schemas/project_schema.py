@@ -10,7 +10,9 @@ from app.api.modules.v1.users.schemas.user_schema import UserResponse
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Project title")
     description: Optional[str] = Field(None, description="Project description")
-    master_prompt: Optional[str] = Field(None, description="High-level AI prompt for the project")
+    master_prompt: Optional[str] = Field(
+        None, description="High-level AI prompt for the project"
+    )
 
 
 class ProjectUpdate(BaseModel):
@@ -20,7 +22,9 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectUserAssignment(BaseModel):
-    user_ids: List[UUID] = Field(..., description="List of user IDs to assign to project")
+    user_ids: List[UUID] = Field(
+        ..., description="List of user IDs to assign to project"
+    )
 
 
 class ProjectResponse(ProjectBase):

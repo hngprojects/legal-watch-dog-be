@@ -96,7 +96,9 @@ class JurisdictionService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            )
 
     async def get_jurisdictions_by_project(self, db: AsyncSession, project_id: UUID):
         """
@@ -161,7 +163,9 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
+            stmt = select(Jurisdiction).where(
+                cast(Any, Jurisdiction.is_deleted).is_(False)
+            )
             result = await db.execute(stmt)
             jurisdictions = result.scalars().all()
 

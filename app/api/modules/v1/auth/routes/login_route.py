@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
         "Authenticate user and return access/refresh tokens with rate limiting protection"
     ),
 )
-async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)
+):
     """
     Login endpoint with security features:
     - Rate limiting (5 failed attempts, 15-minute lockout)
@@ -96,7 +98,9 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
     summary="Refresh Access Token",
     description="Refresh access token using a valid refresh token with token rotation",
 )
-async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_token(
+    refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)
+):
     """
     Refresh token endpoint:
     - Validates refresh token
@@ -106,7 +110,9 @@ async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = De
     try:
         login_service = LoginService(db)
 
-        result = await login_service.refresh_access_token(refresh_token=refresh_data.refresh_token)
+        result = await login_service.refresh_access_token(
+            refresh_token=refresh_data.refresh_token
+        )
 
         return success_response(
             status_code=status.HTTP_200_OK,
@@ -153,13 +159,17 @@ async def logout(
             data=result,
         )
     except HTTPException as e:
-        logger.warning("Logout failed for user_id=%s: %s", str(current_user.id), e.detail)
+        logger.warning(
+            "Logout failed for user_id=%s: %s", str(current_user.id), e.detail
+        )
         return error_response(
             status_code=e.status_code,
             message=e.detail,
         )
     except Exception:
-        logger.exception("Unexpected error during logout for user_id=%s", str(current_user.id))
+        logger.exception(
+            "Unexpected error during logout for user_id=%s", str(current_user.id)
+        )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error",

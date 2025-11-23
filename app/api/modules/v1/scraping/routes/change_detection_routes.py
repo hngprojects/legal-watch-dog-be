@@ -1,4 +1,3 @@
-
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,28 +27,27 @@ router = APIRouter(prefix="/revisions", tags=["revisions"])
     """,
 )
 async def create_revision_with_change_detection(
-    revision_data: RevisionCreate, 
-    db: AsyncSession = Depends(get_db)
+    revision_data: RevisionCreate, db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new revision, generate an AI summary, and detect changes.
 
     Args:
-        revision_data (RevisionCreate):  
-            Incoming revision payload containing raw content, source_id, 
+        revision_data (RevisionCreate):
+            Incoming revision payload containing raw content, source_id,
             extracted data, and status.
 
-        db (AsyncSession):  
+        db (AsyncSession):
             Database session dependency injected by FastAPI.
 
     Returns:
-        RevisionWithDiffResponse:  
-            The newly created revision along with detected change differences 
+        RevisionWithDiffResponse:
+            The newly created revision along with detected change differences
             (if any).
 
     Raises:
-        HTTPException (500):  
-            Raised when an unexpected error occurs during revision creation or 
+        HTTPException (500):
+            Raised when an unexpected error occurs during revision creation or
             change detection.
     """
     try:
