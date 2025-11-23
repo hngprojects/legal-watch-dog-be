@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class RevisionCreate(BaseModel):
@@ -21,8 +21,8 @@ class RevisionResponse(BaseModel):
     was_change_detected: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+   
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ChangeDiffResponse(BaseModel):
@@ -32,8 +32,7 @@ class ChangeDiffResponse(BaseModel):
     diff_patch: Optional[Dict[str, Any]]
     ai_confidence: Optional[float]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RevisionWithDiffResponse(BaseModel):
