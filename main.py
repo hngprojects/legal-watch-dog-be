@@ -82,9 +82,9 @@ def read_root():
     )
 
 
-# @app.get("/health")
-# def health_check():
-#     return success_response(status_code=200, message="API is healthy")
+@app.get("/health")
+def health_check():
+    return success_response(status_code=200, message="API is healthy")
 
 
 if __name__ == "__main__":
