@@ -86,3 +86,9 @@ __pypackages__/
 .ruff_cache/
 
 dump.rdb
+# Environment files
+.env.dev
+.env.prod
+ecosystem.config.js
+start_app.sh
+
