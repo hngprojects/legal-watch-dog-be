@@ -1,26 +1,19 @@
-"""
-Celery tasks for the scraping module.
-
-This module defines the synchronous tasks for
-scraping data sources,
-including a periodic task to dispatch scrapers and
-the individual scraper task
-with retry logic.
-"""
-
 import json
 import random
-import time
+import asyncio
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import redis
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 
+
 from app.api.core.config import settings
 from app.api.db.database import engine
 from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
+from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 
 logger = get_task_logger(__name__)
 
@@ -32,9 +25,8 @@ MAX_DELAY = 3600
 # Define lock constants
 DISPATCH_LOCK_KEY = "celery:dispatch_due_sources_lock"
 LOCK_TIMEOUT_SECONDS = 60
-
-# Define DLQ constants
 CELERY_DLQ_KEY = "celery:scraping_dlq"
+DOMAIN_RATE_LIMIT_SECONDS = 5
 
 
 def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> datetime:
@@ -56,70 +48,98 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
     delta = frequency_map.get(frequency, timedelta(days=1))
     return current_time + delta
 
+def get_redis_client():
+    """Helper to get a Redis connection."""
+    return redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-@shared_task(bind=True, max_retries=MAX_RETRIES)
-def scrape_source(self, source_id: str):
-    """Performs the scraping of a single source with exponential backoff and jitter.
-
-    This task attempts to scrape a given source. If it fails, it retries with
-    an exponential backoff strategy, including jitter to prevent thundering herds.
-    Upon successful completion, it atomically updates the source's next_scrape_time.
-
-    Args:
-        self: The Celery task instance.
-        source_id (str): The UUID of the source to be scraped.
-
-    Returns:
-        str: A message indicating the outcome of the scraping attempt.
-    """
+def get_domain_from_url(url: str) -> Optional[str]:
+    """Safely extracts the domain name from a URL."""
     try:
+        # Simplified split to get the domain part after http(s)://
+        return url.split("//")[-1].split("/")[0]
+    except IndexError:
+        return None
+
+
+@shared_task(bind=True, max_retries=MAX_RETRIES, name="scrape.run_smart_scrape")
+def scrape_source(self, source_id: str):
+    """
+    The Worker Task.
+    Executes the scraping pipeline for a specific source.
+    Handles: Rate Limiting, Async Execution, Database Locking, Retries, DLQ.
+    """
+    redis_client = None
+    try:
+        redis_client = get_redis_client()
+        
+        logger.info(f"[Worker] Picked up Source ID: {source_id}")
+        
+        # 1. Open Database Session
         with Session(engine) as db:
+            # Fetch Source to check existence and get URL for rate limiting
             query = select(Source).where(Source.id == source_id)
-            result = db.exec(query)
-            source = result.first()
+            source = db.exec(query).first()
 
             if not source:
-                logger.warning(f"Source with ID {source_id} not found.")
-                return f"Source {source_id} not found."
+                logger.error(f"Source {source_id} not found. Aborting.")
+                return f"Aborted: Source {source_id} not found."
 
-            logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
+            # 2. Politeness Policy (Domain Rate Limiting)
+            domain = get_domain_from_url(source.url)
+            rate_limit_key = f"rate_limit:{domain}"
+            
+            # Check if this domain is 'hot'
+            if domain and redis_client.exists(rate_limit_key):
+                # Back off slightly to let other workers finish
+                wait_time = random.uniform(5, 15)
+                logger.warning(f"Rate limit active for {domain}. Retrying in {wait_time:.1f}s")
+                raise self.retry(countdown=wait_time)
 
-            time.sleep(random.uniform(0.1, 0.5))
+            # 3. EXECUTE THE SERVICE (The Heavy Lifting)
+            # We initialize the Service with the DB session
+            service = ScraperService(db)
+            
+            logger.info(f"Starting ScraperService pipeline for {source.url}")
+            
+            # CRITICAL: Run Async Code Synchronously
+            # Since Celery is sync, we use asyncio.run to execute the async service method
+            scrape_result = asyncio.run(service.execute_scrape_job(str(source.id)))
+            
+            # 4. Update Rate Limit Lock
+            # Mark this domain as busy for 5 seconds
+            if domain:
+                redis_client.setex(rate_limit_key, DOMAIN_RATE_LIMIT_SECONDS, "busy")
 
-            # If scraping is successful
-            new_next_scrape_time = get_next_scrape_time(
+            # 5. Update Schedule
+            # Only update if successful
+            source.next_scrape_time = get_next_scrape_time(
                 datetime.now(timezone.utc), source.scrape_frequency
             )
-            source.next_scrape_time = new_next_scrape_time
             db.add(source)
             db.commit()
-            db.refresh(source)
 
-            logger.info(
-                f"Successfully scraped source {source.name}. "
-                f"Next scrape time: {source.next_scrape_time}"
-            )
-            return (
-                f"Source {source.id} scraped successfully. Next scrape: {source.next_scrape_time}"
-            )
+            return f"Success: {scrape_result}"
+
     except Exception as exc:
-        redis_client = None
-        try:
-            redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
+        # --- ROBUST ERROR HANDLING & DLQ ---
+        if not redis_client:
+             redis_client = get_redis_client()
 
+        try:
             retry_count = self.request.retries
+            
+            # Calculate Exponential Backoff + Jitter
             delay = min(MAX_DELAY, BASE_DELAY * (2**retry_count))
             jitter = random.uniform(0, delay * 0.1)
             countdown = delay + jitter
 
             if retry_count < MAX_RETRIES:
-                logger.error(
-                    f"Scraping for source {source_id} failed. Retrying in "
-                    f"{countdown:.2f} seconds. Error: {exc}"
-                )
+                logger.warning(f"Task failed for {source_id}: {exc}. Retrying in {countdown:.2f}s")
                 raise self.retry(exc=exc, countdown=countdown)
             else:
-                # Max retries exhausted, move to DLQ
+                # --- DEAD LETTER QUEUE (DLQ) ---
+                logger.error(f"Max retries reached for {source_id}. Moving to DLQ.")
+                
                 dlq_entry = {
                     "task_id": self.request.id,
                     "source_id": source_id,
@@ -128,82 +148,80 @@ def scrape_source(self, source_id: str):
                     "args": self.request.args,
                     "kwargs": self.request.kwargs,
                 }
+                
+                # Push to Redis List for manual inspection later
                 redis_client.lpush(CELERY_DLQ_KEY, json.dumps(dlq_entry))
-                logger.error(
-                    f"Scraping for source {source_id} failed after {MAX_RETRIES} retries. "
-                    f"Task {self.request.id} moved to DLQ."
-                )
-                return f"Failed: Source {source_id} moved to DLQ."
+                return f"Failed: Moved to DLQ. Error: {exc}"
+                
         except redis.RedisError as redis_exc:
-            logger.error(
-                f"Redis error while handling failed task {self.request.id} "
-                f"for source {source_id}: {redis_exc}",
-                exc_info=True,
-            )
-
+            logger.critical(f"Redis Infrastructure Failure: {redis_exc}", exc_info=True)
+            # Let Celery handle critical infra failures
+            raise redis_exc
+        except Exception:
+            logger.error("Error during failure handling.", exc_info=True)
             raise exc
-        finally:
-            if redis_client:
-                try:
-                    redis_client.close()
-                except Exception:
-                    pass
+            
+    finally:
+        if redis_client:
+            redis_client.close()
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, name="scheduler.dispatch_due_sources")
 def dispatch_due_sources(self):
     """
-    Dispatches scraping tasks for sources whose next_scrape_time has passed.
-
-    This Celery Beat task runs periodically. It uses a distributed lock to ensure
-    that only one instance of the task runs at a time across all workers.
-    It queries for due sources and dispatches individual `scrape_source` tasks.
-
-    Returns:
-        str: A message indicating the outcome (dispatched, or skipped due to lock).
+    The Scheduler (Celery Beat).
+    Runs periodically (e.g., every minute).
+    Finds sources that are due and dispatches scrape tasks.
+    Uses Distributed Locking to prevent 'Thundering Herds'.
     """
     redis_client = None
     try:
-        redis_client = redis.Redis.from_url(settings.REDIS_URL, db=0, decode_responses=True)
-
+        redis_client = get_redis_client()
+    
+        # 1. Acquire Non-Blocking Distributed Lock
+        # "nx=True" means "Only set if key does not exist"
         lock_acquired = redis_client.set(
             DISPATCH_LOCK_KEY, "locked", nx=True, ex=LOCK_TIMEOUT_SECONDS
         )
 
         if not lock_acquired:
-            logger.info("Dispatch due sources task is already running. Skipping.")
+            logger.info("Dispatch task already running (Lock held). Skipping.")
             return "Skipped: Another dispatch task is already running."
 
-        logger.info("Acquired dispatch lock. Checking for due sources...")
-
+        logger.info("Acquired dispatch lock. Querying database...")
+        
         with Session(engine) as db:
             now = datetime.now(timezone.utc)
-
+            
+            # 2. Query Logic
+            # Get sources where time is passed OR time is null (never run)
+            # AND source is strictly active
             query = select(Source).where(
-                (Source.next_scrape_time <= now) | (Source.next_scrape_time.is_(None))
+                (Source.next_scrape_time <= now) | (Source.next_scrape_time.is_(None)),
+                Source.is_active == True
             )
-            result = db.exec(query)
-            due_sources = result.all()
+            
+            due_sources = db.exec(query).all()
 
             if not due_sources:
-                logger.info("No sources are due for scraping.")
-                return "No sources to dispatch."
+                logger.info("No sources due for scraping.")
+                return "No sources due"
 
+            # 3. Dispatch Logic
             for src in due_sources:
+                # Push individual task to the queue
                 self.app.send_task(
-                    "app.api.modules.v1.scraping.service.tasks.scrape_source",
-                    args=[str(src.id)],
+                    "scrape.run_smart_scrape", # Must match name defined above
+                    args=[str(src.id)]
                 )
 
-            logger.info(f"Dispatched {len(due_sources)} sources for scraping.")
-            return f"Dispatched {len(due_sources)} sources"
+            logger.info(f"Dispatched {len(due_sources)} sources to queue.")
+            return f"Dispatched {len(due_sources)}"
 
-    except redis.RedisError as e:
-        logger.error(f"Redis error in dispatch_due_sources: {e}", exc_info=True)
-        return "Aborted: Redis connection failed."
+    except Exception as e:
+        logger.error(f"Dispatch failed: {e}")
+        return f"Failed: {e}"
+        
     finally:
         if redis_client:
-            try:
-                redis_client.close()
-            except Exception:
-                pass
+            redis_client.close()
