@@ -28,11 +28,7 @@ def diff_service():
     real API key or configuration during setup."""
     # Patch the GenerativeModel constructor to prevent actual initialization
     # and allow us to mock its methods on the instance later.
-    with patch(
-        "app.api.modules.v1.scraping"
-        ".service.diff_service."
-          "genai.GenerativeModel"
-    ):
+    with patch("app.api.modules.v1.scraping.service.diff_service.genai.GenerativeModel"):
         service = DiffAIService()
         yield service
 
@@ -46,9 +42,7 @@ def test_context():
 # --- HELPER FOR MOCK DATA ---
 
 
-def create_mock_llm_result(
-    detected: bool, summary: str, score: float, change_type: str
-) -> dict:
+def create_mock_llm_result(detected: bool, summary: str, score: float, change_type: str) -> dict:
     """Helper to create the dictionary that the service expects from the LLM."""
     return {
         "detected": detected,
@@ -69,9 +63,7 @@ async def test_exact_match_no_api_call(diff_service, test_context):
     # We patch the *actual* method called by the service (model.generate_content_async)
     # and confirm it is NOT called.
     with patch.object(diff_service.model, "generate_content_async") as mock_llm_call:
-        was_changed, patch_data = await diff_service.compute_diff(
-            data, data, test_context
-        )
+        was_changed, patch_data = await diff_service.compute_diff(data, data, test_context)
 
         assert was_changed is False
         assert patch_data["change_summary"] == "No changes (Exact Match)"
@@ -87,9 +79,7 @@ async def test_cold_start_new_record(diff_service, test_context):
     # We patch the *actual* method called by the service (model.generate_content_async)
     # and confirm it is NOT called.
     with patch.object(diff_service.model, "generate_content_async") as mock_llm_call:
-        was_changed, patch_data = await diff_service.compute_diff(
-            old_data, new_data, test_context
-        )
+        was_changed, patch_data = await diff_service.compute_diff(old_data, new_data, test_context)
 
         assert was_changed is True
         # Assertions now match the logic found in DiffAIService's compute_diff method
@@ -119,9 +109,7 @@ async def test_semantic_price_change(diff_service, test_context):
         "generate_content_async",
         new=AsyncMock(return_value=mock_response),
     ) as mock_llm_call:
-        was_changed, patch_data = await diff_service.compute_diff(
-            old_data, new_data, test_context
-        )
+        was_changed, patch_data = await diff_service.compute_diff(old_data, new_data, test_context)
 
         assert was_changed is True
         assert patch_data["change_type"] == "Price Update"
@@ -151,9 +139,7 @@ async def test_noise_ignored_timestamp(diff_service, test_context):
         "generate_content_async",
         new=AsyncMock(return_value=mock_response),
     ) as mock_llm_call:
-        was_changed, patch_data = await diff_service.compute_diff(
-            old_data, new_data, test_context
-        )
+        was_changed, patch_data = await diff_service.compute_diff(old_data, new_data, test_context)
 
         assert was_changed is False
         assert patch_data["change_type"] == "Cosmetic"
