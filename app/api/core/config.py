@@ -1,11 +1,25 @@
+import os
 from pathlib import Path
 
 from cryptography.fernet import Fernet
-from decouple import config
+from decouple import Config, RepositoryEnv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Base directory for relative paths
-BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "main.py").exists())
+BASE_DIR = PROJECT_ROOT
+
+# Determine which env file to load
+env_file = os.getenv("ENV_FILE", ".env")
+env_path = PROJECT_ROOT / env_file
+
+# Only use RepositoryEnv if the env file exists
+if env_path.exists():
+    config = Config(RepositoryEnv(env_path))
+else:
+    # fallback: read directly from os.environ using decouple's AutoConfig
+    from decouple import AutoConfig
+
+    config = AutoConfig(search_path=None)
 
 
 class Settings(BaseSettings):
@@ -71,6 +85,7 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
+    model_config = SettingsConfigDict(extra="allow")
 
 
 settings = Settings()
