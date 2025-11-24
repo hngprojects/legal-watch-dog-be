@@ -25,6 +25,5 @@ class DiffResult(BaseModel):
     )
     change_type: Optional[str] = Field(
         None,
-        description="Category of change: 'Critical',"
-        " 'Minor', 'Cosmetic', or 'New Record'.",
+        description="Category of change: 'Critical', 'Minor', 'Cosmetic', or 'New Record'.",
     )
