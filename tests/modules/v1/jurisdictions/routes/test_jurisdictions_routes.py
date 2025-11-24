@@ -147,7 +147,7 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
 
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
 
-    res = await routes.delete_jurisdiction(fake_id, db=cast(Any, None))
+    res = await routes.soft_delete_jurisdiction(fake_id, db=cast(Any, None))
     assert hasattr(res, "status_code")
     assert res.status_code == 200
     import json
@@ -184,7 +184,7 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
 
     proj_id = uuid4()
-    res = await routes.delete_jurisdictions_by_project(proj_id, db=cast(Any, None))
+    res = await routes.soft_delete_jurisdictions_by_project(proj_id, db=cast(Any, None))
     assert hasattr(res, "status_code")
     assert res.status_code == 200
     import json
