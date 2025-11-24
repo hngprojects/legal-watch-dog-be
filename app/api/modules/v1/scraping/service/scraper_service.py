@@ -198,7 +198,7 @@ class ScraperService:
             new_revision = DataRevision(
                 source_id=source.id,
                 minio_object_key=minio_key,
-                content_hash=content_hash,  # Store content hash for duplicate detection
+                content_hash=content_hash,
                 extracted_data=ai_result,
                 ai_summary=ai_result.get("summary"),
                 ai_markdown_summary=ai_result.get("markdown_summary"),
@@ -226,7 +226,17 @@ class ScraperService:
             raise e
 
         # 9. ALERTING
-        # if was_change_detected and last_revision: 
+        if was_change_detected and last_revision: 
+            logger.info(f"Change detected for source {source_id}: {diff_patch['change_summary']}")
+            return {
+                "status": "success",
+                "change_detected": True,
+                "change_summary": diff_patch["change_summary"],
+                "risk_level": diff_patch["risk_level"],
+                "ai_summary": ai_result.get("summary"),
+                "ai_markdown_summary": ai_result.get("markdown_summary"),
+                "ai_confidence_score": ai_result.get("confidence_score"),
+            }
         #     send_change_alert.delay(str(new_revision.id))
 
         return {"status": "success", "change_detected": was_change_detected}
