@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlmodel import Session
 
+from app.api.core.config import settings
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
-    MAX_RETRIES,
     dispatch_due_sources,
     get_next_scrape_time,
     scrape_source,
@@ -121,9 +121,7 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
 
     with (
         patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
-        patch(
-            "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-        ) as mock_redis_from_url,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
         patch("time.sleep", return_value=None),
     ):
         mock_db = MagicMock()
@@ -131,15 +129,17 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
         mock_db.exec.side_effect = Exception("Simulated scraping failure")
 
         mock_redis_client = MagicMock()
-        mock_redis_from_url.return_value = mock_redis_client
+        mock_redis_cls.return_value = mock_redis_client
 
-        for i in range(MAX_RETRIES):
+        max_retries = settings.SCRAPE_MAX_RETRIES
+
+        for i in range(max_retries):
             scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=i)
             with pytest.raises(Exception):
                 scrape_source.run(str(source.id))
             scrape_source.pop_request()
 
-        scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=MAX_RETRIES)
+        scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=max_retries)
 
         result = scrape_source.run(str(source.id))
         scrape_source.pop_request()
@@ -154,7 +154,7 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
 
 
 def test_dispatch_due_sources_acquires_lock_and_dispatches(
-    sync_session: Session, mock_redis: MagicMock
+    sync_session: Session,
 ):
     """Tests that the dispatcher acquires a lock and dispatches tasks."""
     now = datetime.now(timezone.utc)
@@ -174,15 +174,13 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session.commit()
 
     with (
-        patch(
-            "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-        ) as mock_redis_from_url,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
         patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
     ):
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
-        mock_redis_from_url.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         # Mock DB with bridge
         mock_db = MagicMock()
@@ -191,7 +189,6 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
 
         mock_app.send_task = MagicMock()
 
-        # Run with NO arguments (self is injected automatically)
         result = dispatch_due_sources.run()
 
     assert "Dispatched 2 sources" in result
@@ -201,13 +198,11 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
 
 def test_dispatch_due_sources_lock_already_held():
     """Tests that the dispatcher skips if the lock is already held."""
-    with patch(
-        "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-    ) as mock_redis_from_url:
+    with patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls:
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = False
 
-        mock_redis_from_url.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         result = dispatch_due_sources.run()
 
@@ -227,13 +222,13 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     sync_session.commit()
 
     with (
-        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_class,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
         patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
     ):
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
-        mock_redis_class.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__.return_value = mock_db
