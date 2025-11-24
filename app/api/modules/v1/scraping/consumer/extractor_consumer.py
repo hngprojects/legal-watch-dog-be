@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL")
-GEMINI_API_URL = os.getenv("GEMINI_API_URL")
+LLM_API_URL = os.getenv("LLM_API_URL")
 EXTRACTOR_QUEUE = "extractor.result"
 
 
 class ExtractorConsumer:
     """
-    Consumes extraction results from RabbitMQ, prepares payload for the Gemini Service,
+    Consumes extraction results from RabbitMQ, prepares payload for the LLM Service,
     and forwards the cleaned content with project & jurisdiction IDs.
     """
 
@@ -39,7 +39,7 @@ class ExtractorConsumer:
 
     async def process_message(self, message: aio_pika.IncomingMessage):
         """
-        Process incoming extraction results and forward them to the Gemini API.
+        Process incoming extraction results and forward them to the LLM API.
         """
         async with message.process():
             try:
@@ -54,26 +54,26 @@ class ExtractorConsumer:
                     logger.error("ExtractorConsumer: Missing project_id or jurisdiction_id")
                     return
 
-                gemini_payload = {
+                llm_payload = {
                     "content": cleaned_text,
                     "project_id": project_id,
                     "jurisdiction_id": jurisdiction_id,
                 }
 
-                logger.info(f"ExtractorConsumer: Sending Gemini Payload → {gemini_payload}")
+                logger.info(f"ExtractorConsumer: Sending LLM Payload → {llm_payload}")
 
                 async with httpx.AsyncClient(timeout=60.0) as client:
-                    gemini_response = await client.post(GEMINI_API_URL, json=gemini_payload)
+                    llm_response = await client.post(LLM_API_URL, json=llm_payload)
 
-                if gemini_response.status_code != 200:
+                if llm_response.status_code != 200:
                     logger.error(
-                        f"ExtractorConsumer: Gemini Service Error {gemini_response.status_code} — "
-                        f"{gemini_response.text}"
+                        f"ExtractorConsumer: LLM Service Error {llm_response.status_code} — "
+                        f"{llm_response.text}"
                     )
                     return
 
-                llm_data = gemini_response.json()
-                logger.info(f"ExtractorConsumer: Gemini Response: {llm_data}")
+                llm_data = llm_response.json()
+                logger.info(f"ExtractorConsumer: LLM Response: {llm_data}")
 
             except Exception as exc:
                 logger.error(
