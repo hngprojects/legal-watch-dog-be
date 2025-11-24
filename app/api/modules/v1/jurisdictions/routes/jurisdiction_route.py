@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import List, cast
 from uuid import UUID
@@ -18,6 +19,9 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     OrgResourceGuard,
 )
 from app.api.utils.response_payloads import error_response, success_response
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/jurisdictions",
@@ -69,18 +73,21 @@ async def create_jurisdiction(
     """
 
     jurisdiction = Jurisdiction(**payload.model_dump())
+    logger.debug("Creating jurisdiction with payload: %s", payload.model_dump())
 
     try:
         created = await service.create(db, jurisdiction)
 
+        logger.info("Jurisdiction created successfully %s", created)
         return success_response(
             status_code=201,
             message="Jurisdiction created successfully",
             data={"jurisdiction": created},
         )
 
-    except Exception:
-        return error_response(status_code=400, message="Failed to create jurisdiction")
+    except Exception as e:
+        logger.exception("Failed to create jurisdiction")
+        return error_response(status_code=400, message=f"Failed to create jurisdiction {str(e)}")
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
@@ -115,11 +122,16 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
         HTTPException: If database retrieval fails or invalid parameters are provided.
     """
 
+    logger.debug("Fetching all jurisdictions from DB")
     jurisdictions = await service.get_all_jurisdictions(db)
+    logger.debug("Retrieved %d jurisdictions", len(jurisdictions) if jurisdictions else 0)
 
     if not jurisdictions:
+        logger.info("No jurisdictions found")
         return error_response(status_code=404, message="No jurisdictions found")
 
+    logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
+    logger.debug("Jurisdiction IDs: %s", [str(j.id) for j in jurisdictions])
     return success_response(
         status_code=200,
         message="All Jurisdictions retrieved successfully",
@@ -167,9 +179,14 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
     """
 
     jurisdictions = await service.get_jurisdictions_by_project(db, project_id)
+    logger.debug("Retrieved %d jurisdictions", len(jurisdictions) if jurisdictions else 0)
 
     if not jurisdictions:
+        logger.info("No jurisdictions found")
         return error_response(status_code=404, message="No jurisdictions found")
+
+    logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
+    logger.debug("Jurisdiction IDs: %s", [str(j.id) for j in jurisdictions])
 
     return success_response(
         status_code=200,
@@ -191,15 +208,21 @@ async def soft_delete_jurisdictions_by_project(
     Return:
            Archived ids
     """
+    logger.debug("Soft deleting jurisdictions for project_id=%s", project_id)
     deleted = await service.soft_delete(db, project_id=project_id)
+    logger.debug("Deleted result: %s", deleted)
 
     if not deleted:
+        logger.info("No jurisdictions found to delete")
         return error_response(status_code=404, message="No jurisdictions found to delete")
 
-    # Cast to list[Jurisdiction] so static type checkers know we can access .id on items
     deleted_list = cast(List[Jurisdiction], deleted)
     deleted_ids = [str(j.id) for j in deleted_list]
 
+    logger.info(
+        "Archived %d jurisdiction(s) successfully for project_id=%s", len(deleted_ids), project_id
+    )
+    logger.debug("Archived jurisdiction IDs: %s", deleted_ids)
     return success_response(
         status_code=204,
         message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
@@ -246,13 +269,22 @@ async def get_jurisdiction(jurisdiction_id, db: AsyncSession = Depends(get_db)):
         database error occurs during retrieval.
     """
 
+    logger.debug("Fetching jurisdiction with id=%s", jurisdiction_id)
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
     if not jurisdiction:
+        logger.info("jurisdiction not found")
         return error_response(status_code=404, message="Jurisdiction not found")
+
+    logger.info(
+        "Jurisdiction retrieved successfully: id=%s, project_id=%s",
+        jurisdiction.id,
+        jurisdiction.project_id,
+    )
+    logger.debug("Jurisdiction details: %s", jurisdiction)
     return success_response(
         status_code=200,
         message="Jurisdiction retrieved successfully",
-        data={"jurisdiction": jurisdiction},
+        data={"Jurisdiction": jurisdiction},
     )
 
 
@@ -299,8 +331,14 @@ async def update_jurisdiction(
     """
 
     try:
+        logger.debug(
+            "Updating jurisdiction id=%s with payload: %s",
+            jurisdiction_id,
+            payload.model_dump(exclude_unset=True),
+        )
         jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
         if not jurisdiction:
+            logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
             return error_response(status_code=404, message="Jurisdiction not found")
 
         for key, value in payload.model_dump(exclude_unset=True).items():
@@ -314,6 +352,12 @@ async def update_jurisdiction(
 
         updated = await service.update(db, jurisdiction)
 
+        logger.info(
+            "Jurisdiction updated successfully: id=%s, project_id=%s",
+            updated.id,
+            updated.project_id,
+        )
+        logger.debug("Updated jurisdiction details: %s", updated)
         return success_response(
             status_code=200,
             message="Jurisdiction updated successfully",
@@ -337,13 +381,17 @@ async def soft_delete_jurisdiction(
     Return:
            Archived ids
     """
+    logger.debug("Soft deleting jurisdiction with id=%s", jurisdiction_id)
     deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
+    logger.debug("Deleted result: %s", deleted)
 
     if not deleted:
+        logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found")
 
     # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
+    logger.info("Jurisdiction archived successfully: id=%s", jurisdiction_id)
     return success_response(
         status_code=204,
         message="Jurisdiction archived successfully",
@@ -376,16 +424,23 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
         HTTPException: If the jurisdiction does not exist, is not archived,
         or if a database error occurs during the restoration process.
     """
-
+    logger.debug("Attempting to restore jurisdiction with id=%s", jurisdiction_id)
     jurisdiction = await service.get_jurisdiction_for_restoration(db, jurisdiction_id)
 
     if not jurisdiction or not jurisdiction.is_deleted:
+        logger.info("Jurisdiction not found or not deleted: id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found or not deleted")
 
     jurisdiction.is_deleted = False
     jurisdiction.deleted_at = None
     restored = await service.update(db, jurisdiction)
 
+    logger.info(
+        "Jurisdiction restored successfully: id=%s, project_id=%s",
+        restored.id,
+        restored.project_id,
+    )
+    logger.debug("Restored jurisdiction details: %s", restored)
     return success_response(
         status_code=200,
         message="Jurisdiction restored successfully",
@@ -413,13 +468,22 @@ async def restore_jurisdictions(project_id: UUID, db: AsyncSession = Depends(get
         HTTPException: If the jurisdictions does not exist, are not archived,
         or if a database error occurs during the restoration process.
     """
+    logger.debug("Restoring all archived jurisdictions for project_id=%s", project_id)
     restored_jurisdictions = await service.restore_all_archived_jurisdictions(db, project_id)
+    logger.debug("Restored result: %s", restored_jurisdictions)
 
     if not restored_jurisdictions:
+        logger.info("No archived jurisdictions found for this project")
         return error_response(
             status_code=404, message="No archived jurisdictions found for this project"
         )
 
+    logger.info(
+        "Restored %d jurisdiction(s) successfully for project_id=%s",
+        len(restored_jurisdictions),
+        project_id,
+    )
+    logger.debug("Restored jurisdiction IDs: %s", [str(j.id) for j in restored_jurisdictions])
     return success_response(
         status_code=200,
         message=f"Restored {len(restored_jurisdictions)} jurisdiction(s)",
