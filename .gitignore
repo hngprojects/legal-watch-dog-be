@@ -89,6 +89,10 @@ dump.rdb
 # Environment files
 .env.dev
 .env.prod
+.env.stage
 ecosystem.config.js
 start_app.sh
+
+# Celery Beat Scheduler files
+celerybeat-schedule.*
 
