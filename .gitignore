@@ -93,4 +93,7 @@ ecosystem.config.js
 start_app.sh
 
 
+# Celery Beat Scheduler files
+celerybeat-schedule.*
+
 
