@@ -41,9 +41,7 @@ class DiffAIService:
             },
         )
 
-    async def compute_diff(
-        self, old_data: Dict, new_data: Dict, context: str
-    ) -> Tuple[bool, Dict]:
+    async def compute_diff(self, old_data: Dict, new_data: Dict, context: str) -> Tuple[bool, Dict]:
         """
         Compares old and new data using Gemini 1.5 Flash.
         Returns: (was_change_detected, diff_patch_dict)
