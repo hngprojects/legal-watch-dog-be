@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict
 
 import aio_pika
-from scraping.service.llm_service import build_gemini_prompt, run_gemini_analysis
+from scraping.service.llm_service import build_llm_prompt, run_llm_analysis
 from scraping.service.prompt_service import build_final_prompt
 from scraping.service.queue_publisher import RabbitMQPublisher
 
@@ -20,7 +20,7 @@ async def process_single_message(message: aio_pika.IncomingMessage):
     Handles one message from extractor:
     - Parse fields
     - Build final prompt
-    - Run Gemini
+    - Run LLM
     - Publish AI summary with comparison-ready fields
     """
     async with message.process():
@@ -40,10 +40,10 @@ async def process_single_message(message: aio_pika.IncomingMessage):
             )
             logger.info(f"ProcessingPipeline: Final prompt →\n{final_prompt}")
 
-            gemini_input = build_gemini_prompt(final_prompt, cleaned_text)
+            llm_input = build_llm_prompt(final_prompt, cleaned_text)
 
-            gemini_result = await run_gemini_analysis(gemini_input)
-            logger.info(f"Gemini Result: {gemini_result}")
+            llm_result = await run_llm_analysis(llm_input)
+            logger.info(f"LLM Result: {llm_result}")
 
             publisher = RabbitMQPublisher(RABBITMQ_URL)
             await publisher.publish(
@@ -54,10 +54,10 @@ async def process_single_message(message: aio_pika.IncomingMessage):
                     "text_object": text_object,
                     "preview": cleaned_text,
                     "meta": meta,
-                    "summary": gemini_result.get("summary"),
-                    "changes_detected": gemini_result.get("changes_detected"),
-                    "risk_level": gemini_result.get("risk_level"),
-                    "recommendation": gemini_result.get("recommendation"),
+                    "summary": llm_result.get("summary"),
+                    "changes_detected": llm_result.get("changes_detected"),
+                    "risk_level": llm_result.get("risk_level"),
+                    "recommendation": llm_result.get("recommendation"),
                 }
             )
             await publisher.close()
@@ -70,7 +70,7 @@ async def start_processing_pipeline():
     """
     Startup listener for the extractor queue.
     """
-    logger.info("Starting extraction → Gemini→ summary pipeline...")
+    logger.info("Starting extraction → LLM → summary pipeline...")
 
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
     channel = await connection.channel()

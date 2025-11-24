@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 
 async def build_final_prompt(db, project_id: str, jurisdiction_id: str) -> str:
     """
-    Build a generic Gemini prompt by combining:
+    Build a generic LLM prompt by combining:
     - Project instructions (always included)
     - Jurisdiction instructions (if any, appended after project instructions)
     """
     logger.info(
-        f"PromptService: Building Gemini prompt for project_id={project_id}, "
+        f"PromptService: Building LLM prompt for project_id={project_id}, "
         f"jurisdiction_id={jurisdiction_id}"
     )
 
