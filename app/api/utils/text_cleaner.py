@@ -1,7 +1,13 @@
 import logging
 import re
 from typing import Optional
-from bs4 import BeautifulSoup, Comment
+try:
+    from bs4 import BeautifulSoup, Comment
+    _HAS_BS4 = True
+except ImportError:
+    BeautifulSoup = None
+    Comment = None
+    _HAS_BS4 = False
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +28,10 @@ def clean_html_content(raw_html_bytes: Optional[bytes]) -> str:
         str: Cleaned, human-readable text. Returns empty string on failure.
     """
     if not raw_html_bytes:
+        return ""
+
+    if not _HAS_BS4:
+        logger.error("Missing optional dependency: `beautifulsoup4` package is not installed. Run `pip install beautifulsoup4` to enable HTML cleaning.")
         return ""
 
     try:

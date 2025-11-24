@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
+    # MinIO Storage
+    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
+    MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="minioadmin")
+    MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="minioadmin")
+    MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
+
+    # LLM / AI Configuration
+    GOOGLE_API_KEY: str = config("GOOGLE_API_KEY", default="")
+    LLM_MODEL: str = config("LLM_MODEL", default="gemini-2.0-flash-lite")
+
     model_config = SettingsConfigDict(extra="allow")
 
 

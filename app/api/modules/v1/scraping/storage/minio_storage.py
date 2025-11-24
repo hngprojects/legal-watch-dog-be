@@ -60,9 +60,18 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
 
     try:
         # 1. Ensure Bucket Exists (Idempotent check)
-        if not minio_client.bucket_exists(bucket_name):
-            logger.info(f"Bucket '{bucket_name}' does not exist. Creating it...")
-            minio_client.make_bucket(bucket_name)
+        try:
+            if not minio_client.bucket_exists(bucket_name=bucket_name):
+                logger.info(f"Bucket '{bucket_name}' does not exist. Creating it...")
+                minio_client.make_bucket(bucket_name=bucket_name)
+        except Exception as e:
+            logger.warning(f"Bucket existence check failed (may already exist): {e}")
+            # Attempt creation anyway; if bucket exists, MinIO will handle gracefully
+            try:
+                minio_client.make_bucket(bucket_name=bucket_name)
+            except Exception as create_err:
+                if "BucketAlreadyExists" not in str(create_err) and "BucketAlreadyOwnedByYou" not in str(create_err):
+                    raise create_err
 
         # 2. Prepare Stream
         # MinIO's put_object requires a stream, not raw bytes
@@ -74,7 +83,7 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
             object_name=object_name,
             data=data_stream,
             length=len(file_data),
-            content_type="application/octet-stream" # generic binary stream
+            content_type="application/octet-stream"
         )
         
         logger.info(f"Successfully uploaded to MinIO: {bucket_name}/{object_name}")
@@ -95,11 +104,10 @@ def fetch_raw_content_from_minio(object_name: str, bucket_name: str = "raw-conte
         return None
 
     try:
-        response = minio_client.get_object(bucket_name, object_name)
-        try:
-            return response.read()
-        finally:
-            response.close()
+        response = minio_client.get_object(bucket_name=bucket_name, object_name=object_name)
+        content = response.read()
+        response.close()
+        return content
             
     except Exception as e:
         logger.error(f"Failed to fetch object {object_name} from MinIO: {e}")

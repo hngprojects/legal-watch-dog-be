@@ -8,6 +8,11 @@ class ExtractionResult(BaseModel):
     """
     summary: str = Field(..., description="A concise summary.")
     
+    markdown_summary: str = Field(
+        default="",
+        description="Markdown-formatted summary with extracted data presented as a formatted table or list. Generated after extraction."
+    )
+    
     confidence_score: float = Field(
         ..., 
         description="0.0 to 1.0 confidence score.",
