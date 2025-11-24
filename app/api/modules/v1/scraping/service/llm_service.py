@@ -10,18 +10,17 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = "gemini-2.0-flash"
-GEMINI_API_URL = (
-    f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent"
-)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
+LLM_API_URL = os.getenv("LLM_API_URL")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 
 
-def build_gemini_prompt(final_prompt: str, extracted_text: str) -> str:
+def build_llm_prompt(project_prompt: str, jurisdiction_prompt: str, extracted_text: str) -> str:
     """
-    Combines the project+jurisdiction prompt with extracted text
-    inside a structured gemini instruction template.
+    Combines project and jurisdiction prompts with extracted text
     """
+    combined_prompt = f"{project_prompt}\n{jurisdiction_prompt}".strip()
 
     return f"""
 You are an AI assistant helping an organization analyze updates from scraped sources.
@@ -30,7 +29,7 @@ You are an AI assistant helping an organization analyze updates from scraped sou
 Use the following instructions (from project and jurisdiction setup):
 
 [INSTRUCTIONS START]
-{final_prompt}
+{combined_prompt}
 [INSTRUCTIONS END]
 
 Scraped text to analyze:
@@ -44,56 +43,94 @@ Respond ONLY with valid JSON in the following format:
 
 {{
   "summary": "string",
-  "changes_detected": "string",
-  "risk_level": "Low | Medium | High",
-  "recommendation": "string"
+  "extracted_data": {{
+    "key_findings": "string",
+    "changes_detected": "string",
+    "risk_level": "Low | Medium | High",
+    "recommendation": "string"
+  }},
+  "confidence_score": 0.85
 }}
 
 ### RULES
 - Only return JSON, no extra commentary.
 - Fill all fields.
+- confidence_score should be between 0.0 and 1.0
 """.strip()
 
 
-async def run_gemini_analysis(gemini_input: str) -> Dict[str, Any]:
+async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
     """
-    Sends prompt to Gemini and ensures JSON output.
+    Sends prompt to LLM and ensures JSON output.
     """
     await asyncio.sleep(0.5)
 
     headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json",
     }
 
-    payload = {"model": GEMINI_MODEL, "prompt": gemini_input, "temperature": 0.2}
+    # Add API key to headers or payload based on provider
+    if LLM_PROVIDER == "gemini":
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+        payload = {
+            "model": LLM_MODEL,
+            "prompt": llm_input,
+            "temperature": float(os.getenv("LLM_TEMPERATURE", "0.2")),
+        }
+    else:
+        # For other providers like OpenAI, Anthropic, etc.
+        payload = {
+            "model": LLM_MODEL,
+            "prompt": llm_input,
+            "temperature": float(os.getenv("LLM_TEMPERATURE", "0.2")),
+            "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "300")),
+        }
 
-    logger.info("Sending request to Gemini...")
+    logger.info("Sending request to LLM...")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(GEMINI_API_URL, json=payload, headers=headers)
+            response = await client.post(LLM_API_URL, json=payload, headers=headers)
 
         response.raise_for_status()
         data = response.json()
-        raw_text = data.get("text", "")
+
+        # Handle different response formats based on provider
+        if LLM_PROVIDER == "gemini":
+            raw_text = data.get("text", "")
+        else:
+            # For OpenAI: data["choices"][0]["text"]
+            # For Anthropic: data["completion"]
+            raw_text = (
+                data.get("choices", [{}])[0].get("text", "")
+                if "choices" in data
+                else data.get("completion", "")
+            )
 
         try:
             return json.loads(raw_text)
         except json.JSONDecodeError:
-            logger.error("Gemini returned invalid JSON. Returning fallback.")
+            logger.error("LLM returned invalid JSON. Returning fallback.")
             return {
                 "summary": "Could not parse summary",
-                "changes_detected": "",
-                "risk_level": "Low",
-                "recommendation": "",
+                "extracted_data": {
+                    "key_findings": "",
+                    "changes_detected": "",
+                    "risk_level": "Low",
+                    "recommendation": "",
+                },
+                "confidence_score": 0.0,
             }
 
     except Exception as exc:
-        logger.error(f"Gemini request failed: {exc}", exc_info=True)
+        logger.error(f"LLM request failed: {exc}", exc_info=True)
         return {
-            "summary": "Gemini processing failed",
-            "changes_detected": "",
-            "risk_level": "Low",
-            "recommendation": "",
+            "summary": "LLM processing failed",
+            "extracted_data": {
+                "key_findings": "",
+                "changes_detected": "",
+                "risk_level": "Low",
+                "recommendation": "",
+            },
+            "confidence_score": 0.0,
         }
