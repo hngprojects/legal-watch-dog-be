@@ -1,6 +1,8 @@
+import json
+
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import to_tsquery
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
@@ -13,24 +15,23 @@ from app.api.modules.v1.search.schemas.search_schema import (
 
 
 class SearchService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     async def search(self, search_request: SearchRequest) -> SearchResponse:
         tsquery = self._build_tsquery(search_request.query, search_request.operator)
-
-        statement = select(
-            DataRevision,
-            func.ts_rank(DataRevision.search_vector, to_tsquery("english", tsquery)).label(
-                "relevance_score"
-            ),
-        ).filter(DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery)))
-
-        statement = self._apply_filters(statement, search_request)
-
+        
+        # Define relevance score column once to avoid duplication
         relevance_score_col = func.ts_rank(
             DataRevision.search_vector, to_tsquery("english", tsquery)
         ).label("relevance_score")
+
+        statement = select(
+            DataRevision,
+            relevance_score_col,
+        ).filter(DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery)))
+
+        statement = self._apply_filters(statement, search_request)
 
         count_statement = select(func.count()).filter(
             DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery))
@@ -96,8 +97,6 @@ class SearchService:
         for key, value in search_request.extracted_data_filters.items():
             # Convert value to string since ->> operator returns text
             if isinstance(value, (dict, list)):
-                import json
-
                 value_str = json.dumps(value, separators=(",", ":"))
             else:
                 value_str = str(value)
