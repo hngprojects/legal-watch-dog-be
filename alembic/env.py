@@ -15,6 +15,8 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
+from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
