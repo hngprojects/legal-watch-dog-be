@@ -1,19 +1,19 @@
 """create join table for users and organizations
 
-Revision ID: 1cac4059df78
-Revises: 1c058123eea7
-Create Date: 2025-11-25 14:03:10.926501
+Revision ID: b398f6b7c7db
+Revises: a8109c8c21c0
+Create Date: 2025-11-25 23:35:10.036325
 
 """
 from typing import Sequence, Union
-import sqlmodel
+
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '1cac4059df78'
-down_revision: Union[str, Sequence[str], None] = '1c058123eea7'
+revision: str = 'b398f6b7c7db'
+down_revision: Union[str, Sequence[str], None] = 'a8109c8c21c0'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
