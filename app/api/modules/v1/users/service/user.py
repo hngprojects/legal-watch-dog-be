@@ -66,6 +66,9 @@ class UserCRUD:
 
         except Exception as e:
             logger.error(
-                "Failed to create admin user for email=%s: %s", email, str(e), exc_info=True
+                "Failed to create admin user for email=%s: %s",
+                email,
+                str(e),
+                exc_info=True,
             )
             raise Exception("Failed to create admin user")

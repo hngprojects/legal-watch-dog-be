@@ -38,9 +38,18 @@ dependencies = [
     "sqlmodel>=0.0.27",
     "uvicorn[standard]>=0.38.0",
     "pre-commit>=4.4.0",
+
+
+    "pytest-asyncio>=1.3.0",
+    "aiosmtplib>=5.0.0",
+    "ruff>=0.14.5",
+    "aio-pika>=8.3.0",
+    "google-generativeai>=0.3.0",
+
     "cloudscraper>=1.2.71",
     "pdfplumber>=0.11.8",
     "playwright>=1.56.0",
+
 ]
 
 [dependency-groups]
@@ -74,4 +83,12 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+line-ending = "auto"
+
+[tool.poetry.dependencies]
+aio-pika = "^8.3.0"
+google-genai = "^0.3.0"
+google-generativeai = "^0.3.0"
+
 line-ending = "auto"
