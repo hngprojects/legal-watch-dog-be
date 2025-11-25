@@ -96,6 +96,7 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
     Retrieve jurisdictions from the system.
 
     This endpoint returns a list of jurisdictions in the database.
+    Flat Structure (non-nested)
     Soft-deleted jurisdictions may be excluded
     depending on the implementation of the underlying query logic.
 
@@ -131,7 +132,14 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
         return error_response(status_code=404, message="No jurisdictions found")
 
     logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
-    logger.debug("Jurisdiction IDs: %s", [str(j.id) for j in jurisdictions])
+
+    def _jid(j):
+        try:
+            return str(j["id"]) if isinstance(j, dict) else str(getattr(j, "id", ""))
+        except Exception:
+            return ""
+
+    logger.debug("Jurisdiction IDs: %s", [_jid(j) for j in jurisdictions])
     return success_response(
         status_code=200,
         message="All Jurisdictions retrieved successfully",
@@ -146,7 +154,8 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
 )
 async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
     """
-    Retrieve jurisdictions from the system by project id.
+    Retrieve jurisdictions from the system by project id
+    including all nested children Jurisdiction.
 
     This endpoint returns a list of jurisdictions by a specific
     project. Soft-deleted jurisdictions may be excluded
@@ -186,7 +195,15 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
         return error_response(status_code=404, message="No jurisdictions found")
 
     logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
-    logger.debug("Jurisdiction IDs: %s", [str(j.id) for j in jurisdictions])
+
+    # jurisdictions may be plain dicts (serialized by the service) or ORM objects.
+    def _jid(j):
+        try:
+            return str(j["id"]) if isinstance(j, dict) else str(getattr(j, "id", ""))
+        except Exception:
+            return ""
+
+    logger.debug("Jurisdiction IDs: %s", [_jid(j) for j in jurisdictions])
 
     return success_response(
         status_code=200,
@@ -201,14 +218,19 @@ async def soft_delete_jurisdictions_by_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Soft delete all jurisdictions in a project.
+    Soft delete all jurisdictions in a project including
+    nested jurisdictions.
     Args:
         project_id
          db (AsyncSession): Database session.
     Return:
            Archived ids
     """
-    logger.debug("Soft deleting jurisdictions for project_id=%s", project_id)
+    logger.debug(
+        "Soft deleting jurisdictions for project_id=%s. "
+        "This will also archive all nested child jurisdictions.",
+        project_id,
+    )
     deleted = await service.soft_delete(db, project_id=project_id)
     logger.debug("Deleted result: %s", deleted)
 
@@ -220,9 +242,13 @@ async def soft_delete_jurisdictions_by_project(
     deleted_ids = [str(j.id) for j in deleted_list]
 
     logger.info(
-        "Archived %d jurisdiction(s) successfully for project_id=%s", len(deleted_ids), project_id
+        "Archived %d jurisdiction(s) including nested jurisdictions for project_id=%s",
+        len(deleted_ids),
+        project_id,
     )
-    logger.debug("Archived jurisdiction IDs: %s", deleted_ids)
+    logger.debug(
+        "Archived jurisdiction IDs (nested jurisdictions were also archived): %s", deleted_ids
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -272,10 +298,16 @@ async def get_jurisdiction(jurisdiction_id, db: AsyncSession = Depends(get_db)):
         logger.info("jurisdiction not found")
         return error_response(status_code=404, message="Jurisdiction not found")
 
+    def _get_attr(obj, attr):
+        try:
+            return obj.get(attr) if isinstance(obj, dict) else getattr(obj, attr, "")
+        except Exception:
+            return ""
+
     logger.info(
         "Jurisdiction retrieved successfully: id=%s, project_id=%s",
-        jurisdiction.id,
-        jurisdiction.project_id,
+        _get_attr(jurisdiction, "id"),
+        _get_attr(jurisdiction, "project_id"),
     )
     logger.debug("Jurisdiction details: %s", jurisdiction)
     return success_response(
@@ -333,19 +365,53 @@ async def update_jurisdiction(
             jurisdiction_id,
             payload.model_dump(exclude_unset=True),
         )
-        jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
+        incoming = payload.model_dump(exclude_unset=True)
+        if "is_deleted" in incoming and incoming.get("is_deleted") is True:
+            logger.debug("Archiving jurisdiction via PATCH: id=%s", jurisdiction_id)
+            deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
+            if not deleted:
+                logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
+                return error_response(status_code=404, message="Jurisdiction not found")
+
+            logger.info(
+                "Jurisdiction archived successfully via PATCH: id=%s",
+                jurisdiction_id,
+            )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+        if "is_deleted" in incoming and incoming.get("is_deleted") is False:
+            logger.debug("Restoring jurisdiction via PATCH: id=%s", jurisdiction_id)
+            restored = await service.restore_jurisdiction_and_children(db, jurisdiction_id)
+            if not restored:
+                return error_response(
+                    status_code=404, message="Jurisdiction not found or not deleted"
+                )
+
+            return success_response(
+                status_code=200,
+                message="Jurisdiction restored successfully",
+                data={"jurisdiction": restored},
+            )
+
+        jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
         if not jurisdiction:
             logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
             return error_response(status_code=404, message="Jurisdiction not found")
 
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        for key, value in incoming.items():
             setattr(jurisdiction, key, value)
 
-        if "is_deleted" in payload.model_dump(exclude_unset=True):
-            if payload.is_deleted:
-                jurisdiction.deleted_at = datetime.now(timezone.utc)
+        if "is_deleted" in incoming:
+            if incoming.get("is_deleted"):
+                try:
+                    jurisdiction.deleted_at = datetime.now(timezone.utc)
+                except Exception:
+                    pass
             else:
-                jurisdiction.deleted_at = None
+                try:
+                    jurisdiction.deleted_at = None
+                except Exception:
+                    pass
 
         updated = await service.update(db, jurisdiction)
 
@@ -371,7 +437,8 @@ async def soft_delete_jurisdiction(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Soft delete a single jurisdiction by ID.
+    Soft delete a single jurisdiction by ID
+    whether flat or nested jurisdictions.
     Args:
         jurisdiction_id
         db (AsyncSession): Database session.
@@ -388,8 +455,78 @@ async def soft_delete_jurisdiction(
 
     # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
-    logger.info("Jurisdiction archived successfully: id=%s", jurisdiction_id)
+    logger.info(
+        "Jurisdiction (including nested jurisdiction if any) archived successfully: id=%s",
+        jurisdiction_id,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{jurisdiction_id}/tree",
+    status_code=status.HTTP_200_OK,
+    response_model=JurisdictionResponseSchema,
+)
+async def get_a_nested_jurisdiction_tree(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Gets a jurisdiction and its children
+
+    Args:
+        jurisdiction_id (UUID): _description_
+        db (AsyncSession, optional): _description_. Defaults to Depends(get_db).
+
+    Returns:
+        _type_: _description_
+    """
+    logger.debug("Starting retrieval of jurisdiction tree for id=%s", jurisdiction_id)
+    parent_and_nested_jurisdictions = await service.get_jurisdiction_tree(db, jurisdiction_id)
+    logger.debug("Nested Jurisdictions: %s", parent_and_nested_jurisdictions)
+
+    if not parent_and_nested_jurisdictions:
+        logger.warning("Jurisdiction with id=%s not found or deleted", jurisdiction_id)
+        return error_response(
+            status_code=404, message=f"Jurisdiction with id={jurisdiction_id} not found"
+        )
+
+    def _as_children(obj):
+        try:
+            if isinstance(obj, dict):
+                return obj.get("children") or []
+            return getattr(obj, "children", []) or []
+        except Exception:
+            return []
+
+    def _as_id(obj):
+        try:
+            return str(obj["id"]) if isinstance(obj, dict) else str(getattr(obj, "id", ""))
+        except Exception:
+            return ""
+
+    children = _as_children(parent_and_nested_jurisdictions)
+    num_children = len(children)
+    nested_ids = [
+        str(c["id"]) if isinstance(c, dict) else str(getattr(c, "id", "")) for c in children
+    ]
+
+    logger.info(
+        "Jurisdiction retrieved successfully: id=%s,"
+        "project_id=%s, children_count=%d, children_ids=%s",
+        _as_id(parent_and_nested_jurisdictions),
+        (
+            parent_and_nested_jurisdictions.get("project_id")
+            if isinstance(parent_and_nested_jurisdictions, dict)
+            else getattr(parent_and_nested_jurisdictions, "project_id", "")
+        ),
+        num_children,
+        nested_ids,
+    )
+
+    logger.debug("Full nested structure: %s", parent_and_nested_jurisdictions)
+    return success_response(
+        status_code=200,
+        message="Nested Jurisdictions retrieved successfully",
+        data={"jurisdiction": parent_and_nested_jurisdictions},
+    )
 
 
 @router.post(
@@ -399,7 +536,8 @@ async def soft_delete_jurisdiction(
 )
 async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
     """
-    Restore a previously archived (soft-deleted) jurisdiction.
+    Restore a previously archived (soft-deleted) jurisdiction
+    whether flat or nested.
 
     This endpoint reverses a soft deletion by setting the jurisdiction’s `is_deleted`
     flag back to `False` and clearing its `deleted_at` timestamp if applicable. It
@@ -419,20 +557,55 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
         or if a database error occurs during the restoration process.
     """
     logger.debug("Attempting to restore jurisdiction with id=%s", jurisdiction_id)
-    jurisdiction = await service.get_jurisdiction_for_restoration(db, jurisdiction_id)
 
-    if not jurisdiction or not jurisdiction.is_deleted:
-        logger.info("Jurisdiction not found or not deleted: id=%s", jurisdiction_id)
+    try:
+        restored = await service.restore_jurisdiction_and_children(db, jurisdiction_id)
+    except Exception as exc:
+        logger.debug(
+            "restore_jurisdiction_and_children failed, falling back to legacy restore flow: %s", exc
+        )
+        try:
+            jurisdiction = await service.get_jurisdiction_for_restoration(
+                db, jurisdiction_id, restore_nested=True
+            )
+            if not jurisdiction:
+                restored = None
+            else:
+                try:
+                    jurisdiction.is_deleted = False
+                    jurisdiction.deleted_at = None
+                except Exception:
+                    pass
+                updated = await service.update(db, jurisdiction)
+                if isinstance(updated, dict):
+                    restored = updated
+                else:
+                    try:
+                        restored = service._serialize_jurisdiction(updated)
+                    except Exception:
+                        restored = {
+                            "id": getattr(updated, "id", None),
+                            "project_id": getattr(updated, "project_id", None),
+                            "parent_id": getattr(updated, "parent_id", None),
+                            "name": getattr(updated, "name", None),
+                            "description": getattr(updated, "description", None),
+                            "is_deleted": getattr(updated, "is_deleted", None),
+                            "deleted_at": getattr(updated, "deleted_at", None),
+                            "children": getattr(updated, "children", [])
+                            or updated.__dict__.get("children", []),
+                        }
+        except Exception as exc2:
+            logger.debug("Legacy restore flow failed: %s", exc2)
+            restored = None
+
+    if not restored:
+        logger.info("Jurisdiction not found or nothing to restore: id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found or not deleted")
-
-    jurisdiction.is_deleted = False
-    jurisdiction.deleted_at = None
-    restored = await service.update(db, jurisdiction)
 
     logger.info(
         "Jurisdiction restored successfully: id=%s, project_id=%s",
-        restored.id,
-        restored.project_id,
+        restored.get("id"),
+        restored.get("project_id"),
     )
     logger.debug("Restored jurisdiction details: %s", restored)
     return success_response(
@@ -447,8 +620,9 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     status_code=status.HTTP_200_OK,
     response_model=List[JurisdictionResponseSchema],
 )
-async def restore_jurisdictions(project_id: UUID, db: AsyncSession = Depends(get_db)):
-    """Restore all archived jurisdictions for a project and return them.
+async def restore_jurisdictions_by_project_id(project_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Restore all archived jurisdictions (whether flat or nested)
+    for a project and return them.
        Args:
         project_id (UUID): The unique identifier of the project to restore
         all its jurisdiction.
@@ -477,7 +651,14 @@ async def restore_jurisdictions(project_id: UUID, db: AsyncSession = Depends(get
         len(restored_jurisdictions),
         project_id,
     )
-    logger.debug("Restored jurisdiction IDs: %s", [str(j.id) for j in restored_jurisdictions])
+
+    def _jid_or_dict(j):
+        try:
+            return str(j["id"]) if isinstance(j, dict) else str(getattr(j, "id", ""))
+        except Exception:
+            return ""
+
+    logger.debug("Restored jurisdiction IDs: %s", [_jid_or_dict(j) for j in restored_jurisdictions])
     return success_response(
         status_code=200,
         message=f"Restored {len(restored_jurisdictions)} jurisdiction(s)",
