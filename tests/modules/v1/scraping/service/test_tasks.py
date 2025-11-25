@@ -78,6 +78,10 @@ def test_scrape_source_success():
     mock_db.refresh.assert_awaited_once()
     mock_db.add.assert_called_once_with(source)
 
+    # Verify stats updated
+    assert source.last_scraped_at is not None
+    assert source.last_error is None
+
 
 def test_scrape_source_not_found():
     """Tests the case where the source ID does not exist."""
@@ -138,15 +142,49 @@ def test_scrape_source_dlq_on_max_retries():
         dlq_entry = json.loads(called_args[1])
         assert dlq_entry["task_id"] == "test_task_id"
 
+        # Verify circuit breaker was called
+        # Note: Since it's called via asyncio.run inside the exception handler,
+        # we need to ensure our mock was set up to capture this.
+        # However, we mocked _scrape_source_async, not _handle_scrape_failure_async.
+        # We need to mock _handle_scrape_failure_async in the test setup.
+
+    # Re-run the test with _handle_scrape_failure_async mocked
+    with (
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal"),
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
+        patch(
+            "app.api.modules.v1.scraping.service.tasks._scrape_source_async", new_callable=MagicMock
+        ) as mock_scrape_async,
+        patch(
+            "app.api.modules.v1.scraping.service.tasks._handle_scrape_failure_async",
+            new_callable=MagicMock,
+        ) as mock_handle_failure,
+    ):
+        mock_scrape_async.side_effect = Exception("Simulated scraping failure")
+        mock_redis_client = MagicMock()
+        mock_redis_cls.return_value = mock_redis_client
+
+        scrape_source.push_request(
+            id="test_task_id", args=[source_id], retries=settings.SCRAPE_MAX_RETRIES
+        )
+        result = scrape_source.run(source_id)
+        scrape_source.pop_request()
+
+        assert "moved to DLQ" in result
+        # Verify circuit breaker called
+        mock_handle_failure.assert_called_once()
+
 
 def test_dispatch_due_sources_acquires_lock_and_dispatches():
     """Tests that the dispatcher acquires a lock and dispatches tasks."""
-    source1 = Source(id=uuid.uuid4(), name="Due Source 1")
-    source2 = Source(id=uuid.uuid4(), name="Due Source 2")
+    source1 = Source(id=uuid.uuid4(), name="Due Source 1", scrape_frequency="HOURLY")
+    source2 = Source(id=uuid.uuid4(), name="Due Source 2", scrape_frequency="HOURLY")
 
     mock_db = MagicMock()
     mock_db.execute = AsyncMock()
     mock_db.close = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.add = MagicMock()
 
     # Configure mock results for batching
     mock_result_batch1 = MagicMock()
@@ -156,6 +194,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches():
     mock_result_batch2.scalars.return_value.all.return_value = []
 
     # side_effect on the AWAITED result of execute
+    # We need to ensure that the return values are treated as the result of the await
     mock_db.execute.side_effect = [mock_result_batch1, mock_result_batch2]
 
     with (
@@ -176,6 +215,11 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches():
     assert "Dispatched 2 sources" in result
     assert mock_redis_instance.set.call_count == 1
     assert mock_app.send_task.call_count == 2
+
+    # Verify DB interactions
+    assert mock_db.execute.call_count == 2
+    assert mock_db.add.call_count == 2
+    assert mock_db.commit.call_count == 2
 
 
 def test_dispatch_due_sources_lock_already_held():
