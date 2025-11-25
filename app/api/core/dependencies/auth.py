@@ -7,14 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.dependencies.redis_service import is_token_denylisted
-from app.api.core.logger import setup_logging
 from app.api.db.database import get_db
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import decode_token
 from app.api.utils.permissions import Permission
 
-setup_logging()
 logger = logging.getLogger("app")
 
 # HTTP Bearer token extraction
@@ -66,7 +64,7 @@ async def get_current_user(
 
         if not user.is_active:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive"
             )
 
         if not user.is_verified:
@@ -75,12 +73,10 @@ async def get_current_user(
         logger.info(f"Authenticated user: {user.email}")
         return user
 
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    except HTTPException:
-        raise
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
         raise HTTPException(
