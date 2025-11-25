@@ -30,7 +30,7 @@ from app.api.utils.response_payloads import (
     success_response,
 )
 
-router = APIRouter(prefix="/projects", tags=["Projects"])
+router = APIRouter(prefix="/organizations/{organization_id}/projects", tags=["Projects"])
 logger = logging.getLogger("app")
 
 
