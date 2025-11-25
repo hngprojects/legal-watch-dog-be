@@ -101,7 +101,6 @@ class OrganizationService:
                 "organization_name": organization.name,
                 "user_id": str(user_id),
                 "role": admin_role.name,
-                "message": "Organization created successfully",
             }
 
         except ValueError as e:

@@ -160,7 +160,6 @@ class RegistrationService:
             return {
                 "email": user.email,
                 "user_id": user.id,
-                "message": "Account created successfully. You can now create an organization.",
             }
 
         except ValueError as e:

@@ -70,6 +70,27 @@ class RoleCRUD:
         role_name: str = "User",
         description: Optional[str] = "LegalWatchDog User",
     ) -> Role:
+        """
+        Create and persist a default user role in the database.
+
+        This function initializes a new role with the given name, description,
+        and a predefined set of user permissions. The role is added to the
+        database, committed, and refreshed before being returned.
+
+        Args:
+            db (AsyncSession): The active database session.
+            role_name (str, optional): Name of the role to create.
+                Defaults to "User".
+            description (str, optional): Description of the role.
+                Defaults to "LegalWatchDog User".
+
+        Returns:
+            Role: The newly created and persisted role instance.
+
+        Raises:
+            Exception: If the role creation or database operation fails.
+        """
+
         try:
             role = Role(
                 name=role_name,

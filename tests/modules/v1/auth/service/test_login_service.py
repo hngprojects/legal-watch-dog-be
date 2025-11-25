@@ -24,12 +24,10 @@ async def test_successful_login_with_organizations(pg_sync_session, pg_async_ses
     session.add(org)
     session.flush()
 
-    # Create role
     role = Role(name="admin", permissions={"view": True})
     session.add(role)
     session.flush()
 
-    # Create user
     user = User(
         email="login@example.com",
         hashed_password=hash_password("SecurePassword123!"),
@@ -40,7 +38,6 @@ async def test_successful_login_with_organizations(pg_sync_session, pg_async_ses
     session.add(user)
     session.flush()
 
-    # Create memberships
     membership = UserOrganization(
         user_id=user.id,
         organization_id="550e8400-e29b-41d4-a716-446655440000",
@@ -50,7 +47,6 @@ async def test_successful_login_with_organizations(pg_sync_session, pg_async_ses
     session.add(membership)
     session.commit()
 
-    # Mock Redis functions
     with patch(
         "app.api.modules.v1.auth.service.login_service.get_redis_client", new_callable=AsyncMock
     ):

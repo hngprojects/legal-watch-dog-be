@@ -14,25 +14,20 @@ from app.api.utils.permissions import Permission
 async def test_require_permission_grants(pg_async_session: AsyncSession):
     session = pg_async_session
 
-    # Create organization
     org = Organization(name="Test Org")
     session.add(org)
     await session.flush()
 
-    # Create role with permission
     permissions = {Permission.CREATE_PROJECTS.value: True}
     role = Role(name="admin", organization_id=org.id, permissions=permissions)
     session.add(role)
     await session.flush()
 
-    # Create user with role
     user = User(email="perm@example.com", hashed_password="x", name="Test User", is_verified=True)
     session.add(user)
     await session.commit()
 
-    # Permission checker
     checker = require_permission(Permission.CREATE_PROJECTS)
 
-    # Should not raise
     result = await checker(user_role=(user, role))
     assert result.email == user.email

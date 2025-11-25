@@ -301,3 +301,107 @@ class UserCRUD:
 
         logger.info(f"Updated user {user_id}: {kwargs}")
         return user
+
+    @staticmethod
+    async def get_user_profile(db: AsyncSession, user_id: uuid.UUID) -> dict:
+        """
+        Get complete user profile with all related information.
+
+        Retrieves comprehensive user information including:
+        - Basic user details
+        - All organization memberships
+        - Roles in each organization
+        - Account status and verification
+
+        Args:
+            db: Database session
+            user_id: UUID of the user
+
+        Returns:
+            dict: Dictionary containing complete user profile
+
+        Raises:
+            ValueError: If user not found
+            Exception: For unexpected errors
+        """
+        from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
+        from app.api.modules.v1.organization.service.user_organization_service import (
+            UserOrganizationCRUD,
+        )
+
+        logger.info(f"Fetching complete profile for user_id={user_id}")
+
+        try:
+            user = await UserCRUD.get_by_id(db, user_id)
+            if not user:
+                raise ValueError("User not found")
+
+            memberships = await UserOrganizationCRUD.get_user_organizations(
+                db, user_id, active_only=False
+            )
+
+            organizations = []
+            for membership in memberships:
+                org = await OrganizationCRUD.get_by_id(db, membership.organization_id)
+                if not org:
+                    continue
+
+                role = await db.get(Role, membership.role_id)
+
+                organizations.append(
+                    {
+                        "organization_id": str(org.id),
+                        "name": org.name,
+                        "industry": org.industry,
+                        "is_active": org.is_active,
+                        "membership_active": membership.is_active,
+                        "role": {
+                            "id": str(role.id) if role else None,
+                            "name": role.name if role else None,
+                            "permissions": role.permissions if role else {},
+                        },
+                        "joined_at": membership.created_at.isoformat(),
+                        "membership_updated_at": membership.updated_at.isoformat(),
+                    }
+                )
+
+            profile = {
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "name": user.name,
+                    "auth_provider": user.auth_provider,
+                    "is_active": user.is_active,
+                    "is_verified": user.is_verified,
+                    "created_at": user.created_at.isoformat(),
+                    "updated_at": user.updated_at.isoformat(),
+                },
+                "organizations": organizations,
+                "statistics": {
+                    "total_organizations": len(organizations),
+                    "active_memberships": sum(
+                        1 for org in organizations if org["membership_active"]
+                    ),
+                    "admin_roles": sum(
+                        1
+                        for org in organizations
+                        if org["role"]["name"] == "Admin"
+                        or org["role"]["permissions"].get("manage_organization", False)
+                    ),
+                },
+            }
+
+            logger.info(f"Successfully retrieved complete profile for user_id={user_id}")
+            return profile
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error fetching user profile for user_id={user_id}: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching user profile for user_id={user_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to retrieve user profile")

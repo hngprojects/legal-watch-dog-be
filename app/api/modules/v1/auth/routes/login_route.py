@@ -28,7 +28,7 @@ from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-logger = logging.getLogger("app")
+logger = logging.getLogger(__name__)
 
 
 @router.post(
