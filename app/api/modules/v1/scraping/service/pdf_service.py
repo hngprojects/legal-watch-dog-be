@@ -70,7 +70,6 @@ class PDFService:
         if content_type and "pdf" in content_type.lower():
             return True
 
-        # Check for PDF magic bytes (%PDF)
         if len(content) >= 4 and content[:4] == b"%PDF":
             return True
 

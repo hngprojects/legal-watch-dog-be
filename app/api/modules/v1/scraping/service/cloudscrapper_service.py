@@ -112,7 +112,7 @@ class HTTPClientService:
             >>> print(len(content))
             5678
         """
-        # 1. request with timeout
+
         response = self.scraper.get(url, timeout=15)
         response.raise_for_status()
 
