@@ -5,10 +5,12 @@ on:
     branches:
       - dev
       - main
+      - staging
   push:
     branches:
       - dev
       - main
+      - staging
 
 jobs:
   test_lint_build:

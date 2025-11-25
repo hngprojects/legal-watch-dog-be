@@ -108,7 +108,7 @@ async def test_failed_login_increments_counter(pg_sync_session, pg_async_session
             ip_address="192.168.1.2",
         )
 
-    assert exc_info.value.status_code == 400
+    assert exc_info.value.status_code == 401
     assert "attempts remaining" in exc_info.value.detail.lower()
 
 
