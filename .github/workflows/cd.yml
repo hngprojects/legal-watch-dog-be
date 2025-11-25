@@ -45,7 +45,7 @@ jobs:
           EMAIL=${{ secrets.EMAIL }}
           MAIL_FROM_NAME="LEGAL WATCH DOG"
           
-          APP_URL="${{ vars.APP_URL || 'https://api.minamoto.emerj.net' }}"
+          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:8001' }}"
           REDIS_URL=${{ secrets.REDIS_URL }}
           REDIS_CACHE_TTL_SECONDS=${{ secrets.REDIS_CACHE_TTL_SECONDS }}
