@@ -38,7 +38,7 @@ async def test_signup_waitlist_success(app, pg_async_session):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["status"] == "success"
+    assert data["status"] == "SUCCESS"
     assert "Successfully added to waitlist" in data["message"]
 
 

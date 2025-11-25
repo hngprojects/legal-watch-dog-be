@@ -87,7 +87,7 @@ class TestCreateSourceEndpoint:
         # Assert
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["status"] == "success"
+        assert data["status"] == "SUCCESS"
         assert data["status_code"] == 201
         assert data["message"] == "Source created successfully"
         assert "source" in data["data"]
@@ -233,7 +233,7 @@ class TestGetSourcesEndpoint:
         # Assert
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["status"] == "success"
+        assert data["status"] == "SUCCESS"
         assert data["message"] == "Sources retrieved successfully"
         assert "sources" in data["data"]
         assert data["data"]["count"] >= 2
@@ -329,7 +329,7 @@ class TestGetSourceEndpoint:
         # Assert
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["status"] == "success"
+        assert data["status"] == "SUCCESS"
         assert data["data"]["source"]["id"] == str(source.id)
         assert data["data"]["source"]["name"] == "Test Source"
         assert data["data"]["source"]["has_auth"] is True
@@ -407,7 +407,7 @@ class TestUpdateSourceEndpoint:
         # Assert
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["status"] == "success"
+        assert data["status"] == "SUCCESS"
         assert data["data"]["source"]["name"] == "Updated Name"
         assert data["data"]["source"]["scrape_frequency"] == "HOURLY"
         assert data["data"]["source"]["is_active"] is False

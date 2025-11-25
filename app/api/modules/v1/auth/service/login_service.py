@@ -259,7 +259,7 @@ async def authenticate_user(
             )
 
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid email or password. {remaining} attempts remaining.",
         )
 
