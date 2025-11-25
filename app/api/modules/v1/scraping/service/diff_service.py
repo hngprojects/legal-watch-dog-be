@@ -5,7 +5,7 @@ from typing import Dict, Tuple
 import google.generativeai as genai
 
 from app.api.core.config import settings
-from app.api.modules.v1.scraping.models.diff_response_model import DiffResult
+from app.api.modules.v1.scraping.schemas.diff_response import DiffResult
 
 # Configure the SDK once
 genai.configure(api_key=settings.GEMINI_API_KEY)
