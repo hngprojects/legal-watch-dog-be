@@ -85,6 +85,7 @@ __pypackages__/
 # Ruff cache
 .ruff_cache/
 
+dump.rdb
 # Environment files
 .env.dev
 .env.prod

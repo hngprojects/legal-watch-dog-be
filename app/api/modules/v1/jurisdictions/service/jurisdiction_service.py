@@ -1,15 +1,20 @@
 """Service Handler For Jurisdiction"""
 
-from datetime import datetime
-from typing import Any, cast
+from datetime import datetime, timezone
+from typing import Any, Optional, Union, cast
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy import literal, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import with_loader_criteria
 from sqlmodel import select
 
+from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.users.models.users_model import User
 
 
 class JurisdictionService:
@@ -34,9 +39,24 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+            query = (
+                select(Jurisdiction)
+                .options(
+                    with_loader_criteria(
+                        Jurisdiction,
+                        lambda cls: cls.is_deleted == cls.is_deleted,
+                        include_aliases=True,
+                    )
+                )
+                .where(Jurisdiction.id == jurisdiction_id)
+            )
+
+            result = await db.execute(query)
+            jurisdiction = result.scalar_one_or_none()
             if not jurisdiction:
                 raise HTTPException(status_code=404, detail="Jurisdiction not found")
+            if jurisdiction.is_deleted:
+                raise HTTPException(status_code=410, detail="This jurisdiction has been archived")
             return jurisdiction
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -127,14 +147,14 @@ class JurisdictionService:
                 cast(Any, Jurisdiction.is_deleted).is_(False),
             )
             result = await db.execute(stmt)
-            jurisdictions = result.scalars().all()
+            active_jurisdictions = result.scalars().all()
 
-            if not jurisdictions:
+            if not active_jurisdictions:
                 raise HTTPException(
-                    status_code=404, detail="No jurisdictions found for this project"
+                    status_code=404, detail="No active jurisdictions found for this project"
                 )
 
-            return jurisdictions
+            return active_jurisdictions
 
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -161,14 +181,19 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            stmt = select(Jurisdiction).where(cast(Any, Jurisdiction.is_deleted).is_(False))
+            stmt = select(Jurisdiction)
             result = await db.execute(stmt)
             jurisdictions = result.scalars().all()
 
             if not jurisdictions:
                 raise HTTPException(status_code=404, detail="No jurisdictions found")
 
-            return jurisdictions
+            if all(j.is_deleted for j in jurisdictions):
+                raise HTTPException(status_code=410, detail="All jurisdictions have been archived")
+
+            active_jurisdictions = [j for j in jurisdictions if not j.is_deleted]
+
+            return active_jurisdictions
 
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -230,7 +255,12 @@ class JurisdictionService:
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def soft_delete(self, db: AsyncSession, jurisdiction_id: UUID):
+    async def soft_delete(
+        self,
+        db: AsyncSession,
+        jurisdiction_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
+    ) -> Union[Jurisdiction, list[Jurisdiction], None]:
         """
         Soft delete a Jurisdiction by marking it as deleted without removing it from the database.
 
@@ -252,16 +282,38 @@ class JurisdictionService:
                 (e.g., foreign key dependencies).
                 - 500 if a database error occurs during the update.
         """
-        jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
-        if not jurisdiction:
-            return None
         try:
-            jurisdiction.is_deleted = True
-            jurisdiction.deleted_at = datetime.now()
-            db.add(jurisdiction)
-            await db.commit()
-            await db.refresh(jurisdiction)
-            return jurisdiction
+            if jurisdiction_id:
+                jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+                if not jurisdiction:
+                    return None
+                jurisdiction.is_deleted = True
+                jurisdiction.deleted_at = datetime.now(timezone.utc)
+                db.add(jurisdiction)
+                await db.commit()
+                await db.refresh(jurisdiction)
+
+                return jurisdiction
+
+            elif project_id:
+                stmt = (
+                    update(Jurisdiction)
+                    .where(cast(Any, Jurisdiction.project_id) == project_id)
+                    .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
+                    .returning(Jurisdiction)
+                )
+
+                result = await db.execute(stmt)
+                await db.commit()
+                updated_jurisdictions = list(result.scalars().all())
+
+                return updated_jurisdictions
+
+            else:
+                raise HTTPException(
+                    status_code=400, detail="Either jurisdiction_id or project_id must be provided."
+                )
+
         except IntegrityError as e:
             await db.rollback()
             raise HTTPException(
@@ -311,3 +363,167 @@ class JurisdictionService:
                 status_code=500,
                 detail=f"Database error occurred while deleting jurisdiction: {str(e)}",
             )
+
+    async def get_jurisdiction_for_restoration(
+        self, db: AsyncSession, jurisdiction_id: UUID
+    ) -> Jurisdiction:
+        """
+        Retrieve a single Jurisdiction by ID for restoration purposes.
+
+        This method will return the Jurisdiction even if it is currently archived (is_deleted=True),
+        so it can be restored. If the jurisdiction does not exist at all, it raises a 404.
+        Any database errors raise a 500.
+
+        Args:
+            db (AsyncSession): Database session.
+            jurisdiction_id (UUID): ID of the jurisdiction.
+
+        Returns:
+            Jurisdiction: The jurisdiction record (archived or active).
+
+        Raises:
+            HTTPException: 404 if not found, 500 on DB error.
+        """
+        try:
+            query = (
+                select(Jurisdiction)
+                .options(
+                    with_loader_criteria(
+                        Jurisdiction,
+                        lambda cls: cls.is_deleted == cls.is_deleted,
+                        include_aliases=True,
+                    )
+                )
+                .where(Jurisdiction.id == jurisdiction_id)
+            )
+            result = await db.execute(query)
+            jurisdiction = result.scalar_one_or_none()
+
+            if not jurisdiction:
+                raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+            return jurisdiction
+
+        except SQLAlchemyError as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    async def restore_all_archived_jurisdictions(
+        self, db: AsyncSession, project_id: UUID | None = None
+    ) -> list[Jurisdiction]:
+        """
+        Restore all archived jurisdictions and return the restored objects.
+        Args:
+            db (AsyncSession): Database session.
+            project_id (UUID): ID of the Project,
+            the jurisdictions are under
+            .
+
+        Returns:
+            Jurisdictions: The jurisdiction records (archived or active).
+
+        Raises:
+            HTTPException: 404 if not found, 500 on DB error.
+        """
+        try:
+            # Use explicit casts for comparisons to avoid DB/driver type mismatches
+            stmt = (
+                select(Jurisdiction)
+                .options(
+                    with_loader_criteria(
+                        Jurisdiction,
+                        lambda cls: literal(True),
+                        include_aliases=True,
+                    )
+                )
+                .where(cast(Any, Jurisdiction.is_deleted).is_(True))
+            )
+
+            if project_id is not None:
+                stmt = stmt.where(cast(Any, Jurisdiction.project_id) == project_id)
+
+            result = await db.execute(stmt)
+            archived_jurisdictions = list(result.scalars().all())
+
+            if not archived_jurisdictions:
+                return []
+
+            for j in archived_jurisdictions:
+                j.is_deleted = False
+                j.deleted_at = None
+                db.add(j)
+
+            await db.commit()
+
+            for j in archived_jurisdictions:
+                await db.refresh(j)
+
+            return archived_jurisdictions
+
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+class OrgResourceGuard:
+    """
+    Automatically enforces that resources belong to the current user's organization.
+
+    This guard checks resource ownership based on path parameters such as
+    `project_id` or `jurisdiction_id`. If a resource belongs to a different
+    organization than the current user, it raises an HTTP 403 Forbidden error.
+
+    Router-Level Use Case:
+        Apply this guard to an APIRouter to enforce multi-tenant isolation
+        across all routes automatically, without calling `verify()` in each route.
+
+    Example:
+        from fastapi import APIRouter, Depends
+
+        router = APIRouter(
+            prefix="/jurisdictions",
+            tags=["Jurisdictions"],
+            dependencies=[
+                Depends(TenantGuard),
+                Depends(OrgResourceGuard)
+            ]
+        )
+
+        @router.get("/{jurisdiction_id}")
+        async def get_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+            # No manual verification required
+            jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+            return jurisdiction
+
+    Key Points:
+        - Works at the router level: all routes inherit the guard.
+        - Automatically resolves project from jurisdiction if needed.
+        - Raises 404 if the resource is not found.
+        - Raises 403 if a cross-organization access attempt is detected.
+    """
+
+    def __init__(self, request: Request, current_user: User = Depends(get_current_user)):
+        self.request = request
+        self.user = current_user
+
+    async def __call__(self):
+        # Extract IDs from path params
+        path_params = self.request.path_params
+
+        project_id = path_params.get("project_id")
+        jurisdiction_id = path_params.get("jurisdiction_id")
+
+        db: AsyncSession = self.request.state.db
+
+        if jurisdiction_id:
+            jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+            if not jurisdiction:
+                raise HTTPException(404, "Jurisdiction not found")
+            project_id = jurisdiction.project_id
+
+        if project_id:
+            project = await db.get(Project, project_id)
+            if not project:
+                raise HTTPException(404, "Project not found")
+
+            if str(project.org_id) != str(self.user.organization_id):
+                raise HTTPException(403, "Cross-organization access denied")
