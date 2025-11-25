@@ -27,11 +27,9 @@ class PlaywrightService:
     async def scrape(self, url: str, creds: Optional[Dict[str, Any]] = None) -> bytes:
         logger.info(f"Starting scrape for URL: {url}")
         async with async_playwright() as p:
-            # 1. Launch Browser
             browser = await p.chromium.launch(headless=True, args=self.BROWSER_ARGS)
             logger.info("Browser launched successfully.")
 
-            # 2. Configure Context (Stealth & Auth)
             context = await browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -41,7 +39,6 @@ class PlaywrightService:
                 viewport={"width": 1920, "height": 1080},
             )
 
-            # Inject Auth Cookies if provided
             if creds and "cookies" in creds:
                 await context.add_cookies(creds["cookies"])
                 logger.info("Auth cookies injected.")
@@ -49,7 +46,6 @@ class PlaywrightService:
             page = await context.new_page()
             logger.info("Browser context and page created.")
 
-            # 3. Setup Download Trap
             download_future = asyncio.Future()
 
             def on_download(download):
@@ -66,7 +62,6 @@ class PlaywrightService:
                         page.goto(url, wait_until="domcontentloaded", timeout=25000)
                     )
 
-                    # Check if a download captures the request
                     done, pending = await asyncio.wait(
                         [goto_task, download_future], return_when=asyncio.FIRST_COMPLETED
                     )
@@ -134,12 +129,11 @@ class PlaywrightService:
         """
         logger.info("Handling download stream.")
         try:
-            # Wait for the download to actually finish
             path = await download.path()
             if not path:
                 raise Exception("Download failed or was cancelled")
 
-            # Read file into memory
+            #
             with open(path, "rb") as f:
                 data = f.read()
 
