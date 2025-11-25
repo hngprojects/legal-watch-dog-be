@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.permissions import ADMIN_PERMISSIONS
+from app.api.utils.permissions import ADMIN_PERMISSIONS, USER_PERMISSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -64,3 +64,33 @@ class RoleCRUD:
                 exc_info=True,
             )
             raise Exception("Failed to create admin role")
+
+    async def get_default_user_role(
+        db: AsyncSession,
+        role_name: str = "User",
+        description: Optional[str] = "LegalWatchDog User",
+    ) -> Role:
+        try:
+            role = Role(
+                name=role_name,
+                description=description,
+                permissions=USER_PERMISSIONS,
+            )
+            logger.info(
+                "Created user role: id=%s, name=%s",
+                role.id,
+                role.name,
+            )
+
+            db.add(role)
+            await db.commit()
+            await db.refresh(role)
+            return role
+
+        except Exception as e:
+            logger.error(
+                "Failed to create user role",
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("Failed to create user role")
