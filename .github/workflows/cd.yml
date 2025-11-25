@@ -103,12 +103,13 @@ jobs:
               export PATH="$HOME/.local/bin:$PATH"
             fi
 
-            export PATH="$HOME/.local/bin:$PATH"
+            set -a
+            source .env.stage
+            set +a
 
-            uv sync || true
-            uv run alembic upgrade head || true
-
-            set -a; source .env.stage; set +a
+            
+            uv sync
+            uv run alembic upgrade head
 
             PM2_APP_NAME="legal-watchdog-be-$ENVIRONMENT"
 
@@ -132,7 +133,7 @@ jobs:
   # -------------------------
   notify_slack:
     name: Notify Slack
-    runs-on: ifeanyinw-latest
+    runs-on: [self-hosted]
     needs:
       - deploy_staging
     if: always()
