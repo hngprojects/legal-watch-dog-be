@@ -14,6 +14,7 @@ from app.api.core.dependencies.redis_service import (
     reset_rate_limit,
 )
 from app.api.core.logger import setup_logging
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import calculate_token_ttl, create_access_token, get_token_jti
@@ -52,7 +53,7 @@ class LoginService:
         Returns:
             Dictionary with tokens and user data
         """
-        return await self._authenticate_user(self.db, email, password, ip_address)
+        return await self._authenticate_user(email, password, ip_address)
 
     async def refresh_access_token(self, refresh_token: str) -> dict:
         """
@@ -76,7 +77,7 @@ class LoginService:
                     detail="Unauthorized",
                 )
 
-            return await self._refresh_access_token(self.db, user_id, refresh_token)
+            return await self._refresh_access_token(user_id, refresh_token)
         except Exception as e:
             logger.error(f"Token refresh failed: {str(e)}")
             raise HTTPException(
@@ -184,10 +185,10 @@ class LoginService:
                     f"Try again in {LOCKOUT_DURATION_MINUTES} minutes.",
                 )
 
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid email or password. {remaining} attempts remaining.",
-        )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid email or password. {remaining} attempts remaining.",
+            )
 
         if not user.is_active:
             logger.warning(f"Login blocked: inactive account {email}")
@@ -203,30 +204,42 @@ class LoginService:
                 detail="Email not verified. Please verify your email first.",
             )
 
-        role = await self.db.scalar(select(Role).where(Role.id == user.role_id))
-
-        if not role:
-            logger.error(f"Login failed: role not found for user {email}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User role configuration error. Please contact support.",
+        memberships = await self.db.execute(
+            select(UserOrganization).where(
+                UserOrganization.user_id == user.id, UserOrganization.is_active
             )
+        )
+        active_memberships = list(memberships.scalars().all())
+
+        organizations = []
+        for membership in active_memberships:
+            role = await self.db.get(Role, membership.role_id)
+            if role:
+                organizations.append(
+                    {
+                        "organization_id": str(membership.organization_id),
+                        "role_id": str(membership.role_id),
+                        "role_name": role.name,
+                        "permissions": role.permissions,
+                        "joined_at": membership.joined_at.isoformat(),
+                    }
+                )
 
         # successful authentication, reset failed attempts
-        await self.__doc__reset_failed_attempts(email)
+        await self._reset_failed_attempts(email)
         if ip_address:
             await reset_rate_limit(f"login:ip:{ip_address}")
 
         access_token = create_access_token(
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
-            role_id=str(user.role_id),
+            organization_id=None,
+            role_id=None,
         )
 
         refresh_token = create_access_token(
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
-            role_id=str(user.role_id),
+            organization_id=None,
+            role_id=None,
             expires_delta=timedelta(days=30),
         )
 
@@ -234,7 +247,7 @@ class LoginService:
         # store refresh token in Redis for rotation
         await self._store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
-        logger.info(f"Successful login: {user.email} role: {role.name})")
+        logger.info(f"Successful login: {user.email}")
 
         return {
             "access_token": access_token,
@@ -245,12 +258,10 @@ class LoginService:
                 "id": str(user.id),
                 "email": user.email,
                 "name": user.name,
-                "organization_id": str(user.organization_id) if user.organization_id else None,
-                "role_id": str(user.role_id),
-                "role_name": role.name,
-                "permissions": role.permissions,
                 "is_verified": user.is_verified,
                 "is_active": user.is_active,
+                "organizations": organizations,
+                "has_organizations": len(organizations) > 0,
             },
         }
 
@@ -313,15 +324,15 @@ class LoginService:
 
         new_access_token = create_access_token(
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
-            role_id=str(user.role_id),
+            organization_id=None,
+            role_id=None,
         )
 
         new_refresh_token_jti = str(uuid.uuid4())
         new_refresh_token = create_access_token(
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
-            role_id=str(user.role_id),
+            organization_id=None,
+            role_id=None,
             expires_delta=timedelta(days=30),
         )
 
@@ -336,7 +347,7 @@ class LoginService:
             "expires_in": 3600 * 24,
         }
 
-    async def _check_account_lockout(email: str) -> Optional[int]:
+    async def _check_account_lockout(self, email: str) -> Optional[int]:
         """
         Check if account is locked due to failed login attempts.
 
@@ -358,7 +369,7 @@ class LoginService:
             logger.error(f"Failed to check account lockout: {str(e)}")
             return None
 
-    async def _increment_failed_attempts(email: str) -> int:
+    async def _increment_failed_attempts(self, email: str) -> int:
         """
         Increment failed login attempts counter.
         After MAX_LOGIN_ATTEMPTS, lock account for LOCKOUT_DURATION_MINUTES.
@@ -391,7 +402,7 @@ class LoginService:
             logger.error(f"Failed to increment failed attempts: {str(e)}")
             return 0
 
-    async def _reset_failed_attempts(email: str) -> bool:
+    async def _reset_failed_attempts(self, email: str) -> bool:
         """
         Reset failed login attempts after successful login.
 
@@ -415,7 +426,9 @@ class LoginService:
             logger.error(f"Failed to reset attempts: {str(e)}")
             return False
 
-    async def _store_refresh_token(user_id: str, refresh_token: str, ttl_days: int = 30) -> bool:
+    async def _store_refresh_token(
+        self, user_id: str, refresh_token: str, ttl_days: int = 30
+    ) -> bool:
         """
         Store refresh token in Redis for token rotation.
 
@@ -437,7 +450,7 @@ class LoginService:
             logger.error(f"Failed to store refresh token: {str(e)}")
             return False
 
-    async def _verify_refresh_token(user_id: str, refresh_token: str) -> bool:
+    async def _verify_refresh_token(self, user_id: str, refresh_token: str) -> bool:
         """
         Verify if refresh token is valid and not blacklisted.
 
@@ -457,7 +470,7 @@ class LoginService:
             logger.error(f"Failed to verify refresh token: {str(e)}")
             return False
 
-    async def _revoke_refresh_token(user_id: str, refresh_token: str) -> bool:
+    async def _revoke_refresh_token(self, user_id: str, refresh_token: str) -> bool:
         """
         Revoke a refresh token (token rotation).
 
