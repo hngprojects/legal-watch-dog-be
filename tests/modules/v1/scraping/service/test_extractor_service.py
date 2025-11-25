@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.api.modules.v1.scraping.service.extractor_service import (
+from app.api.utils.extractor_service import (
     TextExtractorService,
     cleaned_html,
     normalize_text,
