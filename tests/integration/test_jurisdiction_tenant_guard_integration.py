@@ -45,20 +45,18 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
         return SimpleNamespace(organization_id=org_id)
 
     async def fake_get_all(db):
-        # return plain dicts so the response is JSON-serializable
         return [
-            {
-                "id": str(uuid4()),
-                "project_id": str(uuid4()),
-                "name": "J-1",
-                "description": "desc",
-            }
+            SimpleNamespace(
+                id=str(uuid4()),
+                project_id=str(uuid4()),
+                name="J-1",
+                description="desc",
+            )
         ]
 
     app, client = _build_app_and_client()
     app.dependency_overrides[get_current_user] = fake_get_current_user
 
-    # Monkeypatch the service method used by the route to return our data
     monkeypatch.setattr(
         jurisdiction_routes_module.service,
         "get_all_jurisdictions",
@@ -67,7 +65,6 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
 
     resp = client.get("/api/v1/jurisdictions/")
 
-    # Should be allowed through and return 200 with our data
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "success"
