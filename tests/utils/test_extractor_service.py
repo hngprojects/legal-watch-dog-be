@@ -65,7 +65,7 @@ async def test_extract_from_minio_success():
     fake_html = b"<html><body><p>Hello world</p></body></html>"
 
     with patch(
-        "app.api.modules.v1.scraping.service.extractor_service.fetch_raw_content_from_minio",
+        "app.api.utils.extractor_service.fetch_raw_content_from_minio",
         return_value=fake_html,
     ):
         result = await service.extract_from_minio("bucket", "file.html")
@@ -78,7 +78,7 @@ async def test_extract_from_minio_empty():
     service = TextExtractorService()
 
     with patch(
-        "app.api.modules.v1.scraping.service.extractor_service.fetch_raw_content_from_minio",
+        "app.api.utils.extractor_service.fetch_raw_content_from_minio",
         return_value=b"",
     ):
         result = await service.extract_from_minio("bucket", "file.html")
@@ -99,11 +99,11 @@ async def test_extract_and_upload_success():
 
     with (
         patch(
-            "app.api.modules.v1.scraping.service.extractor_service.fetch_raw_content_from_minio",
+            "app.api.utils.extractor_service.fetch_raw_content_from_minio",
             return_value=fake_html,
         ),
         patch(
-            "app.api.modules.v1.scraping.service.extractor_service.upload_raw_content",
+            "app.api.utils.extractor_service.upload_raw_content",
             return_value=True,
         ) as mock_upload,
     ):
@@ -129,11 +129,11 @@ async def test_extract_and_upload_upload_failure():
 
     with (
         patch(
-            "app.api.modules.v1.scraping.service.extractor_service.fetch_raw_content_from_minio",
+            "app.api.utils.extractor_service.fetch_raw_content_from_minio",
             return_value=fake_html,
         ),
         patch(
-            "app.api.modules.v1.scraping.service.extractor_service.upload_raw_content",
+            "app.api.utils.extractor_service.upload_raw_content",
             side_effect=Exception("MinIO error"),
         ),
     ):
@@ -154,7 +154,7 @@ async def test_extract_and_upload_no_text_extracted():
     service = TextExtractorService()
 
     with patch(
-        "app.api.modules.v1.scraping.service.extractor_service.fetch_raw_content_from_minio",
+        "app.api.utils.extractor_service.fetch_raw_content_from_minio",
         return_value=b"      ",  # blank HTML
     ):
         resp = await service.extract_and_upload(
