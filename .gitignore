@@ -85,6 +85,7 @@ __pypackages__/
 # Ruff cache
 .ruff_cache/
 
+dump.rdb
 # Environment files
 .env.dev
 .env.prod
@@ -92,6 +93,8 @@ __pypackages__/
 ecosystem.config.js
 start_app.sh
 
+
 # Celery Beat Scheduler files
 celerybeat-schedule.*
+
 

@@ -15,14 +15,14 @@ def success_response(status_code: int, message: str, data: Optional[dict] = None
 
     Returns:
         JSONResponse: Contains:
-            - status: "success"
+            - status: "SUCCESS"
             - status_code: same as HTTP status code
             - message: same message passed
             - data: payload object (never null)
     """
 
     response_data = {
-        "status": "success",
+        "status": "SUCCESS",
         "status_code": status_code,
         "message": message,
         "data": data or {},
@@ -47,7 +47,7 @@ def auth_response(status_code: int, message: str, access_token: str, data: Optio
     """
 
     response_data = {
-        "status": "success",
+        "status": "SUCCESS",
         "status_code": status_code,
         "message": message,
         "data": {"access_token": access_token, **(data or {})},

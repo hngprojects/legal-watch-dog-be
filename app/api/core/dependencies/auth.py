@@ -7,14 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.dependencies.redis_service import is_token_denylisted
-from app.api.core.logger import setup_logging
 from app.api.db.database import get_db
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import decode_token
 from app.api.utils.permissions import Permission
 
-setup_logging()
 logger = logging.getLogger("app")
 
 # HTTP Bearer token extraction
@@ -66,7 +64,7 @@ async def get_current_user(
 
         if not user.is_active:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive"
             )
 
         if not user.is_verified:
@@ -75,12 +73,10 @@ async def get_current_user(
         logger.info(f"Authenticated user: {user.email}")
         return user
 
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    except HTTPException:
-        raise
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
         raise HTTPException(
@@ -228,3 +224,62 @@ class OrganizationFilter:
     def __init__(self, current_user: User = Depends(get_current_user)):
         self.org_id = current_user.organization_id
         self.user = current_user
+
+
+class TenantGuard:
+    """
+    Enforces multi-tenant isolation automatically.
+
+    Provides:
+      - current_user
+      - org_id for query filtering
+      - verify(resource_org_id) for checking access to a specific resource
+
+    Router-Level Use Case:
+        Protects all routes in a router from users without an organization.
+
+    Example:
+        from fastapi import APIRouter, Depends
+
+        router = APIRouter(
+            prefix="/jurisdiction",
+            tags=["Jurisdictions"],
+            dependencies=[Depends(TenantGuard)]  # Applied at router level
+        )
+
+        @router.get("/")
+        async def list_jurisdictions():
+            # All users hitting this route are guaranteed to belong to an organization
+            return await get_all_jurisdictions()
+    """
+
+    def __init__(self, current_user: User = Depends(get_current_user)):
+        if not current_user.organization_id:
+            raise HTTPException(status_code=403, detail="User does not belong to an organization")
+
+        self.current_user = current_user
+        self.org_id = current_user.organization_id
+
+    def verify(self, resource_org_id):
+        """
+        Validate that a resource belongs to the current user's organization.
+
+        This method enforces multi-tenant isolation at the resource level. Call it
+        inside routes or service methods to prevent users from accessing resources
+        that belong to another organization.
+
+        Args:
+            resource_org_id (str | UUID): The organization ID associated with the resource.
+
+        Raises:
+            HTTPException (403): If the resource's organization ID does not match
+            the current user's organization ID.
+
+        Example:
+            tenant = TenantGuard(current_user)
+            tenant.verify(project.org_id)
+        """
+        if str(resource_org_id) != str(self.org_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource belongs to another organization"
+            )
