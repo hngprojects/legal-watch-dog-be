@@ -5,8 +5,14 @@ logger = logging.getLogger(__name__)
 
 async def build_final_prompt(project_prompt: str, jurisdiction_prompt: str) -> str:
     """
-    Build a generic LLM prompt by combining project and jurisdiction instructions.
-    Now simplified to match scraper_service.py usage.
+    Combine project and jurisdiction prompts into a single instruction set.
+
+    Args:
+        project_prompt: Main project instructions and objectives
+        jurisdiction_prompt: Additional context for specific jurisdiction
+
+    Returns:
+        Combined prompt string ready for LLM processing
     """
     logger.info("PromptService: Building combined LLM prompt")
 

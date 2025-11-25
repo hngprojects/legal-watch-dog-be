@@ -1,24 +1,26 @@
 import asyncio
 import json
 import logging
-import os
 from typing import Any, Dict
 
 import httpx
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.api.core.config import settings
+
 logger = logging.getLogger(__name__)
-
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
-LLM_API_URL = os.getenv("LLM_API_URL")
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 
 
 def build_llm_prompt(project_prompt: str, jurisdiction_prompt: str, extracted_text: str) -> str:
     """
-    Combines project and jurisdiction prompts with extracted text
+    Build a comprehensive LLM prompt combining project context and content to analyze.
+
+    Args:
+        project_prompt: The main project instructions and goals
+        jurisdiction_prompt: Additional context specific to jurisdiction
+        extracted_text: The cleaned text content to analyze
+
+    Returns:
+        Formatted prompt string ready for LLM processing
     """
     combined_prompt = f"{project_prompt}\n{jurisdiction_prompt}".strip()
 
@@ -94,7 +96,13 @@ You MUST return valid JSON with the following structure:
 
 async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
     """
-    Sends prompt to LLM and ensures JSON output matching orchestrator format.
+    Execute LLM analysis with robust error handling and fallback mechanisms.
+
+    Args:
+        llm_input: The formatted prompt to send to the LLM
+
+    Returns:
+        Dictionary containing analysis results with summary, extracted data, and confidence score
     """
     await asyncio.sleep(0.5)
 
@@ -102,38 +110,33 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
         "Content-Type": "application/json",
     }
 
-    # Add API key to headers or payload based on provider
-    if LLM_PROVIDER == "gemini":
-        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+    if settings.LLM_PROVIDER == "gemini":
+        headers["Authorization"] = f"Bearer {settings.LLM_API_KEY}"
         payload = {
-            "model": LLM_MODEL,
+            "model": settings.LLM_MODEL,
             "prompt": llm_input,
-            "temperature": float(os.getenv("LLM_TEMPERATURE", "0.1")),
+            "temperature": settings.LLM_TEMPERATURE,
         }
     else:
-        # For other providers like OpenAI, Anthropic, etc.
         payload = {
-            "model": LLM_MODEL,
+            "model": settings.LLM_MODEL,
             "prompt": llm_input,
-            "temperature": float(os.getenv("LLM_TEMPERATURE", "0.1")),
-            "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "1000")),
+            "temperature": settings.LLM_TEMPERATURE,
+            "max_tokens": settings.LLM_MAX_TOKENS,
         }
 
     logger.info("Sending request to LLM...")
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(LLM_API_URL, json=payload, headers=headers)
+            response = await client.post(settings.LLM_API_URL, json=payload, headers=headers)
 
         response.raise_for_status()
         data = response.json()
 
-        # Handle different response formats based on provider
-        if LLM_PROVIDER == "gemini":
+        if settings.LLM_PROVIDER == "gemini":
             raw_text = data.get("text", "")
         else:
-            # For OpenAI: data["choices"][0]["text"]
-            # For Anthropic: data["completion"]
             raw_text = (
                 data.get("choices", [{}])[0].get("text", "")
                 if "choices" in data
@@ -143,13 +146,11 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
         try:
             llm_result = json.loads(raw_text)
 
-            # Validate and ensure required fields exist
             if "extracted_data" not in llm_result:
                 llm_result["extracted_data"] = {}
             if not isinstance(llm_result.get("extracted_data", {}).get("key_value_pairs"), dict):
                 llm_result["extracted_data"]["key_value_pairs"] = {}
 
-            # Ensure all required fields are present (matching orchestrator)
             required_fields = ["summary", "markdown_summary", "extracted_data", "confidence_score"]
             for field in required_fields:
                 if field not in llm_result:
@@ -179,7 +180,13 @@ async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
 
 def get_fallback_response(reason: str = "Unknown error") -> Dict[str, Any]:
     """
-    Returns a standardized fallback response when LLM fails.
+    Generate a standardized fallback response when LLM processing fails.
+
+    Args:
+        reason: Description of why the LLM request failed
+
+    Returns:
+        Fallback response with error information and empty extracted data
     """
     return {
         "summary": f"Analysis unavailable: {reason}",
