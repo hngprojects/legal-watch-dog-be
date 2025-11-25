@@ -638,7 +638,7 @@ class JurisdictionService:
                 )
             else:
                 top_stmt = select(Jurisdiction).where(
-                    Jurisdiction.parent_id.is_(None),
+                    Jurisdiction.parent_id.is_(None), # type: ignore
                     Jurisdiction.id.in_(ids),  # type: ignore
                 )
 
