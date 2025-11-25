@@ -1,9 +1,9 @@
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 
-from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
 from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
     JurisdictionCreateSchema,
@@ -24,7 +24,8 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
     fake_id = uuid4()
 
     async def fake_create(db, jurisdiction):
-        return Jurisdiction(
+        # return a lightweight object, avoid constructing a SQLModel instance
+        return SimpleNamespace(
             id=fake_id,
             project_id=jurisdiction.project_id,
             name=jurisdiction.name,
@@ -32,6 +33,17 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
         )
 
     monkeypatch.setattr(routes.service, "create", fake_create)
+
+    # Prevent the route from constructing a real SQLModel Jurisdiction which
+    # triggers SQLAlchemy mapper initialization (and fails in tests). Replace
+    # the `Jurisdiction` symbol in the routes module with a lightweight stub
+    # that accepts arbitrary kwargs and sets them as attributes.
+    class _StubJurisdiction:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    monkeypatch.setattr(routes, "Jurisdiction", _StubJurisdiction)
 
     payload = JurisdictionCreateSchema(project_id=uuid4(), name="R-1", description="d")
 
@@ -143,7 +155,8 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
     fake_id = uuid4()
 
     async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
-        return Jurisdiction(id=fake_id, project_id=uuid4(), name="x", description="d")
+        # return a lightweight object rather than a SQLModel instance
+        return SimpleNamespace(id=fake_id, project_id=uuid4(), name="x", description="d")
 
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
 
@@ -186,7 +199,7 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
         """
 
         return [
-            Jurisdiction(id=fake_id, project_id=project_id or uuid4(), name="x", description="d")
+            SimpleNamespace(id=fake_id, project_id=project_id or uuid4(), name="x", description="d")
         ]
 
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
@@ -222,15 +235,19 @@ async def test_restore_jurisdiction_success(monkeypatch):
 
     fake_id = uuid4()
 
-    jur = Jurisdiction(
+    # use a lightweight object to represent the jurisdiction under test
+    jur = SimpleNamespace(
         id=fake_id,
         project_id=uuid4(),
         name="ToRestore",
         description="d",
         is_deleted=True,
+        deleted_at=None,
     )
 
-    async def fake_get(db, jurisdiction_id):
+    # Accept arbitrary kwargs (e.g. `restore_nested`) because the route calls
+    # service.get_jurisdiction_for_restoration(..., restore_nested=True).
+    async def fake_get(db, jurisdiction_id, *args, **kwargs):
         return jur
 
     async def fake_update(db, jurisdiction):
