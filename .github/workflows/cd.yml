@@ -23,7 +23,7 @@ jobs:
           cat <<'EOF' > .env.stage
           DEBUG=True
           APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || 8001 }}
-          APP_NAME=${{ vars.APP_NAME || "LEGAL WATCH DOG" }}
+          APP_NAME=${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}
           APP_VERSION=${{ vars.APP_VERSION || 1.0.0 }}
           ENVIRONMENT=staging
           SECRET_KEY=${{ secrets.SECRET_KEY }}
