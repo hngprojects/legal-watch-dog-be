@@ -122,6 +122,43 @@ async def get_admin_organization(
 
 
 @router.get(
+    "/user/memberships",
+    status_code=status.HTTP_200_OK,
+)
+async def get_user_organizations(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all organizations the current user is a member of.
+
+    Returns all organizations where the user has an active membership,
+    along with their role in each organization.
+    """
+    try:
+        service = OrganizationService(db)
+        result = await service.get_user_organizations(
+            user_id=current_user.id,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organizations retrieved successfully",
+            data=result,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch organizations for user_id={current_user.id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organizations",
+        )
+
+
+@router.get(
     "/{organization_id:uuid}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,

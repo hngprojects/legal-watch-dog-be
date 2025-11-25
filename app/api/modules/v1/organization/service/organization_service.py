@@ -373,3 +373,43 @@ class OrganizationService:
                     )
 
         return admin_orgs
+
+    async def get_user_organizations(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[dict]:
+        """
+        Get all organizations where the user is a member.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            List of dictionaries containing organization details and user's role
+        """
+
+        memberships = await UserOrganizationCRUD.get_user_organizations(
+            self.db, user_id, active_only=True
+        )
+
+        organizations = []
+        for membership in memberships:
+            org = await OrganizationCRUD.get_by_id(self.db, membership.organization_id)
+            if not org:
+                continue
+
+            role = await self.db.get(Role, membership.role_id)
+
+            organizations.append(
+                {
+                    "organization_id": str(org.id),
+                    "name": org.name,
+                    "industry": org.industry,
+                    "is_active": org.is_active,
+                    "user_role": role.name if role else None,
+                    "created_at": org.created_at.isoformat(),
+                    "updated_at": org.updated_at.isoformat(),
+                }
+            )
+
+        return organizations
