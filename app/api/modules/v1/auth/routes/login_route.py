@@ -5,7 +5,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
-from app.api.modules.v1.auth.schemas.login import LoginRequest, RefreshTokenRequest
+from app.api.modules.v1.auth.routes.docs.login_route_docs import (
+    login_custom_errors,
+    login_custom_success,
+    login_responses,
+    logout_custom_errors,
+    logout_custom_success,
+    logout_responses,
+    refresh_custom_errors,
+    refresh_custom_success,
+    refresh_token_responses,
+)
+from app.api.modules.v1.auth.schemas.login import (
+    LoginRequest,
+    LoginResponse,
+    LogoutResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+)
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import error_response, success_response
@@ -16,92 +33,98 @@ logger = logging.getLogger("app")
 
 @router.post(
     "/login",
+    response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
-    summary="User Login",
-    description=(
-        "Authenticate user and return access/refresh tokens with rate limiting protection"
-    ),
+    responses=login_responses,  # type: ignore
 )
 async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
-    Login endpoint with security features:
-    - Rate limiting (5 failed attempts, 15-minute lockout)
+    Authenticate a user and issue access and refresh tokens.
+
+    This endpoint supports:
     - Secure password verification
-    - Token rotation
-    - Refresh token blacklisting
+    - Token rotation for refresh tokens
+    - OAuth2-style form login or JSON login payload
+
+    Args:
+        request (Request): The incoming HTTP request.
+        login_data (LoginRequest): Pydantic schema containing email and password.
+        db (AsyncSession, optional): Database session dependency.
+
+    Returns:
+        JSON response with success or error payload:
+        - On success: access_token, refresh_token, token_type, expires_in
+        - On failure: appropriate error message
     """
-    email = None
-    is_oauth = False
     try:
-        # Determine if request is JSON or form
         content_type = request.headers.get("content-type", "").lower()
         if "application/json" in content_type:
             data = await request.json()
             email = data.get("email")
             password = data.get("password")
-            is_oauth = False
         else:
             form = await request.form()
             email = form.get("username")
             password = form.get("password")
-            is_oauth = True
 
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password required")
 
         login_service = LoginService(db)
-
-        # Get client IP for rate limiting
         client_ip = request.client.host if request.client else "unknown"
 
-        result = await login_service.login(
-            email=login_data.email, password=login_data.password, ip_address=client_ip
+        result = await login_service.login(email=email, password=password, ip_address=client_ip)
+
+        token_data = {
+            "access_token": result["access_token"],
+            "refresh_token": result["refresh_token"],
+            "token_type": result["token_type"],
+            "expires_in": result["expires_in"],
+        }
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Login successful",
+            data=token_data,
         )
 
-        if is_oauth:
-            return {"access_token": result["access_token"], "token_type": "bearer"}
-        else:
-            token_data = {
-                "access_token": result["access_token"],
-                "refresh_token": result["refresh_token"],
-                "token_type": result["token_type"],
-                "expires_in": result["expires_in"],
-            }
-
-            return success_response(
-                status_code=status.HTTP_200_OK,
-                message="Login successful",
-                data=token_data,
-            )
     except HTTPException as e:
-        if is_oauth:
-            raise
-        else:
-            logger.warning("Login failed for email=%s: %s", login_data.email, e.detail)
-            return error_response(
-                status_code=e.status_code,
-                message=e.detail,
-            )
+        logger.warning("Login failed for email=%s: %s", login_data.email, e.detail)
+        return error_response(status_code=e.status_code, message=e.detail)
     except Exception:
         logger.exception("Unexpected error during login for email=%s", login_data.email)
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Internal server error",
         )
 
 
+login._custom_errors = login_custom_errors  # type: ignore
+login._custom_success = login_custom_success  # type: ignore
+
+
 @router.post(
-    "/refresh",
+    "/token/refresh",
+    response_model=RefreshTokenResponse,
     status_code=status.HTTP_200_OK,
-    summary="Refresh Access Token",
-    description="Refresh access token using a valid refresh token with token rotation",
+    responses=refresh_token_responses,  # type: ignore
 )
 async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
     """
-    Refresh token endpoint:
-    - Validates refresh token
-    - Blacklists old refresh token
-    - Issues new access and refresh tokens
+    Refresh access and refresh tokens using a valid refresh token.
+
+    This endpoint:
+    - Validates the provided refresh token.
+    - Blacklists the old refresh token.
+    - Issues new access and refresh tokens.
+
+    Args:
+        refresh_data (RefreshTokenRequest): Pydantic schema containing the refresh token.
+        db (AsyncSession, optional): Database session dependency.
+
+    Returns:
+        JSON response with the new tokens or error details.
     """
     try:
         login_service = LoginService(db)
@@ -115,42 +138,51 @@ async def refresh_token(refresh_data: RefreshTokenRequest, db: AsyncSession = De
         )
     except HTTPException as e:
         logger.warning("Token refresh failed: %s", e.detail)
-        return error_response(
-            status_code=e.status_code,
-            message=e.detail,
-        )
+        return error_response(status_code=e.status_code, message=e.detail)
     except Exception:
         logger.exception("Unexpected error during token refresh")
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Internal server error",
         )
 
 
+refresh_token._custom_errors = refresh_custom_errors  # type: ignore
+refresh_token._custom_success = refresh_custom_success  # type: ignore
+
+
 @router.post(
     "/logout",
+    response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
-    summary="User Logout",
-    description="Logout user and blacklist their tokens",
+    responses=logout_responses,  # type: ignore
 )
 async def logout(
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """
-    Logout endpoint:
-    - Blacklists access token
-    - Blacklists refresh token
-    - Clears rate limiting data
+    Logout the current user by invalidating their tokens.
+
+    This endpoint:
+    - Blacklists the user's current access token.
+    - Blacklists the user's current refresh token.
+
+    Args:
+        current_user (User): Currently authenticated user from dependency.
+        db (AsyncSession, optional): Database session dependency.
+
+    Returns:
+        JSON response confirming logout or error details.
     """
     try:
         login_service = LoginService(db)
 
-        result = await login_service.logout(user_id=str(current_user.id))
+        await login_service.logout(user_id=str(current_user.id))
 
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Logged out successfully",
-            data=result,
         )
     except HTTPException as e:
         logger.warning("Logout failed for user_id=%s: %s", str(current_user.id), e.detail)
@@ -162,5 +194,10 @@ async def logout(
         logger.exception("Unexpected error during logout for user_id=%s", str(current_user.id))
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Internal server error",
         )
+
+
+logout._custom_errors = logout_custom_errors  # type: ignore
+logout._custom_success = logout_custom_success  # type: ignore

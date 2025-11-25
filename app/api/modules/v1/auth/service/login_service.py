@@ -184,10 +184,10 @@ class LoginService:
                     f"Try again in {LOCKOUT_DURATION_MINUTES} minutes.",
                 )
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid email or password. {remaining} attempts remaining.",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid email or password. {remaining} attempts remaining.",
+        )
 
         if not user.is_active:
             logger.warning(f"Login blocked: inactive account {email}")
