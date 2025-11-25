@@ -67,7 +67,7 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["status"] == "success"
+    assert body["status"] == "SUCCESS"
     assert "jurisdictions" in body["data"]
     assert isinstance(body["data"]["jurisdictions"], list)
 
