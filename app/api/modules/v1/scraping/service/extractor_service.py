@@ -1,5 +1,4 @@
 import logging
-import re
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -19,108 +18,10 @@ from app.api.modules.v1.scraping.service.minio_client import (
     fetch_raw_content_from_minio,
     upload_raw_content,
 )
+from app.api.utils.cleaned_text import cleaned_html, normalize_text
 
 logger = logging.getLogger(__name__)
 EXTRACTOR_VERSION = "1.3.0"
-
-
-def normalize_text(text: str) -> str:
-    if not text:
-        return ""
-    text = re.sub(r"\s+", " ", text)
-    text = text.replace("\xa0", " ")
-    return text.strip()
-
-
-def cleaned_html(raw_bytes: bytes) -> str:
-    if not raw_bytes:
-        return ""
-
-    if not _HAS_BS4:
-        logger.error(
-            "BeautifulSoup is not installed. Install `beautifulsoup4` to enable HTML cleaning."
-        )
-        return ""
-
-    try:
-        # Decode safely
-        try:
-            html_str = raw_bytes.decode("utf-8")
-        except UnicodeDecodeError:
-            html_str = raw_bytes.decode("latin-1", errors="replace")
-
-        soup = BeautifulSoup(html_str, "html.parser")
-
-        # Remove irrelevant tags
-        junk_tags = [
-            "script",
-            "style",
-            "meta",
-            "noscript",
-            "header",
-            "footer",
-            "nav",
-            "iframe",
-            "svg",
-            "path",
-            "link",
-            "button",
-            "input",
-            "form",
-            "select",
-            "option",
-            "aside",
-            "ad",
-            "banner",
-        ]
-        for tag_name in junk_tags:
-            for tag in soup.find_all(tag_name):
-                tag.decompose()
-
-        # Remove comment nodes
-        for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
-            comment.extract()
-
-        # Remove elements with junk IDs/classes
-        junk_keywords = [
-            "cookie",
-            "popup",
-            "modal",
-            "banner",
-            "footer",
-            "header",
-            "ads",
-            "tracking",
-            "subscribe",
-            "newsletter",
-            "consent",
-        ]
-        pattern = re.compile("|".join(junk_keywords), re.IGNORECASE)
-
-        for element in soup.find_all(True):
-            elem_id = element.get("id", "")
-            elem_class = " ".join(element.get("class", []))
-            if pattern.search(elem_id) or pattern.search(elem_class):
-                element.decompose()
-
-        # Build readable text
-        lines = [
-            normalize_text(line)
-            for line in soup.get_text(separator="\n").splitlines()
-            if line.strip()
-        ]
-        readable_text = "\n".join(lines)
-
-        if len(readable_text) < 50:
-            logger.warning(
-                "Extracted text is very short (<50 chars). Source content may be blocked."
-            )
-
-        return readable_text
-
-    except Exception as err:
-        logger.error(f"Failed to clean HTML content: {err}")
-        return ""
 
 
 class TextExtractorService:
