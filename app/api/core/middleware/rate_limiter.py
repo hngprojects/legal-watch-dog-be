@@ -9,6 +9,7 @@ from redis.exceptions import RedisError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.core.dependencies.redis_service import get_redis_client
+from app.api.core.security import detect_suspicious_activity, log_rate_limit_event
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +96,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             or the response from the next handler with rate limit headers added.
         """
         if self._is_excluded_path(request.url.path):
+            logger.debug(
+                f"Request to excluded path: {request.url.path}",
+                extra={"path": request.url.path, "client_ip": self._get_client_ip(request)},
+            )
             return await call_next(request)
 
         client_ip = self._get_client_ip(request)
         current_time = time.time()
         redis_key = f"rate_limit:api:{client_ip}"
+
+        logger.debug(
+            f"Processing rate limit check for {client_ip}",
+            extra={
+                "client_ip": client_ip,
+                "endpoint": request.url.path,
+                "method": request.method,
+            },
+        )
 
         try:
             redis_client = await get_redis_client()
@@ -116,6 +130,32 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     reset_time = int(oldest_timestamp + 60 - current_time)
                 else:
                     reset_time = 60
+
+                # Log rate limit exceeded
+                log_rate_limit_event(
+                    client_ip=client_ip,
+                    endpoint=request.url.path,
+                    event_type="exceeded",
+                    remaining=0,
+                    limit=self.requests_per_minute,
+                    retry_after=reset_time,
+                    method=request.method,
+                    user_agent=request.headers.get("User-Agent", "unknown"),
+                )
+
+                # Check for suspicious activity
+                is_suspicious = await detect_suspicious_activity(
+                    redis_client, client_ip, request.url.path, request_count
+                )
+
+                if is_suspicious:
+                    log_rate_limit_event(
+                        client_ip=client_ip,
+                        endpoint=request.url.path,
+                        event_type="suspicious",
+                        violation_count=request_count,
+                        pattern="excessive_violations",
+                    )
 
                 return JSONResponse(
                     status_code=429,
@@ -147,6 +187,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
             request_count = await redis_client.zcard(redis_key)
             remaining = self.requests_per_minute - request_count
+
+            # Log appropriate event based on remaining quota
+            if remaining == 0:
+                # This shouldn't happen, but log just in case
+                log_rate_limit_event(
+                    client_ip=client_ip,
+                    endpoint=request.url.path,
+                    event_type="exceeded",
+                    remaining=remaining,
+                    limit=self.requests_per_minute,
+                )
+            elif remaining <= self.requests_per_minute * 0.1:
+                # Warn when 90% of quota is used
+                percentage_used = (
+                    (self.requests_per_minute - remaining) / self.requests_per_minute
+                ) * 100
+                log_rate_limit_event(
+                    client_ip=client_ip,
+                    endpoint=request.url.path,
+                    event_type="warning",
+                    remaining=remaining,
+                    limit=self.requests_per_minute,
+                    percentage_used=percentage_used,
+                )
+            else:
+                # Normal request logging
+                log_rate_limit_event(
+                    client_ip=client_ip,
+                    endpoint=request.url.path,
+                    event_type="allowed",
+                    remaining=remaining,
+                    limit=self.requests_per_minute,
+                )
+
             response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
             response.headers["X-RateLimit-Reset"] = str(reset_timestamp)
@@ -154,6 +228,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return response
 
         except RedisError as e:
-            logger.error(f"Redis error in rate limiter: {e}")
+            logger.error(
+                f"Redis error in rate limiter: {e}",
+                extra={
+                    "client_ip": client_ip,
+                    "endpoint": request.url.path,
+                    "error": str(e),
+                },
+            )
             response = await call_next(request)
             return response

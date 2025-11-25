@@ -47,7 +47,8 @@ class Project(SQLModel, table=True):
 
     organization: Optional["Organization"] = Relationship(back_populates="projects")
     project_users: List["ProjectUser"] = Relationship(
-        back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     jurisdictions: List["Jurisdiction"] = Relationship(
         back_populates="project",
