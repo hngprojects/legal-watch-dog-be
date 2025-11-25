@@ -64,15 +64,6 @@ class OrganizationService:
             if not user.is_verified:
                 raise ValueError("User email must be verified before creating an organization")
 
-            user_orgs = await UserOrganizationCRUD.get_user_organizations(
-                self.db, user_id, active_only=True
-            )
-
-            for membership in user_orgs:
-                role = await self.db.get(Role, membership.role_id)
-                if role and role.name == "Admin":
-                    raise ValueError("You have already created an organization.")
-
             existing_org = await OrganizationCRUD.get_by_name(self.db, name)
             if existing_org:
                 raise ValueError("Organization with this name already exists")
