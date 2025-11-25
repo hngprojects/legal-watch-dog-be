@@ -305,7 +305,7 @@ confirm_reset_responses = {
                                 "password": [
                                     "String should have at least 8 characters",
                                     "Password must contain: one uppercase letter, "
-                                    "one digit, one special character."
+                                    "one digit, one special character.",
                                 ],
                             },
                         },
