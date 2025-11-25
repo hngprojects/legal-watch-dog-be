@@ -20,7 +20,7 @@ class SearchService:
 
     async def search(self, search_request: SearchRequest) -> SearchResponse:
         tsquery = self._build_tsquery(search_request.query, search_request.operator)
-        
+
         # Define relevance score column once to avoid duplication
         relevance_score_col = func.ts_rank(
             DataRevision.search_vector, to_tsquery("english", tsquery)
