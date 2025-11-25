@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def company_signup(
+async def user_signup(
     payload: RegisterRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -41,7 +41,7 @@ async def company_signup(
     """
     Company sign-up endpoint.
 
-    Initiates the company registration process by validating the email,
+    Initiates the user registration process by validating the email,
     generating an OTP, and sending verification email. The actual organization
     and user creation happens after OTP verification.
 
@@ -59,7 +59,7 @@ async def company_signup(
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_company(payload, background_tasks)
+        result = await service.register_user(payload, background_tasks)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -95,10 +95,10 @@ async def verify_otp(
     redis_client: Redis = Depends(get_redis),
 ):
     """
-    Verify OTP and complete company registration.
+    Verify OTP and complete user registration.
 
     Validates the OTP code sent to the user's email and completes the
-    registration by creating the organization, admin role, and admin user.
+    registration by creating the user and user role.
 
     Args:
         payload: OTP verification request with email and code
@@ -106,16 +106,14 @@ async def verify_otp(
         redis_client: Redis client dependency
 
     Returns:
-        VerifyOTPResponse: Success response with organization and user details
+        VerifyOTPResponse: Success response with user details
 
     Raises:
         HTTPException: 400 for invalid OTP, 500 for server errors
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.verify_otp_and_complete_registration(
-            email=payload.email, code=payload.code
-        )
+        result = await service.verify_otp_and_create_user(email=payload.email, code=payload.code)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,

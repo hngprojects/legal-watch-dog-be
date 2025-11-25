@@ -16,7 +16,9 @@ class User(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
-    organization_id: uuid.UUID = Field(foreign_key="organizations.id", nullable=False, index=True)
+    organization_id: uuid.UUID | None = Field(
+        default=None, foreign_key="organizations.id", nullable=True, index=True
+    )
 
     role_id: uuid.UUID = Field(foreign_key="roles.id", nullable=False, index=True)
 
