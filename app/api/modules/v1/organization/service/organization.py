@@ -36,12 +36,19 @@ class OrganizationCRUD:
             await db.flush()
             await db.refresh(organization)
 
-            logger.info("Created organization: id=%s, name=%s", organization.id, organization.name)
+            logger.info(
+                "Created organization: id=%s, name=%s",
+                organization.id,
+                organization.name,
+            )
 
             return organization
 
         except Exception as e:
             logger.error(
-                "Failed to create organization with name=%s: %s", name, str(e), exc_info=True
+                "Failed to create organization with name=%s: %s",
+                name,
+                str(e),
+                exc_info=True,
             )
             raise Exception("Failed to create organization")
