@@ -1,9 +1,14 @@
+import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Text, func
+from sqlalchemy import JSON, Text, UniqueConstraint, event, func
+from sqlalchemy.orm import Mapped
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
+
+logger = logging.getLogger(__name__)
+
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
@@ -58,11 +63,14 @@ class Jurisdiction(SQLModel, table=True):
     """
 
     __tablename__ = "jurisdictions"  # type: ignore
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uix_project_name"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     project_id: UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
     parent_id: Optional[UUID] = Field(
-        default=None, foreign_key="jurisdictions.id", ondelete="CASCADE"
+        default=None,
+        foreign_key="jurisdictions.id",
+        ondelete="SET NULL",
     )
     name: str
     description: str = Field(sa_column=Text)
@@ -80,3 +88,57 @@ class Jurisdiction(SQLModel, table=True):
     is_deleted: bool = Field(default=False)
 
     project: "Project" = Relationship(back_populates="jurisdictions")
+    parent: Optional["Jurisdiction"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "Jurisdiction.id"},
+    )
+
+    children: Mapped[List["Jurisdiction"]] = Relationship(
+        back_populates="parent",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+    def __repr__(self):
+        return f"<Jurisdiction id={self.id} name={self.name} project_id={self.project_id}>"
+
+
+@event.listens_for(Jurisdiction, "before_update")
+@event.listens_for(Jurisdiction, "before_insert")
+def validate_hierarchy(mapper, connection, target):
+    """
+    Docstring for validate_hierarchy
+
+    :param mapper: Description
+    :param connection: Description
+    :param target: Description
+    """
+    logger.debug(f"Validating hierarchy for jurisdiction {target.id}(parent_id={target.parent_id})")
+    table = mapper.local_table
+    if target.parent_id is not None and target.parent_id == target.id:
+        logger.warning(f"Jurisdiction {target.id} attempted to set parent_id to itself.")
+        raise ValueError("A jurisdiction cannot be its own parent.")
+
+    parent_id = target.parent_id
+    MAX_HIERARCHY_DEPTH = 1000
+    depth = 0
+
+    while parent_id is not None and depth < MAX_HIERARCHY_DEPTH:
+        parent_row = (
+            connection.execute(table.select().where(table.c.id == parent_id)).mappings().fetchone()
+        )
+
+        if parent_row is None:
+            logger.debug(f"Parent id {parent_id} not found; stopping traversal.")
+            break
+
+        logger.debug(f"Traversing hierarchy: parent {parent_id} -> {parent_row['parent_id']}")
+
+        if parent_row["id"] == target.id:
+            logger.warning(
+                f"Circular hierarchy detected: Jurisdiction {target.id} "
+                f"is in its own ancestor chain."
+            )
+            raise ValueError("Circular hierarchy detected.")
+
+        parent_id = parent_row["parent_id"]
+        depth += 1
