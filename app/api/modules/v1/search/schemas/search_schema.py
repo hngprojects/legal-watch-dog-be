@@ -12,12 +12,16 @@ class SearchableEntity(str, Enum):
 
 
 class SearchOperator(str, Enum):
+    """Enum for search operators used in full-text search queries."""
+
     AND = "AND"
     OR = "OR"
     NOT = "NOT"
 
 
 class SearchRequest(BaseModel):
+    """Request schema for full-text search on data revisions."""
+
     query: str = Field(..., description="Search query string", examples=["tax regulations"])
     operator: SearchOperator = Field(
         SearchOperator.AND, description="Boolean operator for multiple terms"
@@ -49,6 +53,8 @@ class SearchRequest(BaseModel):
 
 
 class DataRevisionSearchResult(BaseModel):
+    """Search result for a single data revision."""
+
     id: UUID
     title: Optional[str]
     summary: Optional[str]
@@ -62,6 +68,8 @@ class DataRevisionSearchResult(BaseModel):
 
 
 class SearchResponse(BaseModel):
+    """Response schema for search results with pagination metadata."""
+
     results: List[DataRevisionSearchResult]
     total_count: int
     query: str
