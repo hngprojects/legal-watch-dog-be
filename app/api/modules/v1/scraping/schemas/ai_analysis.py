@@ -49,3 +49,13 @@ class ChangeDetectionResult(BaseModel):
     
     class Config:
         extra = "forbid"
+
+class ExtractedData(BaseModel):
+    """
+    Container for dynamic key-value pairs.
+    """
+    key_value_pairs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Flat dictionary of specific facts extracted (e.g. {'price': '600 NGN'})"
+    )
+   
