@@ -234,9 +234,7 @@ class LoginService:
         # store refresh token in Redis for rotation
         await self._store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
-        logger.info(
-            f"Successful login: {user.email} role: {role.name})"
-        )
+        logger.info(f"Successful login: {user.email} role: {role.name})")
 
         return {
             "access_token": access_token,
