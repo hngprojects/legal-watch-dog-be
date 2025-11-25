@@ -28,7 +28,9 @@ async def test_store_user_credentials_success():
     )
 
     redis_mock.setex.assert_awaited_once_with(
-        name="pending_registration:test@example.com", time=300, value=json.dumps(registration_data)
+        name="pending_registration:test@example.com",
+        time=300,
+        value=json.dumps(registration_data),
     )
     assert result is True
 

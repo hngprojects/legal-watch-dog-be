@@ -34,7 +34,9 @@ async def store_user_credentials(
         await redis_client.setex(name=key, time=ttl_seconds, value=data_json)
 
         logger.info(
-            "Stored registration credentials for email=%s with TTL=%d seconds", email, ttl_seconds
+            "Stored registration credentials for email=%s with TTL=%d seconds",
+            email,
+            ttl_seconds,
         )
         return True
 
@@ -77,7 +79,10 @@ async def get_user_credentials(redis_client: Redis, email: str) -> Optional[Dict
         return None
     except Exception as e:
         logger.error(
-            "Failed to retrieve credentials for email=%s: %s", email, str(e), exc_info=True
+            "Failed to retrieve credentials for email=%s: %s",
+            email,
+            str(e),
+            exc_info=True,
         )
         raise Exception("Failed to retrieve registration data")
 
@@ -111,7 +116,12 @@ async def delete_user_credentials(redis_client: Redis, email: str) -> bool:
             return False
 
     except Exception as e:
-        logger.error("Failed to delete credentials for email=%s: %s", email, str(e), exc_info=True)
+        logger.error(
+            "Failed to delete credentials for email=%s: %s",
+            email,
+            str(e),
+            exc_info=True,
+        )
         raise Exception("Failed to delete registration data")
 
 
@@ -142,7 +152,10 @@ async def verify_and_get_credentials(
         stored_otp = credentials.get("otp_code")
         if stored_otp != otp_code:
             logger.warning(
-                "OTP mismatch for email=%s. Expected=%s, Provided=%s", email, stored_otp, otp_code
+                "OTP mismatch for email=%s. Expected=%s, Provided=%s",
+                email,
+                stored_otp,
+                otp_code,
             )
             return None
 
