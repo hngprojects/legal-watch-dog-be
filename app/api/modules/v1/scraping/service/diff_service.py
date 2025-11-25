@@ -7,7 +7,6 @@ import google.generativeai as genai
 from app.api.core.config import settings
 from app.api.modules.v1.scraping.schemas.diff_response import DiffResult
 
-# Configure the SDK once
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ class DiffAIService:
 
     def __init__(self):
         self.model = genai.GenerativeModel(
-            model_name=settings.GEMINI_MODEL_NAME,
+            model_name=settings.MODEL_NAME,
             generation_config={
                 **GENERATION_CONFIG,
                 "response_schema": DIFFRESULT_SCHEMA,

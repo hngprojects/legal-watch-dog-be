@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
     MODEL_NAME: str = "gemini-2.5-flash"
+
     model_config = SettingsConfigDict(extra="allow")
 
 
