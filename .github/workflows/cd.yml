@@ -22,9 +22,9 @@ jobs:
         run: |
           cat <<'EOF' > .env.stage
           DEBUG=True
-          APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || 8001 }}
+          APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || '7001' }}
           APP_NAME=${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}
-          APP_VERSION=${{ vars.APP_VERSION || 1.0.0 }}
+          APP_VERSION=${{ vars.APP_VERSION || '1.0.0' }}
           ENVIRONMENT=staging
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
@@ -37,7 +37,7 @@ jobs:
           DB_NAME=${{ secrets.DB_NAME }}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           
-          MAIL_MAILER=${{ vars.MAIL_MAILER || smtp }}
+          MAIL_MAILER=${{ vars.MAIL_MAILER || 'smtp' }}
           SMTP_SERVER=${{ secrets.SMTP_SERVER }}
           SMTP_PORT=${{ secrets.SMTP_PORT }}
           MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
@@ -56,7 +56,7 @@ jobs:
           ACCESS_TOKEN_EXPIRATION=${{ secrets.ACCESS_TOKEN_EXPIRATION }}
           
           ALLOW_TEST_EMAIL_PROVIDERS=${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || true }}
-          TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || gmail.com }}"
+          TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
           ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
 
           EOF
