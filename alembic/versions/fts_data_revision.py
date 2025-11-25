@@ -1,13 +1,14 @@
-"""
+"""Add full-text search to data_revision table
+
 Revision ID: fts_data_revision
-Revises: 
+Revises: a8109c8c21c0
 Create Date: 2025-11-21
 
 Alembic migration for DATA_REVISION table with TSVECTOR and trigger.
 """
 
 revision = 'fts_data_revision'
-down_revision = '1ab5a062c90b'
+down_revision = 'a8109c8c21c0'
 branch_labels = None
 depends_on = None
 from alembic import op
