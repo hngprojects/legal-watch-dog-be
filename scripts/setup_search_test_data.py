@@ -1,23 +1,20 @@
-"""
-Script to set up sample data for testing the search endpoint.
-Run this after migrations are complete.
+"""Script to set up sample data for testing the search endpoint.
+
+Run this after migrations are complete:
+    python -m scripts.setup_search_test_data
 """
 
 import asyncio
-import sys
 from datetime import datetime
 from uuid import UUID
 
-# Add the app directory to the path
-sys.path.insert(0, "/home/precious-ezeigbo/python-projects/HNGi13-Projects/legal-watch-dog-be")
-
-from app.api.modules.v1.scraping.models.data_revision_model import DataRevision
 from sqlalchemy import text
 
 from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
 
 
@@ -137,10 +134,9 @@ async def setup_test_data():
             print(f"Created {len(revisions)} test data revisions")
 
             # Update search vectors for all revisions
-            # (table name is data_revision, not data_revisions)
             await session.execute(
                 text("""
-                    UPDATE data_revision 
+                    UPDATE data_revisions 
                     SET search_vector = to_tsvector('english', 
                         COALESCE(minio_object_key, '') || ' ' || 
                         COALESCE(ai_summary, '')
@@ -151,7 +147,7 @@ async def setup_test_data():
             )
 
             await session.commit()
-            print(" Updated search vectors")
+            print("✓ Updated search vectors")
             print("\nSample data setup complete!")
             print("\nYou can now test the search endpoint with queries like:")
             print("  - 'tax' (should find 1 result)")
