@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard
@@ -223,10 +223,7 @@ async def soft_delete_jurisdictions_by_project(
         "Archived %d jurisdiction(s) successfully for project_id=%s", len(deleted_ids), project_id
     )
     logger.debug("Archived jurisdiction IDs: %s", deleted_ids)
-    return success_response(
-        status_code=204,
-        message=f"{len(deleted_ids)} Jurisdiction(s) archived successfully",
-    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(
@@ -392,10 +389,7 @@ async def soft_delete_jurisdiction(
     # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
     logger.info("Jurisdiction archived successfully: id=%s", jurisdiction_id)
-    return success_response(
-        status_code=204,
-        message="Jurisdiction archived successfully",
-    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

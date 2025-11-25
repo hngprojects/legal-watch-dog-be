@@ -152,13 +152,18 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
     assert res.status_code == 204
     import json
 
-    content = json.loads(res.body)
-    assert content.get("status_code") == 204
-    if "data" in content and "jurisdiction_ids" in content["data"]:
-        ids = content["data"]["jurisdiction_ids"]
-        assert isinstance(ids, list) and ids[0] == str(fake_id)
+    if not res.body:
+        assert res.body in (b"", "")
     else:
-        assert content.get("data") in (None, {}, {})
+        content = json.loads(res.body)
+        expected = {
+            "status": "success",
+            "status_code": 204,
+            "message": "Jurisdiction archived successfully",
+            "data": {},
+        }
+
+        assert content == expected
 
 
 @pytest.mark.asyncio
@@ -192,14 +197,18 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
     assert res.status_code == 204
     import json
 
-    content = json.loads(res.body)
-
-    assert content.get("status_code") == 204
-    if "data" in content and "jurisdiction_ids" in content["data"]:
-        ids = content["data"]["jurisdiction_ids"]
-        assert isinstance(ids, list) and ids[0] == str(fake_id)
+    if not res.body:
+        assert res.body in (b"", "")
     else:
-        assert content.get("data") in (None, {}, {})
+        content = json.loads(res.body)
+        expected = {
+            "status": "success",
+            "status_code": 204,
+            "message": "1 Jurisdiction(s) archived successfully",
+            "data": {},
+        }
+
+        assert content == expected
 
 
 @pytest.mark.asyncio
