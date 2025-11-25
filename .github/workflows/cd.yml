@@ -1,31 +1,30 @@
-name: Backend CD - Deployment (Dynamic Environments)
+name: Backend CD - Deployment (Prod Environments)
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - staging
 
 jobs:
-  deploy_staging:
-    name: CD - Backend Deploy (Staging)
+  deploy_production:
+    name: CD - Backend Deploy (Prod)
     runs-on: [self-hosted]
-    if: github.ref == 'refs/heads/staging'
-    environment: staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate staging environment file
+      - name: Generate prod environment file
         run: |
-          cat <<'EOF' > .env.stage
+          cat <<'EOF' > .env.prod
           DEBUG=True
-          APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || '7001' }}
+          APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || '8001' }}
           APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
           APP_VERSION=${{ vars.APP_VERSION || '1.0.0' }}
-          ENVIRONMENT=staging
+          ENVIRONMENT=production
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
 
@@ -46,8 +45,8 @@ jobs:
           EMAIL=${{ secrets.EMAIL }}
           MAIL_FROM_NAME="LEGAL WATCH DOG"
           
-          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
-          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+          APP_URL="${{ vars.APP_URL || 'https://api.minamoto.emerj.net' }}"
+          DEV_URL="${{ vars.DEV_URL || 'http://localhost:8001' }}"
           REDIS_URL=${{ secrets.REDIS_URL }}
           REDIS_CACHE_TTL_SECONDS=${{ secrets.REDIS_CACHE_TTL_SECONDS }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -64,9 +63,9 @@ jobs:
 
       - name: Set up SSH, copy env_file and Deploy
         env:
-          SERVER_PASS: ${{ secrets.STAGING_PASS }}
-          SERVER_USER: ${{ secrets.STAGING_USER }}
-          SERVER_IP: ${{ secrets.STAGING_IP }}
+          SERVER_PASS: ${{ secrets.PROD_PASS }}
+          SERVER_USER: ${{ secrets.PROD_USER }}
+          SERVER_IP: ${{ secrets.PROD_IP }}
         run: |
           echo "access gained"
           echo "copying files to server..."
@@ -76,15 +75,15 @@ jobs:
             $SERVER_USER@$SERVER_IP:/tmp/backend_env
 
           echo "access gained"
-          echo "deploying to staging server..."
+          echo "deploying to prod server..."
 
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-staging"
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-prod"
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
-            BRANCH="staging"
-            ENVIRONMENT="staging"
+            BRANCH="main"
+            ENVIRONMENT="production"
 
             if [ ! -d "$REMOTE_DIR" ]; then
               mkdir -p $(dirname "$REMOTE_DIR")
@@ -135,7 +134,7 @@ jobs:
     name: Notify Slack
     runs-on: [self-hosted]
     needs:
-      - deploy_staging
+      - deploy_production
     if: always()
 
     steps:
@@ -160,13 +159,13 @@ jobs:
       - name: Set deployment status
         id: status
         run: |
-          STAGING_RESULT="${{ needs.deploy_staging.result }}"
+          PROD_RESULT="${{ needs.deploy_production.result }}"
           
-          if [ "$STAGING_RESULT" == "success" ]; then
+          if [ "$PROD_RESULT" == "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
             echo "status_text=✅ Backend API deployed successfully!" >> $GITHUB_OUTPUT
             echo "status_emoji=:white_check_mark:" >> $GITHUB_OUTPUT
-          elif [ "$STAGING_RESULT" == "skipped" ]; then
+          elif [ "$PROD_RESULT" == "skipped" ]; then
             echo "status=skipped" >> $GITHUB_OUTPUT
             echo "status_text=⏭️ Deployment skipped" >> $GITHUB_OUTPUT
             echo "status_emoji=:fast_forward:" >> $GITHUB_OUTPUT
@@ -187,8 +186,15 @@ jobs:
             *Branch:* `${{ github.ref_name }}`
             *Triggered by:* ${{ github.actor }}
             *Commit:* ${{ github.event.head_commit.message }}
-            
-            ${{ needs.deploy_staging.result == 'success' && '✅ Test Environment: Deployed successfully' || needs.deploy_staging.result == 'skipped' && '⏭️ Test Environment: Skipped (not staging branch)' || needs.deploy_staging.result == 'failure' && '❌ Test Environment: Deployment failed' || '' }}
+            ${{
+              needs.deploy_production.result == 'success' 
+              && '✅ Prod Environment: Deployed successfully'
+              || needs.deploy_production.result == 'skipped' 
+              && '⏭️ Prod Environment: Skipped (not prod branch)'
+              || needs.deploy_production.result == 'failure' 
+              && '❌ Prod Environment: Deployment failed'
+              || ''
+            }}
           author_name: Backend CI/CD Pipeline
           author_icon: ':gear:'
           fields: |
