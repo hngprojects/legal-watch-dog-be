@@ -7,7 +7,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
-    from app.api.modules.v1.users.models.users_model import User
 
 
 class Role(SQLModel, table=True):
@@ -16,7 +15,13 @@ class Role(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
-    organization_id: uuid.UUID = Field(foreign_key="organizations.id", nullable=False, index=True)
+    organization_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="organizations.id",
+        nullable=True,
+        index=True,
+        description="Null for global roles, UUID for organization-specific roles",
+    )
 
     name: str = Field(max_length=50, nullable=False, index=True)
 
@@ -33,4 +38,3 @@ class Role(SQLModel, table=True):
     )
 
     organization: "Organization" = Relationship(back_populates="roles")
-    users: list["User"] = Relationship(back_populates="role")
