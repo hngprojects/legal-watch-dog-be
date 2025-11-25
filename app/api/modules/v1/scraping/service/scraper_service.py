@@ -2,16 +2,10 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 import hashlib
-import io
-import tempfile
-
-import cloudscraper
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
 
 from app.api.modules.v1.scraping.service.playwright_service import PlaywrightService
+from app.api.modules.v1.scraping.service.pdf_service import PDFService
+from app.api.modules.v1.scraping.service.http_client_service import HTTPClientService
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -34,74 +28,10 @@ logger = logging.getLogger(__name__)
 class ScraperService:
     def __init__(self, db: Session):
         self.db = db
-        self.extractor = AIExtractionService() 
-        self.differ = DiffAIService()          
-        self.browser = PlaywrightService()
-        self.scraper = cloudscraper.create_scraper() 
-
-    def _extract_pdf_text(self, pdf_bytes: bytes) -> str:
-        """
-        Extract text from PDF bytes using pdfplumber.
-        
-        Args:
-            pdf_bytes: Raw PDF content as bytes
-            
-        Returns:
-            Extracted text from all PDF pages joined together
-            
-        Raises:
-            ValueError: If pdfplumber not installed or PDF is invalid
-        """
-        if pdfplumber is None:
-            raise ValueError("pdfplumber not installed. Install with: pip install pdfplumber")
-        
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
-                tmp.write(pdf_bytes)
-                tmp.flush()
-                tmp_path = tmp.name
-            
-            extracted_text = []
-            with pdfplumber.open(tmp_path) as pdf:
-                logger.info(f"PDF has {len(pdf.pages)} pages")
-                for page_num, page in enumerate(pdf.pages, 1):
-                    text = page.extract_text()
-                    if text:
-                        extracted_text.append(text)
-                    logger.debug(f"  Page {page_num}: {len(text)} chars extracted")
-            
-            return "\n\n".join(extracted_text)
-        except Exception as e:
-            logger.error(f"Failed to extract PDF: {type(e).__name__}: {e}")
-            raise ValueError(f"PDF extraction failed: {e}")
-
-    async def _fetch_url_content(self, url: str, auth_creds: dict) -> bytes:
-        """
-        Fetch URL content with CloudFlare bypass support.
-        Handles both HTML and PDF responses.
-        
-        Args:
-            url: URL to fetch
-            auth_creds: Authentication credentials if needed
-            
-        Returns:
-            Raw content as bytes (HTML or PDF)
-            
-        Raises:
-            Exception: If fetch fails
-        """
-        try:
-            response = self.scraper.get(url, timeout=30)
-            response.raise_for_status()
-            
-            content_type = response.headers.get('content-type', '').lower()
-            logger.info(f"Fetched {url} - Content-Type: {content_type}")
-            
-            return response.content
-        except Exception as e:
-            logger.warning(f"cloudscraper failed: {e}. Falling back to Playwright.")
-            # Fallback to Playwright for JavaScript-heavy sites
-            return await self.browser.scrape(url, auth_creds)
+        self.extractor = AIExtractionService()
+        self.differ = DiffAIService()
+        self.http_client = HTTPClientService()
+        self.pdf_service = PDFService()
 
     async def execute_scrape_job(self, source_id: str) -> Dict[str, Any]:
         logger.info(f"Starting pipeline for Source ID: {source_id}")
@@ -125,15 +55,15 @@ class ScraperService:
             content_type = 'text/html'
             logger.info(f"Using mock HTML for {source.name}")
         else:
-            raw_content_bytes = await self._fetch_url_content(source.url, auth_creds)
+            raw_content_bytes = await self.http_client.fetch_content(source.url, auth_creds)
             content_type = source.scraping_rules.get("expected_type", "text/html").lower()
         
         # Determine if content is PDF and extract text if needed
-        is_pdf = content_type.find('pdf') >= 0 or (raw_content_bytes[:4] == b'%PDF')
+        is_pdf = self.pdf_service.is_pdf(raw_content_bytes, content_type)
         if is_pdf:
             logger.info(f"PDF detected. Extracting text...")
             try:
-                text_content = self._extract_pdf_text(raw_content_bytes)
+                text_content = self.pdf_service.extract_text(raw_content_bytes)
                 # Convert extracted text to HTML for consistency with existing pipeline
                 raw_html_bytes = f"<html><body><pre>{text_content}</pre></body></html>".encode('utf-8')
                 logger.info(f"Successfully extracted {len(text_content)} chars from PDF")
