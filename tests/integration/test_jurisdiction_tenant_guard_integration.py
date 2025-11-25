@@ -10,7 +10,7 @@ from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as jurisd
 
 def _build_app_and_client():
     app = FastAPI()
-    # include the jurisdiction router under the /api/v1 prefix so paths match
+
     app.include_router(jurisdiction_routes_module.router, prefix="/api/v1")
     client = TestClient(app)
     return app, client
@@ -22,7 +22,6 @@ def test_routes_blocked_when_user_has_no_org():
     if the current user has no organization memberships.
     """
 
-    # Fake user without any org memberships
     class FakeUser:
         id = "user-123"
         email = "fake@example.com"
@@ -33,7 +32,6 @@ def test_routes_blocked_when_user_has_no_org():
     def fake_get_current_user():
         return FakeUser()
 
-    # Fake TenantGuard that raises 403 if no orgs
     class FakeTenantGuard:
         def __init__(self, current_user=FakeUser()):
             self.user = current_user
@@ -52,7 +50,6 @@ def test_routes_blocked_when_user_has_no_org():
     assert resp.status_code == 403
     assert resp.json()["detail"] == "No organization"
 
-    # Clean up
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides.pop(TenantGuard, None)
 

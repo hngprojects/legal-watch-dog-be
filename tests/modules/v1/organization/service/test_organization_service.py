@@ -10,14 +10,11 @@ from app.api.modules.v1.organization.service.organization_repository import Orga
 async def test_create_organization_success():
     """Test successful creation of an organization."""
 
-    # Mock DB session
     db = AsyncMock()
 
-    # Patch Organization where it is used in the repository
     with patch(
         "app.api.modules.v1.organization.service.organization_repository.Organization"
     ) as MockOrg:
-        # Use AsyncMock for the instance so db.refresh can await it
         mock_org_instance = AsyncMock()
         mock_org_instance.id = "123"
         mock_org_instance.name = "TestOrg"
@@ -39,12 +36,10 @@ async def test_create_organization_success():
             industry="Tech",
         )
 
-    # Assert DB methods were called correctly
     db.add.assert_called_once_with(mock_org_instance)
     db.flush.assert_awaited()
-    db.refresh.assert_awaited()  # we don’t check exact object
+    db.refresh.assert_awaited()
 
-    # Assert returned object has correct attributes
     assert result.name == "TestOrg"
     assert result.industry == "Tech"
     assert result.is_active is True
