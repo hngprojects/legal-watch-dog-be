@@ -14,7 +14,7 @@ from app.api.modules.v1.search.service.search_service import SearchService
 async def test_search_basic(pg_async_session):
     """Test basic search functionality returns results ordered by relevance."""
     db = pg_async_session
-    # Add Organization first
+
     org = Organization(
         id="00000000-0000-0000-0000-000000000001",
         name="Test Org",
@@ -23,7 +23,6 @@ async def test_search_basic(pg_async_session):
     db.add(org)
     await db.flush()
 
-    # Add dummy Project
     project = Project(
         id="00000000-0000-0000-0000-000000000001",
         org_id="00000000-0000-0000-0000-000000000001",
@@ -33,7 +32,6 @@ async def test_search_basic(pg_async_session):
     db.add(project)
     await db.flush()
 
-    # Add dummy Jurisdiction
     jurisdiction1 = Jurisdiction(
         id="00000000-0000-0000-0000-000000000001",
         name="US Federal",
@@ -43,7 +41,6 @@ async def test_search_basic(pg_async_session):
     db.add(jurisdiction1)
     await db.flush()
 
-    # Add dummy Source with required fields
     source1 = Source(
         id="00000000-0000-0000-0000-000000000001",
         name="Test Source 1",
@@ -55,7 +52,6 @@ async def test_search_basic(pg_async_session):
     db.add(source1)
     await db.flush()
 
-    # Sample revision
     revision = DataRevision(
         ai_summary="test summary",
         source_id=source1.id,
@@ -64,7 +60,6 @@ async def test_search_basic(pg_async_session):
     db.add(revision)
     await db.flush()
 
-    # Manually update search_vector using PostgreSQL function
     await db.execute(
         text("""
             UPDATE data_revisions
@@ -93,7 +88,7 @@ async def test_search_basic(pg_async_session):
 async def test_search_with_filters(pg_async_session):
     """Test search with source_id and extracted_data filters."""
     db = pg_async_session
-    # Add Organization first
+
     org = Organization(
         id="00000000-0000-0000-0000-000000000001",
         name="Test Org",
@@ -102,7 +97,6 @@ async def test_search_with_filters(pg_async_session):
     db.add(org)
     await db.flush()
 
-    # Add dummy Project
     project = Project(
         id="00000000-0000-0000-0000-000000000001",
         org_id="00000000-0000-0000-0000-000000000001",
@@ -112,7 +106,6 @@ async def test_search_with_filters(pg_async_session):
     db.add(project)
     await db.flush()
 
-    # Add dummy Jurisdictions
     jurisdiction2 = Jurisdiction(
         id="00000000-0000-0000-0000-000000000002",
         name="US State",
@@ -129,7 +122,6 @@ async def test_search_with_filters(pg_async_session):
     db.add(jurisdiction3)
     await db.flush()
 
-    # Add dummy Sources with required fields
     source2 = Source(
         id="00000000-0000-0000-0000-000000000002",
         name="Test Source 2",
@@ -166,7 +158,6 @@ async def test_search_with_filters(pg_async_session):
     db.add(revision2)
     await db.flush()
 
-    # Update search vectors for both revisions by ID
     await db.execute(
         text("""
             UPDATE data_revisions
