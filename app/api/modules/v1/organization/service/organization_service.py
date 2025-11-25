@@ -305,7 +305,6 @@ class OrganizationService:
 
             await self.db.commit()
 
-            # Get user's role for response
             membership = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
@@ -346,7 +345,6 @@ class OrganizationService:
         """
         Return all organizations where the user is an Admin.
         """
-        # Get all organizations where user is a member
         memberships = await UserOrganizationCRUD.get_user_organizations(
             self.db, user_id, active_only=True
         )
@@ -357,7 +355,6 @@ class OrganizationService:
             if not role:
                 continue
 
-            # Check if this role is admin (or has admin permissions)
             if role.name == "Admin" or role.permissions.get("manage_organization", False):
                 org = await OrganizationCRUD.get_by_id(self.db, membership.organization_id)
                 if org:
