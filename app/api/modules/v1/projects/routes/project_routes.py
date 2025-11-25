@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectBase,
@@ -41,6 +41,7 @@ logger = logging.getLogger("app")
 )
 async def create_project(
     payload: ProjectBase,
+    organization_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -79,10 +80,11 @@ async def create_project(
     logger.info(f"Creating project for user_id={current_user.id}")
 
     try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
         project_service = ProjectService(db)
-        project = await project_service.create_project(
-            payload, current_user.organization_id, current_user.id
-        )
+        project = await project_service.create_project(payload, organization_id, current_user.id)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -103,6 +105,7 @@ async def create_project(
     response_model=ProjectListResponse,
 )
 async def list_projects(
+    organization_id: UUID,
     q: Optional[str] = Query(None, description="Search query for project title"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
@@ -142,10 +145,11 @@ async def list_projects(
     logger.info(f"Listing projects for user_id={current_user.id}")
 
     try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
         project_service = ProjectService(db)
-        result = await project_service.list_projects(
-            current_user.organization_id, q=q, page=page, limit=limit
-        )
+        result = await project_service.list_projects(organization_id, q=q, page=page, limit=limit)
 
         projects_list = [ProjectResponse.model_validate(p).model_dump() for p in result["data"]]
 
@@ -175,6 +179,7 @@ async def list_projects(
 )
 async def get_project(
     project_id: UUID,
+    organization_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -208,8 +213,11 @@ async def get_project(
     logger.info(f"Getting project_id={project_id} for user_id={current_user.id}")
 
     try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
         project_service = ProjectService(db)
-        project = await project_service.get_project(project_id, current_user.organization_id)
+        project = await project_service.get_project(project_id, organization_id)
 
         if not project:
             return error_response(
@@ -237,6 +245,7 @@ async def get_project(
 )
 async def update_project(
     project_id: UUID,
+    organization_id: UUID,
     payload: ProjectUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -278,9 +287,12 @@ async def update_project(
     logger.info(f"Updating project_id={project_id} for user_id={current_user.id}")
 
     try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
         project_service = ProjectService(db)
         project, message = await project_service.update_project(
-            project_id, current_user.organization_id, payload
+            project_id, organization_id, payload
         )
 
         if project is None:
@@ -309,6 +321,7 @@ async def update_project(
 )
 async def delete_project(
     project_id: UUID,
+    organization_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -340,8 +353,11 @@ async def delete_project(
     logger.info(f"Permanently deleting project_id={project_id}")
 
     try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
         project_service = ProjectService(db)
-        deleted = await project_service.delete_project(project_id, current_user.organization_id)
+        deleted = await project_service.delete_project(project_id, organization_id)
 
         if not deleted:
             return error_response(

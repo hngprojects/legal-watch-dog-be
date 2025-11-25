@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.auth.schemas.register import RegisterRequest
-from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.generate_otp import generate_code
 from app.api.utils.organization_validations import (
@@ -113,7 +112,7 @@ class RegistrationService:
             )
             raise Exception("An error occurred during registration. Please try again.")
 
-    async def verify_otp_and_create_user(self, email: str, code: str) -> dict:
+    async def verify_otp_and_complete_registration(self, email: str, code: str) -> dict:
         """
         Verify OTP and complete the organization registration.
 
@@ -142,17 +141,11 @@ class RegistrationService:
                 logger.warning("Invalid OTP or registration not found for email=%s", email)
                 raise ValueError("Invalid or expired OTP code")
 
-            no_org_role = await RoleCRUD.get_default_user_role(self.db)
-            if not no_org_role:
-                raise Exception("Default role for users without organization not found")
-
             user = await UserCRUD.create_user(
                 db=self.db,
                 name=credentials["name"],
                 email=credentials["email"],
                 hashed_password=credentials["hashed_password"],
-                organization_id=None,  # No organization yet
-                role_id=no_org_role.id,
                 is_verified=True,
             )
             logger.info("Created user with id=%s", user.id)

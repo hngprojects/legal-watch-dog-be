@@ -1,8 +1,10 @@
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from app.api.modules.v1.users.models.roles_model import Role  # Added import for Role
 from app.api.modules.v1.users.models.users_model import User
@@ -19,11 +21,9 @@ class UserCRUD:
         email: str,
         name: str,
         hashed_password: str,
-        organization_id: uuid.UUID,
-        role_id: uuid.UUID,
         auth_provider: str = "local",
         is_active: bool = True,
-        is_verified: bool = False,  # Default to False for general users, can be overridden
+        is_verified: bool = False,
     ) -> User:
         """
         Create a new user.
@@ -33,8 +33,6 @@ class UserCRUD:
             email: User email address
             name: User's full name
             hashed_password: Hashed password
-            organization_id: UUID of the organization
-            role_id: UUID of the user's role
             auth_provider: Authentication provider (default: "local")
             is_active: Whether the user account is active (default: True)
             is_verified: Whether the user's email is verified (default: False)
@@ -50,8 +48,6 @@ class UserCRUD:
                 email=email,
                 name=name,
                 hashed_password=hashed_password,
-                organization_id=organization_id,
-                role_id=role_id,
                 auth_provider=auth_provider,
                 is_active=is_active,
                 is_verified=is_verified,
@@ -65,8 +61,6 @@ class UserCRUD:
                 "Created user: id=%s, email=%s, organization_id=%s, role_id=%s",
                 user.id,
                 user.email,
-                user.organization_id,
-                user.role_id,
             )
 
             return user
@@ -97,7 +91,7 @@ class UserCRUD:
             raise ValueError(f"User with ID {user_id} not found.")
 
         user.is_active = is_active
-        user.updated_at = datetime.now(timezone.utc)  # Update the updated_at timestamp
+        user.updated_at = datetime.now(timezone.utc)
         db.add(user)
         await db.commit()
         await db.refresh(user)
@@ -202,3 +196,105 @@ class UserCRUD:
                 "Failed to create admin user for email=%s: %s", email, str(e), exc_info=True
             )
             raise Exception("Failed to create admin user")
+
+    @staticmethod
+    async def get_by_id(db: AsyncSession, user_id: uuid.UUID) -> Optional[User]:
+        """
+        Get user by ID.
+
+        Args:
+            db: Database session
+            user_id: User UUID
+
+        Returns:
+            User or None if not found
+        """
+        result = await db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_by_email(db: AsyncSession, email: str):
+        """
+        Get user by email.
+
+        Args:
+            db: Database session
+            email: User email address
+
+        Returns:
+            User or None if not found
+        """
+        result = await db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def update_user_organization_and_role(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        role_id: uuid.UUID,
+    ) -> User:
+        """
+        Update user's organization and role.
+
+        This is used when a user creates an organization and becomes its admin.
+
+        Args:
+            db: Database session
+            user_id: User UUID
+            organization_id: Organization UUID
+            role_id: Role UUID
+
+        Returns:
+            Updated user instance
+
+        Raises:
+            ValueError: If user not found
+        """
+        user = await UserCRUD.get_by_id(db, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        user.organization_id = organization_id
+        user.role_id = role_id
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+
+        logger.info(f"Updated user {user_id}: organization_id={organization_id}, role_id={role_id}")
+
+        return user
+
+    @staticmethod
+    async def update_user(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> User:
+        """
+        Update user fields.
+
+        Args:
+            db: Database session
+            user_id: User UUID
+            **kwargs: Fields to update
+
+        Returns:
+            Updated user instance
+
+        Raises:
+            ValueError: If user not found
+        """
+        user = await UserCRUD.get_by_id(db, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        for key, value in kwargs.items():
+            if hasattr(user, key) and value is not None:
+                setattr(user, key, value)
+
+        user.updated_at = datetime.now(timezone.utc)
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+
+        logger.info(f"Updated user {user_id}: {kwargs}")
+        return user
