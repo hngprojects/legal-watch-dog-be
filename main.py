@@ -2,7 +2,6 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,9 +20,6 @@ from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 from app.api.db.database import Base, engine
 from app.api.utils.response_payloads import success_response
-
-load_dotenv()
-
 
 setup_logging()
 

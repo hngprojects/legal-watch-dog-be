@@ -1,37 +1,44 @@
 import logging
-import os
 
 from google import genai
 
-logger = logging.getLogger(__name__)
+from app.api.core.config import settings
 
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
-SYSTEM_PROMPT = """
-You are a data extraction specialist that analyzes content 
-and extracts structured key-value pairs. 
-Focus on extracting concrete data points like prices, dates, 
-percentages, names, and specific requirements.
-Always return valid JSON format.
-"""
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
+    """
+    Client for interacting with LLM providers with generic data extraction capabilities.
+    Supports multiple LLM providers through environment configuration.
+    """
+
     def __init__(self):
-        self.api_key = os.getenv("LLM_API_KEY")
+        """Initialize LLM client with configuration from settings."""
+        self.api_key = settings.LLM_API_KEY
         if not self.api_key:
             raise ValueError("LLM_API_KEY not set in environment")
         self.client = genai.Client(api_key=self.api_key)
         logger.info("LLM client initialized successfully")
 
-    def ask(self, user_message: str):
+    def ask(self, user_message: str) -> str:
+        """
+        Send a message to the LLM and return the response.
+
+        Args:
+            user_message: The prompt message to send to the LLM
+
+        Returns:
+            The LLM response as a string, or error message if request fails
+        """
         try:
             response = self.client.models.generate_content(
-                model=LLM_MODEL,
+                model=settings.LLM_MODEL,
                 contents=[user_message],
                 config={
-                    "system_instruction": SYSTEM_PROMPT,
-                    "temperature": float(os.getenv("LLM_TEMPERATURE", "0.1")),
-                    "max_output_tokens": int(os.getenv("LLM_MAX_TOKENS", "1000")),
+                    "system_instruction": settings.LLM_SYSTEM_PROMPT,
+                    "temperature": settings.LLM_TEMPERATURE,
+                    "max_output_tokens": settings.LLM_MAX_TOKENS,
                 },
             )
             if hasattr(response, "text"):
