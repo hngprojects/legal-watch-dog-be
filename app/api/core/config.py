@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     SCRAPE_MAX_DELAY: int = config("SCRAPE_MAX_DELAY", default=3600, cast=int)
     SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
     SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
+    # gemini AI Service
+    GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
+    MODEL_NAME: str = "gemini-2.5-flash"
 
     model_config = SettingsConfigDict(extra="allow")
 
