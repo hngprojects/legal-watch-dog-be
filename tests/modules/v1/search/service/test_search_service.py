@@ -12,6 +12,7 @@ from app.api.modules.v1.search.service.search_service import SearchService
 
 @pytest.mark.asyncio
 async def test_search_basic(pg_async_session):
+    """Test basic search functionality returns results ordered by relevance."""
     db = pg_async_session
     # Add Organization first
     org = Organization(
@@ -90,6 +91,7 @@ async def test_search_basic(pg_async_session):
 
 @pytest.mark.asyncio
 async def test_search_with_filters(pg_async_session):
+    """Test search with source_id and extracted_data filters."""
     db = pg_async_session
     # Add Organization first
     org = Organization(
@@ -187,6 +189,7 @@ async def test_search_with_filters(pg_async_session):
 
 @pytest.mark.asyncio
 async def test_empty_search(pg_async_session):
+    """Test search with empty or non-existent query returns no results."""
     db = pg_async_session
     search_request = SearchRequest(query="nonexistentterm", limit=10, offset=0, min_rank=0.0)
     service = SearchService(db)

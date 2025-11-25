@@ -14,7 +14,14 @@ router = APIRouter(prefix="/data-revisions", tags=["Data Revision Search"])
 @router.post("/", response_model=SearchResponse)
 async def search_data_revisions(request: SearchRequest, db: Session = Depends(get_db)):
     """
-    Full-text search specifically for DataRevision entities.
+    Full-text search for DataRevision entities.
+
+    Args:
+        request: Search request containing query string, filters, and pagination
+        db: Database session dependency
+
+    Returns:
+        SearchResponse: Search results with matching revisions and metadata
     """
     service = SearchService(db)
     return await service.search(request)

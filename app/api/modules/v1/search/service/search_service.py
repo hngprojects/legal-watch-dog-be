@@ -15,13 +15,29 @@ from app.api.modules.v1.search.schemas.search_schema import (
 
 
 class SearchService:
+    """Service for performing full-text search on DataRevision entities."""
+
     def __init__(self, db: AsyncSession):
+        """
+        Initialize the search service.
+
+        Args:
+            db: Async database session
+        """
         self.db = db
 
     async def search(self, search_request: SearchRequest) -> SearchResponse:
+        """
+        Perform full-text search on data revisions.
+
+        Args:
+            search_request: Search parameters including query, filters, and pagination
+
+        Returns:
+            SearchResponse: Paginated search results with relevance scores
+        """
         tsquery = self._build_tsquery(search_request.query, search_request.operator)
 
-        # Define relevance score column once to avoid duplication
         relevance_score_col = func.ts_rank(
             DataRevision.search_vector, to_tsquery("english", tsquery)
         ).label("relevance_score")
@@ -55,7 +71,7 @@ class SearchService:
                 id=result.DataRevision.id,
                 title=result.DataRevision.minio_object_key,
                 summary=result.DataRevision.ai_summary,
-                content=None,  # DataRevision doesn't have content field
+                content=None,
                 key_fields=result.DataRevision.extracted_data or {},
                 revision_date=result.DataRevision.scraped_at,
                 relevance_score=result.relevance_score,
@@ -71,6 +87,16 @@ class SearchService:
         )
 
     def _build_tsquery(self, query: str, operator: SearchOperator) -> str:
+        """
+        Build a PostgreSQL tsquery string from the search query.
+
+        Args:
+            query: Raw search query string
+            operator: Search operator (AND, OR, NOT, PHRASE)
+
+        Returns:
+            str: Formatted tsquery string for PostgreSQL
+        """
         query = query.strip()
 
         if operator == SearchOperator.AND:
@@ -84,18 +110,26 @@ class SearchService:
             if not terms:
                 tsquery = ""
             elif len(terms) == 1:
-                tsquery = f"!{terms}"
+                tsquery = f"!{terms[0]}"
             else:
-                tsquery = f"{terms} & !({' | '.join(terms[1:])})"
+                tsquery = f"{terms[0]} & !({' | '.join(terms[1:])})"
         else:
             tsquery = query
 
         return tsquery
 
     def _apply_filters(self, query, search_request: SearchRequest):
-        # Apply filters for extracted_data
+        """
+        Apply filters to the search query.
+
+        Args:
+            query: SQLAlchemy select statement
+            search_request: Search request containing filter parameters
+
+        Returns:
+            Modified select statement with applied filters
+        """
         for key, value in search_request.extracted_data_filters.items():
-            # Convert value to string since ->> operator returns text
             if isinstance(value, (dict, list)):
                 value_str = json.dumps(value, separators=(",", ":"))
             else:
