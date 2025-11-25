@@ -17,11 +17,7 @@ async def test_llm_local_integration():
     """
 
     # Correct signature → 3 arguments
-    llm_input = build_llm_prompt(
-        fake_project_prompt,
-        fake_jurisdiction_prompt,
-        extracted_text
-    )
+    llm_input = build_llm_prompt(fake_project_prompt, fake_jurisdiction_prompt, extracted_text)
 
     print("\n=== LLM INPUT ===\n", llm_input)
 
