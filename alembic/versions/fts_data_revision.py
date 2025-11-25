@@ -16,11 +16,11 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 def upgrade():
-    # Add search_vector column to existing data_revision table
-    op.add_column('data_revision', sa.Column('search_vector', postgresql.TSVECTOR, nullable=True))
+    # Add search_vector column to existing data_revisions table
+    op.add_column('data_revisions', sa.Column('search_vector', postgresql.TSVECTOR, nullable=True))
     
     # Create GIN index for full-text search
-    op.create_index('idx_data_revision_search_vector', 'data_revision', ['search_vector'], postgresql_using='gin')
+    op.create_index('idx_data_revisions_search_vector', 'data_revisions', ['search_vector'], postgresql_using='gin')
 
     # Add trigger for search_vector auto-update
     op.execute(open('alembic/versions/trigger_update_data_revision_search_vector.sql').read())
@@ -28,9 +28,9 @@ def upgrade():
 
 def downgrade():
     # Drop trigger and function
-    op.execute('DROP TRIGGER IF EXISTS trg_update_data_revision_search_vector ON data_revision;')
-    op.execute('DROP FUNCTION IF EXISTS update_data_revision_search_vector CASCADE;')
+    op.execute('DROP TRIGGER IF EXISTS trg_update_data_revisions_search_vector ON data_revisions;')
+    op.execute('DROP FUNCTION IF EXISTS update_data_revisions_search_vector CASCADE;')
     
     # Drop index and column
-    op.drop_index('idx_data_revision_search_vector', table_name='data_revision')
-    op.drop_column('data_revision', 'search_vector')
+    op.drop_index('idx_data_revisions_search_vector', table_name='data_revisions')
+    op.drop_column('data_revisions', 'search_vector')
