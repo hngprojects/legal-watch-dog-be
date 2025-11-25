@@ -7,7 +7,11 @@ logger = logging.getLogger(__name__)
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
 SYSTEM_PROMPT = """
-You are a helpful assistant for answering questions.
+You are a data extraction specialist that analyzes content 
+and extracts structured key-value pairs. 
+Focus on extracting concrete data points like prices, dates, 
+percentages, names, and specific requirements.
+Always return valid JSON format.
 """
 
 
@@ -26,8 +30,8 @@ class LLMClient:
                 contents=[user_message],
                 config={
                     "system_instruction": SYSTEM_PROMPT,
-                    "temperature": float(os.getenv("LLM_TEMPERATURE", "0.7")),
-                    "max_output_tokens": int(os.getenv("LLM_MAX_TOKENS", "300")),
+                    "temperature": float(os.getenv("LLM_TEMPERATURE", "0.1")),
+                    "max_output_tokens": int(os.getenv("LLM_MAX_TOKENS", "1000")),
                 },
             )
             if hasattr(response, "text"):
