@@ -16,18 +16,15 @@ from app.api.modules.v1.scraping.schemas.ai_analysis import ExtractionResult
 
 logger = logging.getLogger(__name__)
 
-# Initialize GenAI
 if _HAS_GENAI and settings.GOOGLE_API_KEY:
     genai.configure(api_key=settings.GOOGLE_API_KEY)
 
-# Custom Exception as requested
+
 class AIExtractionServiceError(Exception):
     """Raised when AI extraction fails after all retries."""
     pass
 
-# Define the JSON Schema for Gemini
-# FIX: Gemini requires strict properties for objects. 
-# We use an ARRAY of key-value objects to handle dynamic keys.
+
 EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
@@ -55,24 +52,34 @@ EXTRACTION_SCHEMA = {
     "required": ["summary", "markdown_summary", "extracted_data", "confidence_score"]
 }
 
+
 class AIExtractionService:
     """
-    AI-powered service for extracting structured data from raw text.
-    Uses Native JSON Mode for stability and single-pass efficiency.
+    Service responsible for extracting structured data from raw text using Google's Gemini AI.
+
+    This service utilizes Gemini's Native JSON mode to ensure deterministic and schema-compliant
+    output. It handles the extraction of key-value pairs, generation of summaries, and
+    creation of markdown-formatted analysis in a single API call.
     """
 
     def __init__(self):
+        """
+        Initialize the AIExtractionService with the Gemini model configuration.
+
+        Raises:
+            ImportError: If the google-generativeai package is not installed.
+            ValueError: If the GOOGLE_API_KEY environment variable is not set.
+        """
         if not _HAS_GENAI:
             raise ImportError("`google-generativeai` package missing.")
         
         if not settings.GOOGLE_API_KEY:
             raise ValueError("GOOGLE_API_KEY is not set.")
 
-        # Configure model with JSON Mode
         self.model = genai.GenerativeModel(
-            model_name=settings.LLM_MODEL,
+            model_name=settings.MODEL_NAME,
             generation_config=GenerationConfig(
-                temperature=0.0, # Deterministic
+                temperature=0.0,
                 response_mime_type="application/json",
                 response_schema=EXTRACTION_SCHEMA
             ),
@@ -86,11 +93,26 @@ class AIExtractionService:
         max_retries: int = 2
     ) -> Dict[str, Any]:
         """
-        Extracts data using Gemini Native JSON mode.
-        Combines Extraction, Summary, and Markdown generation into ONE call.
+        Executes the LLM analysis pipeline to extract structured data from the provided text.
+
+        Constructs a prompt based on the project and jurisdiction context, sends it to the
+        configured Gemini model, and parses the JSON response. It includes logic to transform
+        list-based key-value pairs into a dictionary and validates the result against the
+        ExtractionResult schema.
+
+        Args:
+            cleaned_text (str): The pre-processed text content to analyze.
+            project_prompt (str): The main goal or monitoring instruction for the project.
+            jurisdiction_prompt (str): Context specific to the jurisdiction.
+            max_retries (int, optional): Maximum number of retries for failed API calls or parsing errors. Defaults to 2.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the extracted data, summaries, and confidence score,
+                            validated and formatted according to the ExtractionResult model.
+
+        Raises:
+            AIExtractionServiceError: If extraction fails after the specified number of retries.
         """
-        
-        # We explicitly inject the formatting rules you wanted into the single-pass prompt.
         prompt = f"""You are an Expert Regulatory Data Analyst.
 TASK: Extract structured information from the text below and generate summaries based on that data.
 
@@ -117,30 +139,22 @@ SUMMARY RULES (UI RENDER):
 --- SOURCE TEXT ---
 {cleaned_text[:1000000]} 
 """ 
-        
-        # This simplifies the architecture significantly while maintaining high accuracy.
 
         for attempt in range(max_retries + 1):
             try:
-                # 1. Generate Content (Returns Valid JSON string)
                 response = await self.model.generate_content_async(prompt)
                 
-                # 2. Parse JSON
                 result_json = json.loads(response.text)
                 
-                # FIX: Transform the List[Obj] back to Dict for your Pydantic model
                 if "extracted_data" in result_json and "key_value_pairs" in result_json["extracted_data"]:
                     kv_list = result_json["extracted_data"]["key_value_pairs"]
                     if isinstance(kv_list, list):
-                        # Convert [{"key": "k", "value": "v"}] -> {"k": "v"}
                         result_json["extracted_data"]["key_value_pairs"] = {
                             item.get("key"): item.get("value") for item in kv_list if "key" in item
                         }
 
-                # 3. Validate with Pydantic
                 validated_result = ExtractionResult.model_validate(result_json)
                 
-                # Sort keys for deterministic output
                 result_dump = validated_result.model_dump()
                 if "extracted_data" in result_dump and "key_value_pairs" in result_dump["extracted_data"]:
                     kv_pairs = result_dump["extracted_data"]["key_value_pairs"]
