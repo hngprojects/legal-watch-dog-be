@@ -13,7 +13,7 @@ def test_success_response_with_data():
     resp = response_payloads.success_response(200, "OK", {"id": 1})
     assert resp.status_code == 200
     body = _get_json(resp)
-    assert body["status"] == "success"
+    assert body["status"] == "SUCCESS"
     assert body["status_code"] == 200
     assert body["message"] == "OK"
     assert body["data"] == {"id": 1}
@@ -29,7 +29,7 @@ def test_auth_response_merges_data_and_token():
     resp = response_payloads.auth_response(201, "Logged in", "token123", {"user": {"id": 1}})
     assert resp.status_code == 201
     body = _get_json(resp)
-    assert body["status"] == "success"
+    assert body["status"] == "SUCCESS"
     assert body["data"]["access_token"] == "token123"
     assert body["data"]["user"] == {"id": 1}
 

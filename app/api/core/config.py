@@ -78,6 +78,17 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
     MODEL_NAME: str = "gemini-2.5-flash"
 
+    # LLM Configuration
+    LLM_API_KEY: str = config("LLM_API_KEY", default="your-llm-api-key")
+    LLM_MODEL: str = config("LLM_MODEL", default="gemini-2.0-flash")
+    LLM_API_URL: str = config("LLM_API_URL", default="")
+    LLM_PROVIDER: str = config("LLM_PROVIDER", default="gemini")
+    LLM_TEMPERATURE: float = config("LLM_TEMPERATURE", default=0.1, cast=float)
+    LLM_MAX_TOKENS: int = config("LLM_MAX_TOKENS", default=1000, cast=int)
+    LLM_SYSTEM_PROMPT: str = config(
+        "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
+    )
+
     model_config = SettingsConfigDict(extra="allow")
 
 
