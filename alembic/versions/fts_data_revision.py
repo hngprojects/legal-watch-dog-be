@@ -6,6 +6,7 @@ Create Date: 2025-11-21
 
 Alembic migration for DATA_REVISION table with TSVECTOR and trigger.
 """
+import os
 
 revision = 'fts_data_revision'
 down_revision = 'a8109c8c21c0'
@@ -23,7 +24,9 @@ def upgrade():
     op.create_index('idx_data_revisions_search_vector', 'data_revisions', ['search_vector'], postgresql_using='gin')
 
     # Add trigger for search_vector auto-update
-    op.execute(open('alembic/versions/trigger_update_data_revision_search_vector.sql').read())
+    sql_file_path = os.path.join(os.path.dirname(__file__), 'trigger_update_data_revision_search_vector.sql')
+    with open(sql_file_path) as f:
+        op.execute(f.read())
 
 
 def downgrade():
