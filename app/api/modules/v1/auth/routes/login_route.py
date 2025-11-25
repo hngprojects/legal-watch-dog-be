@@ -16,7 +16,13 @@ from app.api.modules.v1.auth.routes.docs.login_route_docs import (
     refresh_custom_success,
     refresh_token_responses,
 )
-from app.api.modules.v1.auth.schemas.login import LoginRequest, RefreshTokenRequest
+from app.api.modules.v1.auth.schemas.login import (
+    LoginRequest,
+    LoginResponse,
+    LogoutResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+)
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import error_response, success_response
@@ -27,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @router.post(
     "/login",
-    response_model=None,
+    response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
     responses=login_responses,  # type: ignore
 )
@@ -100,7 +106,7 @@ login._custom_success = login_custom_success  # type: ignore
 
 @router.post(
     "/token/refresh",
-    response_model=None,
+    response_model=RefreshTokenResponse,
     status_code=status.HTTP_200_OK,
     responses=refresh_token_responses,  # type: ignore
 )
@@ -148,7 +154,7 @@ refresh_token._custom_success = refresh_custom_success  # type: ignore
 
 @router.post(
     "/logout",
-    response_model=None,
+    response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
     responses=logout_responses,  # type: ignore
 )

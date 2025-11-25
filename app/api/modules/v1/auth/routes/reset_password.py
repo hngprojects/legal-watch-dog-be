@@ -43,6 +43,7 @@ router = APIRouter(prefix="/auth/password", tags=["Auth"])
     "/resets",
     status_code=status.HTTP_200_OK,
     responses=request_reset_responses,  # type: ignore
+    response_model=PasswordResetRequest,
 )
 async def request_password_reset(
     payload: PasswordResetRequest,
@@ -109,6 +110,7 @@ request_password_reset._custom_success = request_reset_custom_success  # type: i
     "/resets/verification",
     status_code=status.HTTP_200_OK,
     responses=verify_reset_responses,  # type: ignore
+    response_model=PasswordResetVerify,
 )
 async def verify_reset_code(
     payload: PasswordResetVerify,
@@ -162,6 +164,7 @@ verify_reset_code._custom_success = verify_reset_custom_success  # type: ignore
     "/resets/confirmation",
     status_code=status.HTTP_200_OK,
     responses=confirm_reset_responses,  # type: ignore
+    response_model=PasswordResetConfirm,
 )
 async def confirm_password_reset(
     payload: PasswordResetConfirm,
