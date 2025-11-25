@@ -6,21 +6,14 @@ from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.organization.models import Organization
+    from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
-    from app.api.modules.v1.users.models.roles_model import Role
 
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
-
-    organization_id: uuid.UUID | None = Field(
-        default=None, foreign_key="organizations.id", nullable=True, index=True
-    )
-
-    role_id: uuid.UUID = Field(foreign_key="roles.id", nullable=False, index=True)
 
     email: str = Field(max_length=255, nullable=False, unique=True, index=True)
 
@@ -33,7 +26,9 @@ class User(SQLModel, table=True):
     name: str = Field(index=True, max_length=255)
 
     is_active: bool = Field(default=True, nullable=False)
-    is_verified: bool = Field(default=False, nullable=False)
+    is_verified: bool = Field(
+        default=False, nullable=False, description="Email verification status"
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
@@ -44,6 +39,7 @@ class User(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    organization: "Organization" = Relationship(back_populates="users")
-    role: "Role" = Relationship(back_populates="users")
+    organization_memberships: list["UserOrganization"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     project_users: list["ProjectUser"] = Relationship(back_populates="user")
