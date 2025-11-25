@@ -8,18 +8,18 @@ the individual scraper task
 with retry logic.
 """
 
+import asyncio
 import json
 import random
-import time
 from datetime import datetime, timedelta, timezone
 
 import redis
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from app.api.core.config import settings
-from app.api.db.database import engine
+from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
 
 logger = get_task_logger(__name__)
@@ -54,6 +54,39 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
     return current_time + delta
 
 
+async def _scrape_source_async(source_id: str):
+    """Async implementation of the scraping logic."""
+    logger.info(f"Running _scrape_source_async for source {source_id} in async loop.")
+    async with AsyncSessionLocal() as db:
+        query = select(Source).where(Source.id == source_id)
+        result = await db.execute(query)
+        source = result.scalars().first()
+
+        if not source:
+            logger.warning(f"Source with ID {source_id} not found.")
+            return f"Source {source_id} not found."
+
+        logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
+
+        # Simulate async work (replace with actual async scraping logic later)
+        await asyncio.sleep(random.uniform(0.1, 0.5))
+
+        # If scraping is successful
+        new_next_scrape_time = get_next_scrape_time(
+            datetime.now(timezone.utc), source.scrape_frequency
+        )
+        source.next_scrape_time = new_next_scrape_time
+        db.add(source)
+        await db.commit()
+        await db.refresh(source)
+
+        logger.info(
+            f"Successfully scraped source {source.name}. "
+            f"Next scrape time: {source.next_scrape_time}"
+        )
+        return f"Source {source.id} scraped successfully. Next scrape: {source.next_scrape_time}"
+
+
 @shared_task(bind=True, max_retries=settings.SCRAPE_MAX_RETRIES)
 def scrape_source(self, source_id: str):
     """Performs the scraping of a single source with exponential backoff and jitter.
@@ -70,35 +103,8 @@ def scrape_source(self, source_id: str):
         str: A message indicating the outcome of the scraping attempt.
     """
     try:
-        with Session(engine) as db:
-            query = select(Source).where(Source.id == source_id)
-            result = db.exec(query)
-            source = result.first()
-
-            if not source:
-                logger.warning(f"Source with ID {source_id} not found.")
-                return f"Source {source_id} not found."
-
-            logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
-
-            time.sleep(random.uniform(0.1, 0.5))
-
-            # If scraping is successful
-            new_next_scrape_time = get_next_scrape_time(
-                datetime.now(timezone.utc), source.scrape_frequency
-            )
-            source.next_scrape_time = new_next_scrape_time
-            db.add(source)
-            db.commit()
-            db.refresh(source)
-
-            logger.info(
-                f"Successfully scraped source {source.name}. "
-                f"Next scrape time: {source.next_scrape_time}"
-            )
-            return (
-                f"Source {source.id} scraped successfully. Next scrape: {source.next_scrape_time}"
-            )
+        # Run the async implementation synchronously
+        return asyncio.run(_scrape_source_async(source_id))
     except Exception as exc:
         # Use the connection pool
         redis_client = redis.Redis(connection_pool=redis_pool)
@@ -133,6 +139,44 @@ def scrape_source(self, source_id: str):
             return f"Failed: Source {source_id} moved to DLQ."
 
 
+async def _dispatch_due_sources_async(app):
+    """Async implementation of the dispatch logic."""
+    async with AsyncSessionLocal() as db:
+        now = datetime.now(timezone.utc)
+
+        # Base query for due sources
+        query = select(Source).where(
+            (Source.next_scrape_time <= now) | (Source.next_scrape_time.is_(None))
+        )
+
+        total_dispatched = 0
+        offset = 0
+        batch_size = settings.SCRAPE_BATCH_SIZE
+
+        while True:
+            # Fetch in batches
+            batch_query = query.offset(offset).limit(batch_size)
+            result = await db.execute(batch_query)
+            due_sources = result.scalars().all()
+
+            if not due_sources:
+                break
+
+            for src in due_sources:
+                app.send_task(
+                    "app.api.modules.v1.scraping.service.tasks.scrape_source",
+                    args=[str(src.id)],
+                )
+
+            count = len(due_sources)
+            total_dispatched += count
+            offset += count
+
+            logger.info(f"Dispatched batch of {count} sources.")
+
+        return total_dispatched
+
+
 @shared_task(bind=True)
 def dispatch_due_sources(self):
     """
@@ -159,45 +203,15 @@ def dispatch_due_sources(self):
 
         logger.info("Acquired dispatch lock. Checking for due sources...")
 
-        with Session(engine) as db:
-            now = datetime.now(timezone.utc)
+        # Run the async implementation synchronously
+        total_dispatched = asyncio.run(_dispatch_due_sources_async(self.app))
 
-            # Base query for due sources
-            query = select(Source).where(
-                (Source.next_scrape_time <= now) | (Source.next_scrape_time.is_(None))
-            )
+        if total_dispatched == 0:
+            logger.info("No sources are due for scraping.")
+            return "No sources to dispatch."
 
-            total_dispatched = 0
-            offset = 0
-            batch_size = settings.SCRAPE_BATCH_SIZE
-
-            while True:
-                # Fetch in batches
-                batch_query = query.offset(offset).limit(batch_size)
-                result = db.exec(batch_query)
-                due_sources = result.all()
-
-                if not due_sources:
-                    break
-
-                for src in due_sources:
-                    self.app.send_task(
-                        "app.api.modules.v1.scraping.service.tasks.scrape_source",
-                        args=[str(src.id)],
-                    )
-
-                count = len(due_sources)
-                total_dispatched += count
-                offset += count
-
-                logger.info(f"Dispatched batch of {count} sources.")
-
-            if total_dispatched == 0:
-                logger.info("No sources are due for scraping.")
-                return "No sources to dispatch."
-
-            logger.info(f"Dispatched total {total_dispatched} sources for scraping.")
-            return f"Dispatched {total_dispatched} sources"
+        logger.info(f"Dispatched total {total_dispatched} sources for scraping.")
+        return f"Dispatched {total_dispatched} sources"
 
     except redis.RedisError as e:
         logger.error(f"Redis error in dispatch_due_sources: {e}", exc_info=True)

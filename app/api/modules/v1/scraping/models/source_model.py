@@ -5,10 +5,11 @@ Defines the database schema for sources to be monitored and scraped.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Optional
 
+from sqlalchemy import DateTime
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -47,11 +48,16 @@ class Source(SQLModel, table=True):
     source_type: SourceType = Field(default=SourceType.WEB)
 
     scrape_frequency: ScrapeFrequency = Field(default=ScrapeFrequency.DAILY)
-    next_scrape_time: Optional[datetime] = Field(default=None)
+    next_scrape_time: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     is_active: bool = Field(default=True)
     is_deleted: bool = Field(default=False, index=True)
 
     auth_details_encrypted: Optional[str] = Field(default=None)
     scraping_rules: Dict = Field(default={}, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
