@@ -32,9 +32,7 @@ if _HAS_MINIO:
         logger.critical(f"Failed to initialize MinIO client: {e}")
         minio_client = None
 else:
-    logger.warning(
-        "MinIO SDK not installed."
-    )
+    logger.warning("MinIO SDK not installed.")
 
 
 def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> str:

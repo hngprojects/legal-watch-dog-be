@@ -68,7 +68,6 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
-    
     # =========================
     # MinIO
     # =========================
