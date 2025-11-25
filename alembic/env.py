@@ -6,6 +6,9 @@ from alembic import context
 from app.api.core.config import BASE_DIR, settings
 from app.api.db.database import Base
 from app.api.modules.v1.auth.models.otp_model import OTP
+from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
+from app.api.modules.v1.billing.models.payment_method import PaymentMethod
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
