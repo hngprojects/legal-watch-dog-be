@@ -25,7 +25,7 @@ def test_auth_response_structure():
     body = resp.body
     assert body is not None
     data = json.loads(body)
-    assert data["status"] == "success"
+    assert data["status"] == "SUCCESS"
     assert data["status_code"] == 201
     assert data["data"]["access_token"] == token
     assert data["data"]["email"] == "a@b.com"
