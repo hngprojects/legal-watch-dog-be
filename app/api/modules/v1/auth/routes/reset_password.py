@@ -6,6 +6,17 @@ from sqlmodel import select
 
 from app.api.core.exceptions import PasswordReuseError
 from app.api.db.database import get_db
+from app.api.modules.v1.auth.routes.docs.reset_password_docs import (
+    confirm_reset_custom_errors,
+    confirm_reset_custom_success,
+    confirm_reset_responses,
+    request_reset_custom_errors,
+    request_reset_custom_success,
+    request_reset_responses,
+    verify_reset_custom_errors,
+    verify_reset_custom_success,
+    verify_reset_responses,
+)
 from app.api.modules.v1.auth.schemas.reset_password import (
     PasswordResetConfirm,
     PasswordResetRequest,
@@ -25,18 +36,33 @@ from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/auth/password", tags=["Auth"])
 
 
-@router.post("/password-reset/request", status_code=status.HTTP_200_OK)
+@router.post(
+    "/resets",
+    status_code=status.HTTP_200_OK,
+    responses=request_reset_responses,  # type: ignore
+)
 async def request_password_reset(
     payload: PasswordResetRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Request password reset: generates OTP, stores in Redis,
-    and sends reset email to user.
+    Request a password reset for a user.
+
+    - Validates the email address.
+    - Generates a One-Time Password (OTP) and stores it securely.
+    - Sends the OTP to the user's email.
+
+    Args:
+        payload (PasswordResetRequest): Contains the user's email.
+        background_tasks (BackgroundTasks): For sending the email asynchronously.
+        db (AsyncSession): Database session dependency.
+
+    Returns:
+        JSON response confirming whether the reset code was sent.
     """
     logger.info("Password reset requested for email=%s", payload.email)
 
@@ -70,18 +96,36 @@ async def request_password_reset(
         logger.exception("Error during password reset request for email=%s", payload.email)
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Password reset request failed",
         )
 
 
-@router.post("/password-reset/verify", status_code=status.HTTP_200_OK)
+request_password_reset._custom_errors = request_reset_custom_errors  # type: ignore
+request_password_reset._custom_success = request_reset_custom_success  # type: ignore
+
+
+@router.post(
+    "/resets/verification",
+    status_code=status.HTTP_200_OK,
+    responses=verify_reset_responses,  # type: ignore
+)
 async def verify_reset_code(
     payload: PasswordResetVerify,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Verify the password reset code sent to user's email.
-    Returns a temporary reset token if valid.
+    Verify the OTP code sent to user's email.
+
+    - Validates the provided code.
+    - Returns a temporary reset token if valid.
+
+    Args:
+        payload (PasswordResetVerify): Contains email and OTP code.
+        db (AsyncSession): Database session dependency.
+
+    Returns:
+        JSON response containing the temporary reset token.
     """
     logger.info("Verifying password reset code for email=%s", payload.email)
 
@@ -110,13 +154,32 @@ async def verify_reset_code(
         )
 
 
-@router.post("/password-reset/confirm", status_code=status.HTTP_200_OK)
+verify_reset_code._custom_errors = verify_reset_custom_errors  # type: ignore
+verify_reset_code._custom_success = verify_reset_custom_success  # type: ignore
+
+
+@router.post(
+    "/resets/confirmation",
+    status_code=status.HTTP_200_OK,
+    responses=confirm_reset_responses,  # type: ignore
+)
 async def confirm_password_reset(
     payload: PasswordResetConfirm,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Reset user password using the temporary reset token.
+    Confirm and reset the user's password using the temporary token.
+
+    - Validates the temporary reset token.
+    - Updates the user's password.
+    - Prevents reuse of previous passwords.
+
+    Args:
+        payload (PasswordResetConfirm): Contains `reset_token` and `new_password`.
+        db (AsyncSession): Database session dependency.
+
+    Returns:
+        JSON response confirming password reset success or failure.
     """
     logger.info("Confirming password reset for reset_token=%s", payload.reset_token[:10])
 
@@ -134,11 +197,10 @@ async def confirm_password_reset(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Password reset successful.",
-            data={"password": success},
         )
 
     except PasswordReuseError as e:
-        logger.warning("Password reuse attempt during reset ()", str(e))
+        logger.warning("Password reuse attempt during reset: %s", str(e))
         return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             message="Cannot reuse old password.",
@@ -150,3 +212,7 @@ async def confirm_password_reset(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Internal server error.",
         )
+
+
+confirm_password_reset._custom_errors = confirm_reset_custom_errors  # type: ignore
+confirm_password_reset._custom_success = confirm_reset_custom_success  # type: ignore
