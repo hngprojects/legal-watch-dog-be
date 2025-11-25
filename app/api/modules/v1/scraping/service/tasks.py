@@ -68,7 +68,7 @@ async def _scrape_source_async(source_id: str):
 
         logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
 
-        # Simulate async work (replace with actual async scraping logic later)
+        # Simulate async work (to be replaced with actual async scraping logic later)
         await asyncio.sleep(random.uniform(0.1, 0.5))
 
         # If scraping is successful
