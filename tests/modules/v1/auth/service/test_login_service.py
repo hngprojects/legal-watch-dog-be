@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.api.modules.v1.auth.service.login_service import (
     MAX_LOGIN_ATTEMPTS,
     authenticate_user,
+    reset_failed_attempts,
 )
 from app.api.modules.v1.organization.models import Organization
 from app.api.modules.v1.users.models import User
@@ -51,6 +52,9 @@ async def test_successful_login_with_rate_limiting(pg_sync_session, pg_async_ses
 
     # Authenticate using async session
     async_session = pg_async_session
+
+    # Ensure clean state
+    await reset_failed_attempts("login@example.com")
 
     result = await authenticate_user(
         db=async_session,
@@ -98,6 +102,9 @@ async def test_failed_login_increments_counter(pg_sync_session, pg_async_session
     session.commit()
 
     async_session = pg_async_session
+
+    # Ensure clean state
+    await reset_failed_attempts("fail@example.com")
 
     # Attempt login with wrong password
     with pytest.raises(HTTPException) as exc_info:
