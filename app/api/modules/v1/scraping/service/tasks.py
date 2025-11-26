@@ -76,7 +76,7 @@ async def _handle_scrape_failure_async(source_id: str, error_msg: str):
             .where(Source.id == source_id)
             .values(next_scrape_time=backoff_time, last_error=error_msg)
         )
-        await db.exec(stmt)
+        await db.execute(stmt)
         await db.commit()
 
 
