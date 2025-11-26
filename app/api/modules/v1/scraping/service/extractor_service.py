@@ -1,3 +1,12 @@
+"""
+Text Extractor Service.
+
+This module provides the TextExtractorService class, which handles the extraction of text
+from raw content (HTML, PDF, etc.). It manages the entire pipeline of uploading raw content
+to MinIO, cleaning the content to extract meaningful text, and uploading the cleaned text
+back to MinIO. It supports fallback mechanisms using readability-lxml if primary extraction fails.
+"""
+
 import io
 import logging
 from datetime import datetime, timezone
@@ -10,7 +19,6 @@ from readability import Document
 from app.api.core.config import settings
 from app.api.utils.cleaned_text import cleaned_html, normalize_text
 
-# --- MinIO / BS4 Imports with Safety Checks ---
 try:
     from bs4 import BeautifulSoup, Comment
 
@@ -142,30 +150,23 @@ class TextExtractorService:
         """
         revision_id = revision_id or uuid4()
 
-        # 1. Upload Raw (Async execution of blocking IO)
         try:
             await run_in_threadpool(self._upload_bytes_sync, raw_content, raw_bucket, raw_key)
         except Exception as e:
             logger.error(f"Failed to upload raw content: {e}")
-            # Depending on business logic, might want to raise here or continue
-            # For now, we raise because data lineage is usually critical
             raise e
 
-        # 2. Clean (Directly from bytes)
-        # We don't need to fetch back from MinIO; we have the bytes in memory.
         extracted_text = cleaned_html(raw_content)
 
-        # Readability Fallback if specific cleaner yielded little results
         if len(extracted_text) < 50:
             try:
                 html_str = raw_content.decode("utf-8", errors="ignore")
                 extracted_text = normalize_text(Document(html_str).summary(html=False))
             except Exception:
-                pass  # Stick with original cleaning result if fallback fails
+                pass
 
         extracted_text = normalize_text(extracted_text)
 
-        # 3. Upload Cleaned
         clean_key = self._generate_clean_key(source_id, revision_id)
         if extracted_text:
             try:
@@ -175,9 +176,8 @@ class TextExtractorService:
             except Exception as e:
                 logger.warning(f"Failed to upload clean text (non-fatal): {e}")
 
-        # 4. Return Data
         return {
-            "full_text": extracted_text,  # Crucial for Hashing/AI
+            "full_text": extracted_text,
             "raw_key": raw_key,
             "clean_key": clean_key,
             "revision_id": str(revision_id),
@@ -188,8 +188,6 @@ class TextExtractorService:
         """Generates a standard key for cleaned text files."""
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         return f"clean/{source_id}/{timestamp}_{revision_id}.txt"
-
-    # --- Standalone Helpers (Optional usage) ---
 
     async def extract_from_minio(self, bucket: str, object_name: str) -> str:
         """Fetch raw HTML from MinIO and return cleaned string (Legacy support)."""

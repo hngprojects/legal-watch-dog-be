@@ -29,9 +29,8 @@ class ScraperService:
         Initializes the service with an ASYNC database session.
         """
         self.db = db
-        # AIExtractionService is initialized here to process cleaned text
         self.ai_extractor = AIExtractionService()
-        self.text_extractor = TextExtractorService()  # Handles Upload + Cleaning
+        self.text_extractor = TextExtractorService()
         self.differ = DiffAIService()
         self.http_client = HTTPClientService()
         self.pdf_service = PDFService()
@@ -43,7 +42,6 @@ class ScraperService:
         """
         logger.info(f"Starting pipeline for Source ID: {source_id}")
 
-        # 1. Fetch Source & Eagerly Load Relationships
         query = (
             select(Source)
             .where(Source.id == source_id)
@@ -58,7 +56,6 @@ class ScraperService:
         jurisdiction = source.jurisdiction
         project = jurisdiction.project
 
-        # 2. Handle Auth Credentials
         auth_creds = {}
         if source.auth_details_encrypted:
             try:
@@ -66,7 +63,6 @@ class ScraperService:
             except Exception as e:
                 logger.error(f"Failed to decrypt auth details: {e}")
 
-        # 3. Fetch Content (Mock or Real)
         if source.url.startswith("mock://"):
             mock_html = source.scraping_rules.get("mock_html", "<html></html>")
             raw_content_bytes = mock_html.encode("utf-8")
@@ -76,14 +72,11 @@ class ScraperService:
             raw_content_bytes = await self.http_client.fetch_content(source.url, auth_creds)
             content_type = source.scraping_rules.get("expected_type", "text/html").lower()
 
-        # 4. PDF Handling
-
         is_pdf = self.pdf_service.is_pdf(raw_content_bytes, content_type)
         if is_pdf:
             logger.info("PDF detected. Extracting text...")
             try:
                 text_content = self.pdf_service.extract_text(raw_content_bytes)
-                # Wrap in fake HTML structure
                 raw_content_bytes = f"<html><body><pre>{text_content}</pre></body></html>".encode(
                     "utf-8"
                 )
@@ -91,12 +84,9 @@ class ScraperService:
                 logger.error(f"PDF extraction failed: {e}")
                 raw_content_bytes = b"<html><body>PDF extraction failed</body></html>"
 
-        # 5. Pipeline: Upload Raw -> Clean -> Upload Clean
-        # We generate a Raw Key here to pass to the extractor
         timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         raw_minio_key = f"raw/{project.id}/{source.id}/{timestamp_str}.html"
 
-        # Execute the unified extraction pipeline
         extraction_result = await self.text_extractor.process_pipeline(
             raw_content=raw_content_bytes,
             raw_bucket="raw-content",
@@ -107,10 +97,8 @@ class ScraperService:
 
         clean_text = extraction_result["full_text"]
 
-        # 6. Hash Check
         content_hash = hashlib.sha256(clean_text.encode()).hexdigest()
 
-        # Fetch Last Revision (Async)
         rev_query = (
             select(DataRevision)
             .where(DataRevision.source_id == source.id)
@@ -120,18 +108,14 @@ class ScraperService:
         rev_result = await self.db.execute(rev_query)
         last_revision = rev_result.scalars().first()
 
-        # 7. Content Change Gatekeeper
         diff_patch = {}
         was_change_detected = False
 
-        # If content hasn't changed, skip the expensive AI steps
         if last_revision and last_revision.content_hash == content_hash:
             logger.info(f"Content unchanged (hash: {content_hash[:8]}...). Skipping AI.")
             ai_result = last_revision.extracted_data
             diff_patch = {"change_summary": "No material changes detected", "risk_level": "NONE"}
         else:
-            # 8. AI Extraction
-            # We pass the clean text we just got from text_extractor
             logger.info("Content changed. Running AI Extraction...")
 
             master_prompt = project.master_prompt
@@ -143,7 +127,6 @@ class ScraperService:
                 jurisdiction_prompt=context_prompt,
             )
 
-            # 9. AI Semantic Diff
             old_data = (
                 last_revision.extracted_data.get("extracted_data", {}) if last_revision else {}
             )
@@ -168,13 +151,10 @@ class ScraperService:
                     "risk_level": "NONE",
                 }
 
-        # 10. Async Persistence
         try:
             new_revision = DataRevision(
                 source_id=source.id,
-                minio_object_key=extraction_result["raw_key"],  # Key for Raw HTML
-                # You might want to save the clean key too if your model supports it:
-                # clean_object_key=extraction_result["clean_key"],
+                minio_object_key=extraction_result["raw_key"],
                 content_hash=content_hash,
                 extracted_data=ai_result,
                 ai_summary=ai_result.get("summary"),
@@ -185,7 +165,6 @@ class ScraperService:
             )
             self.db.add(new_revision)
 
-            # Flush to get ID for diff record
             await self.db.flush()
 
             if was_change_detected and last_revision:

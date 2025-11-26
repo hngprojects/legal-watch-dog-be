@@ -1,4 +1,11 @@
-"""Service Handler For Jurisdiction"""
+"""
+Jurisdiction Service Module.
+
+This module provides the JurisdictionService class, which handles the business logic for
+managing Jurisdiction entities. It includes methods for creating, retrieving, updating,
+and deleting (soft and hard) jurisdictions. It also includes the OrgResourceGuard class
+for enforcing organization-level access control on resources.
+"""
 
 from datetime import datetime, timezone
 from typing import Any, Optional, Union, cast
@@ -92,20 +99,6 @@ class JurisdictionService:
     async def create(self, db: AsyncSession, jurisdiction: Jurisdiction):
         """Create a Jurisdiction. If first in project, set parent_id to itself."""
         try:
-            # existing = None
-            # project_id = jurisdiction.project_id
-
-            # if project_id is not None:
-            #     stmt = select(Jurisdiction).where(
-            #         cast(Any, Jurisdiction.project_id) == project_id,
-            #         cast(Any, Jurisdiction.is_deleted).is_(False),
-            #     )
-            #     result = await db.execute(stmt)
-            #     existing = result.first()
-
-            # if existing is None:
-            #     jurisdiction.parent_id = jurisdiction.id
-
             # Now add and persist
             db.add(jurisdiction)
             await db.commit()

@@ -13,26 +13,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-# Add project root to path (E402 avoided)
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import select
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
-from sqlmodel import select  # noqa: E402
-
-from app.api.core.config import settings  # noqa: E402
-from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction  # noqa: E402
-from app.api.modules.v1.organization.models.organization_model import Organization  # noqa: E402
-from app.api.modules.v1.projects.models.project_model import Project  # noqa: E402
-from app.api.modules.v1.scraping.models.change_diff import ChangeDiff  # noqa: E402
-from app.api.modules.v1.scraping.models.data_revision import DataRevision  # noqa: E402
-from app.api.modules.v1.scraping.models.source_model import (  # noqa: E402
+from app.api.core.config import settings
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
+from app.api.modules.v1.scraping.models.source_model import (
     ScrapeFrequency,
     Source,
     SourceType,
 )
 from app.api.modules.v1.scraping.service.scraper_service import ScraperService  # noqa: E402
+
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 
 async def mock_celery_scraper_worker():
@@ -45,7 +44,6 @@ async def mock_celery_scraper_worker():
     print("=" * 80)
     print()
 
-    # ===== SETUP DATABASE (ASYNC) =====
     print("[SETUP] Initializing Async Database Session...")
 
     db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
@@ -54,7 +52,6 @@ async def mock_celery_scraper_worker():
 
     async with async_session_factory() as db_session:
         try:
-            # ===== CREATE TEST DATA =====
             print("[SETUP] Creating test Organization, Project, Jurisdiction, and Source...")
 
             org = Organization(
@@ -111,7 +108,6 @@ async def mock_celery_scraper_worker():
             print(f"  [OK] Source created: {source.id}")
             print()
 
-            # ===== RUN 1: Initial Scrape =====
             print("-" * 80)
             print("[RUN 1] First Scrape - Initial Extraction")
             print("-" * 80)
@@ -158,7 +154,6 @@ async def mock_celery_scraper_worker():
                 print("[ERROR] No DataRevision created!")
                 return False
 
-            # ===== RUN 2: Second Scrape =====
             print("-" * 80)
             print("[RUN 2] Second Scrape - Should Detect No Changes")
             print("-" * 80)
@@ -191,7 +186,6 @@ async def mock_celery_scraper_worker():
                 print("[ERROR] No DataRevision created!")
                 return False
 
-            # ===== VALIDATION =====
             print("-" * 80)
             print("[VALIDATION] Comparing Results")
             print("-" * 80)
@@ -205,7 +199,6 @@ async def mock_celery_scraper_worker():
                 print("[DIFFERENT] Two different revisions created")
                 was_reused = False
 
-            # Check full extracted data
             full_data1 = revision1.extracted_data
             full_data2 = revision2.extracted_data
 
@@ -216,7 +209,6 @@ async def mock_celery_scraper_worker():
                 print("[FAIL] Full AI result structure differs!")
                 consistency_ok = False
 
-            # Change detection logic
             if was_reused or not revision2.was_change_detected:
                 print("[OK] No changes detected as expected")
                 change_detection_ok = True
@@ -224,7 +216,6 @@ async def mock_celery_scraper_worker():
                 print("[WARN] Changes detected when content should be identical")
                 change_detection_ok = False
 
-            # Diff Record check
             diff_query = select(ChangeDiff).where(ChangeDiff.new_revision_id == revision2.id)
             diff_res = await db_session.execute(diff_query)
             diff_record = diff_res.scalars().first()
