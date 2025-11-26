@@ -6,6 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlmodel import Session
 
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
@@ -51,8 +54,34 @@ def test_get_next_scrape_time(frequency, expected_delta):
 
 def test_scrape_source_success(sync_session: Session):
     """Tests the successful scraping of a source."""
+
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
     source = Source(
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction.id,
         name="Test Source",
         url="http://example.com",
         scrape_frequency="HOURLY",
@@ -108,8 +137,34 @@ def test_scrape_source_not_found(sync_session: Session):
 
 def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     """Tests that a failed scrape_source task is moved to DLQ after max retries."""
+
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
     source = Source(
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction.id,
         name="DLQ Test Source",
         url="http://dlq.com",
         scrape_frequency="HOURLY",
@@ -157,15 +212,57 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session: Session, mock_redis: MagicMock
 ):
     """Tests that the dispatcher acquires a lock and dispatches tasks."""
+
+    organization1 = Organization(
+        name="Test Organization 1",
+    )
+    organization2 = Organization(
+        name="Test Organization 2",
+    )
+    sync_session.add_all([organization1, organization2])
+    sync_session.commit()
+    sync_session.refresh(organization1)
+    sync_session.refresh(organization2)
+
+    project1 = Project(
+        org_id=organization1.id,
+        title="Test Project 1",
+        description="Test project description 1",
+    )
+    project2 = Project(
+        org_id=organization2.id,
+        title="Test Project 2",
+        description="Test project description 2",
+    )
+    sync_session.add_all([project1, project2])
+    sync_session.commit()
+    sync_session.refresh(project1)
+    sync_session.refresh(project2)
+
+    jurisdiction1 = Jurisdiction(
+        project_id=project1.id,
+        name="Test Jurisdiction 1",
+        description="Test description 1",
+    )
+    jurisdiction2 = Jurisdiction(
+        project_id=project2.id,
+        name="Test Jurisdiction 2",
+        description="Test description 2",
+    )
+    sync_session.add_all([jurisdiction1, jurisdiction2])
+    sync_session.commit()
+    sync_session.refresh(jurisdiction1)
+    sync_session.refresh(jurisdiction2)
+
     now = datetime.now(timezone.utc)
     source1 = Source(
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction1.id,
         name="Due Source 1",
         url="http://due1.com",
         next_scrape_time=now - timedelta(hours=1),
     )
     source2 = Source(
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction2.id,
         name="Due Source 2",
         url="http://due2.com",
         next_scrape_time=now - timedelta(minutes=30),
@@ -184,14 +281,12 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         mock_redis_instance.set.return_value = True
         mock_redis_from_url.return_value = mock_redis_instance
 
-        # Mock DB with bridge
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
         mock_app.send_task = MagicMock()
 
-        # Run with NO arguments (self is injected automatically)
         result = dispatch_due_sources.run()
 
     assert "Dispatched 2 sources" in result
@@ -217,8 +312,34 @@ def test_dispatch_due_sources_lock_already_held():
 
 def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     """Tests that the dispatcher does nothing if no sources are due."""
+
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
     source = Source(
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction.id,
         name="Future Source",
         url="http://future.com",
         next_scrape_time=datetime.now(timezone.utc) + timedelta(hours=1),
