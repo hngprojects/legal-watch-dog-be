@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from app.api.core.config import get_cipher_suite
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 def encrypt_auth_details(data: Dict[str, Any]) -> str:

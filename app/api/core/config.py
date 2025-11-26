@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
+    # Invitation
+    INVITATION_TOKEN_EXPIRE_MINUTES: int = config(
+        "INVITATION_TOKEN_EXPIRE_MINUTES", default=1440, cast=int
+    )
+
+    # MinIO
     # Scraping
     SCRAPE_MAX_RETRIES: int = config("SCRAPE_MAX_RETRIES", default=5, cast=int)
     SCRAPE_BASE_DELAY: int = config("SCRAPE_BASE_DELAY", default=60, cast=int)
