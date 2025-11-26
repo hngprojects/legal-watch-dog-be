@@ -17,6 +17,7 @@ from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     JurisdictionService,
     OrgResourceGuard,
+    get_descendant_ids,
 )
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
-    prefix="/jurisdictions",
+    prefix="/organizations/{organization_id}/jurisdictions",
     tags=["Jurisdictions"],
     dependencies=[Depends(TenantGuard), Depends(OrgResourceGuard)],
 )
@@ -313,7 +314,7 @@ async def get_jurisdiction(jurisdiction_id, db: AsyncSession = Depends(get_db)):
     return success_response(
         status_code=200,
         message="Jurisdiction retrieved successfully",
-        data={"Jurisdiction": jurisdiction},
+        data={"jurisdiction": jurisdiction},
     )
 
 
@@ -366,6 +367,7 @@ async def update_jurisdiction(
             payload.model_dump(exclude_unset=True),
         )
         incoming = payload.model_dump(exclude_unset=True)
+
         if "is_deleted" in incoming and incoming.get("is_deleted") is True:
             logger.debug("Archiving jurisdiction via PATCH: id=%s", jurisdiction_id)
             deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
@@ -398,20 +400,25 @@ async def update_jurisdiction(
             logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
             return error_response(status_code=404, message="Jurisdiction not found")
 
+        new_parent_id = incoming.get("parent_id")
+        if new_parent_id:
+            if new_parent_id == jurisdiction.id:
+                error_response(status_code=400, message="Cannot set parent_id to self")
+
+            descendant_ids = await get_descendant_ids(jurisdiction.id, db)
+            if new_parent_id in descendant_ids:
+                return error_response(
+                    status_code=400,
+                    message="Cannot set parent_id to a descendant jurisdiction (cycle detected)",
+                )
+
         for key, value in incoming.items():
             setattr(jurisdiction, key, value)
 
         if "is_deleted" in incoming:
-            if incoming.get("is_deleted"):
-                try:
-                    jurisdiction.deleted_at = datetime.now(timezone.utc)
-                except Exception:
-                    pass
-            else:
-                try:
-                    jurisdiction.deleted_at = None
-                except Exception:
-                    pass
+            jurisdiction.deleted_at = (
+                datetime.now(timezone.utc) if incoming.get("is_deleted") else None
+            )
 
         updated = await service.update(db, jurisdiction)
 

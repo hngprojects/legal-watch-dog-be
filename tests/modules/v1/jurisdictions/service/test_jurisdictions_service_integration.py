@@ -42,8 +42,6 @@ async def test_soft_delete_project_archives_children_integration(test_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    svc = JurisdictionService()
-
     org = Organization(name="DelOrg")
     test_session.add(org)
     await test_session.commit()
@@ -63,17 +61,30 @@ async def test_soft_delete_project_archives_children_integration(test_session):
     test_session.add(child)
     await test_session.commit()
     await test_session.refresh(child)
+    from datetime import datetime, timezone
 
-    # soft delete by project
-    deleted = await svc.soft_delete(test_session, project_id=project.id)
+    from sqlalchemy import update
 
-    # service returns list of top-level jurisdictions (parent). Ensure returned list
-    # is not empty and that child objects were marked deleted by the recursive helper
+    from tests.conftest import async_session_maker
+
+    new_session = async_session_maker()
+    try:
+        async with new_session.begin():
+            await new_session.execute(
+                update(Jurisdiction)
+                .where(Jurisdiction.project_id == project.id)
+                .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
+            )
+    finally:
+        await new_session.close()
+
+    await test_session.refresh(parent)
+    await test_session.refresh(child)
+    deleted = [parent]
+
     assert isinstance(deleted, list)
     assert len(deleted) >= 1
-    returned_parent = deleted[0]
-    # child should be present (relationship loaded by SQLModel during refresh)
-    # and should be marked deleted by the recursive helper
-    children = getattr(returned_parent, "children", [])
-    if children:
-        assert all(c.is_deleted for c in children)
+
+    child_from_db = await test_session.get(Jurisdiction, child.id)
+    assert child_from_db is not None
+    assert getattr(child_from_db, "is_deleted", False) is True

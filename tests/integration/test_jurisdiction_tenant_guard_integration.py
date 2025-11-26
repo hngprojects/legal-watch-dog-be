@@ -46,7 +46,9 @@ def test_routes_blocked_when_user_has_no_org():
     app.dependency_overrides[get_current_user] = fake_get_current_user
     app.dependency_overrides[TenantGuard] = FakeTenantGuard
 
-    resp = client.get("/api/v1/jurisdictions/")
+    from uuid import uuid4
+
+    resp = client.get(f"/api/v1/organizations/{uuid4()}/jurisdictions/")
     assert resp.status_code == 403
     assert resp.json()["detail"] == "No organization"
 
@@ -84,7 +86,7 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
         fake_get_all,
     )
 
-    resp = client.get("/api/v1/jurisdictions/")
+    resp = client.get(f"/api/v1/organizations/{org_id}/jurisdictions/")
 
     assert resp.status_code == 200
     body = resp.json()
