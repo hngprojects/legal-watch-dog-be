@@ -47,12 +47,8 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
-    REDIS_CACHE_RESEND_TTL_SECONDS: int = config(
-        "REDIS_CACHE_RESEND_TTL_SECONDS", default=300, cast=int
-    )
-    REDIS_CACHE_REGISTER_TTL_SECONDS: int = config(
-        "REDIS_CACHE_REGISTER_TTL_SECONDS", default=86400, cast=int
-    )
+    REDIS_RESEND_TTL: int = config("REDIS_RESEND_TTL", default=300, cast=int)
+    REDIS_REGISTER_TTL: int = config("REDIS_REGISTER_TTL", default=86400, cast=int)
 
     # JWT Authentication
     JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
