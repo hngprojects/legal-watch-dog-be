@@ -25,28 +25,20 @@ async def get_current_user(
     Extracts user from JWT token and fetches from DB.
     """
     try:
-        payload = jwt.decode(
-            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         user_id = UUID(user_id)
     except (jwt.PyJWTError, ValueError) as e:
         logger.warning(f"JWT decode error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     # Fetch user from DB
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return user
 
@@ -63,8 +55,6 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
             "Admin access denied",
             extra={"user_id": str(current_user.id), "user_role": current_user.role},
         )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
     return current_user

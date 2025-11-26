@@ -93,9 +93,7 @@ class StripeClient:
                     "metadata": metadata or {},
                 }
 
-            session = await asyncio.to_thread(
-                stripe.checkout.Session.create, **session_params
-            )
+            session = await asyncio.to_thread(stripe.checkout.Session.create, **session_params)
 
             logger.info(
                 "Checkout session created successfully",
@@ -227,16 +225,12 @@ class StripeClient:
         )
 
         try:
-            subscription = await asyncio.to_thread(
-                stripe.Subscription.retrieve, subscription_id
-            )
+            subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
 
             subscription = await asyncio.to_thread(
                 stripe.Subscription.modify,
                 subscription_id,
-                items=[
-                    {"id": subscription["items"]["data"][0].id, "price": new_price_id}
-                ],
+                items=[{"id": subscription["items"]["data"][0].id, "price": new_price_id}],
                 proration_behavior="create_prorations" if prorate else "none",
             )
 
@@ -278,9 +272,7 @@ class StripeClient:
                     cancel_at_period_end=True,
                 )
             else:
-                subscription = await asyncio.to_thread(
-                    stripe.Subscription.cancel, subscription_id
-                )
+                subscription = await asyncio.to_thread(stripe.Subscription.cancel, subscription_id)
 
             logger.info(
                 "Subscription canceled successfully",
@@ -300,9 +292,7 @@ class StripeClient:
             )
             raise
 
-    async def list_invoices(
-        self, customer_id: str, limit: int = 10
-    ) -> List[stripe.Invoice]:
+    async def list_invoices(self, customer_id: str, limit: int = 10) -> List[stripe.Invoice]:
         """List invoices for a customer (async)"""
         logger.info(
             "Listing customer invoices",
@@ -389,14 +379,10 @@ class StripeClient:
 
     async def retrieve_subscription(self, subscription_id: str) -> stripe.Subscription:
         """Retrieve a subscription by ID (async)"""
-        logger.info(
-            "Retrieving subscription", extra={"subscription_id": subscription_id}
-        )
+        logger.info("Retrieving subscription", extra={"subscription_id": subscription_id})
 
         try:
-            subscription = await asyncio.to_thread(
-                stripe.Subscription.retrieve, subscription_id
-            )
+            subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
 
             logger.info(
                 "Subscription retrieved successfully",

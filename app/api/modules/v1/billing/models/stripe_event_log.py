@@ -10,9 +10,7 @@ from sqlmodel import Column, Field, SQLModel
 class StripeEventLog(SQLModel, table=True):
     __tablename__ = "stripe_event_logs"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     event_id: str = Field(
         max_length=255,
@@ -56,6 +54,4 @@ class StripeEventLog(SQLModel, table=True):
         default=None, sa_column=Column(Text), description="Processing error if any"
     )
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)

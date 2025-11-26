@@ -31,9 +31,7 @@ class BillingAccount(SQLModel, table=True):
     __tablename__ = "billing_accounts"
     __table_args__ = (UniqueConstraint("organization_id", name="uq_billing_org"),)
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     organization_id: uuid.UUID = Field(
         sa_column=Column(
@@ -51,9 +49,7 @@ class BillingAccount(SQLModel, table=True):
         default=None, max_length=255, nullable=True, index=True
     )
 
-    status: BillingStatus = Field(
-        default=BillingStatus.TRIALING, max_length=50, nullable=False
-    )
+    status: BillingStatus = Field(default=BillingStatus.TRIALING, max_length=50, nullable=False)
 
     trial_starts_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)

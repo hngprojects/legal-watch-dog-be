@@ -66,9 +66,7 @@ async def get_billing_metrics(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            "Failed to fetch billing metrics", exc_info=True, extra={"error": str(e)}
-        )
+        logger.error("Failed to fetch billing metrics", exc_info=True, extra={"error": str(e)})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve billing metrics",

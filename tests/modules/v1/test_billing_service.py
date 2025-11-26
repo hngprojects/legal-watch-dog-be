@@ -58,9 +58,7 @@ async def test_get_or_create_billing_account_creates_new(pg_async_session):
     assert billing_account.trial_ends_at is not None
 
     # Verify trial duration
-    trial_duration = (
-        billing_account.trial_ends_at - datetime.now(tz=timezone.utc)
-    ).days
+    trial_duration = (billing_account.trial_ends_at - datetime.now(tz=timezone.utc)).days
     assert trial_duration == 14 or trial_duration == 13  # Allow for timing
 
 

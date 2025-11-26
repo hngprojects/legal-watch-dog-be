@@ -78,9 +78,7 @@ def expire_trials():
         )
 
     except Exception as e:
-        logger.error(
-            "Trial expiration task failed", exc_info=True, extra={"error": str(e)}
-        )
+        logger.error("Trial expiration task failed", exc_info=True, extra={"error": str(e)})
         db.rollback()
 
     finally:
@@ -148,9 +146,7 @@ def send_trial_reminders():
         )
 
     except Exception as e:
-        logger.error(
-            "Trial reminder task failed", exc_info=True, extra={"error": str(e)}
-        )
+        logger.error("Trial reminder task failed", exc_info=True, extra={"error": str(e)})
 
     finally:
         db.close()
@@ -190,9 +186,7 @@ def _send_trial_expired_email(db: Session, billing_account: BillingAccount):
         )
 
 
-def _send_trial_reminder_email(
-    db: Session, billing_account: BillingAccount, days_remaining: int
-):
+def _send_trial_reminder_email(db: Session, billing_account: BillingAccount, days_remaining: int):
     """Send trial reminder email to org admins"""
     try:
         # Get organization
@@ -218,9 +212,7 @@ def _send_trial_reminder_email(
                     "user_name": admin.full_name or admin.email,
                     "organization_name": org.name,
                     "days_remaining": days_remaining,
-                    "trial_ends_at": billing_account.trial_ends_at.strftime(
-                        "%B %d, %Y"
-                    ),
+                    "trial_ends_at": billing_account.trial_ends_at.strftime("%B %d, %Y"),
                     "billing_url": f"{settings.FRONTEND_URL}/billing",
                 },
             )

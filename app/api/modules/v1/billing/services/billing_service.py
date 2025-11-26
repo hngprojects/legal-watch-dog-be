@@ -57,9 +57,7 @@ class BillingService:
         )
 
         # Check if billing account already exists
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.exec(statement)
         existing_account = result.scalar_one_or_none()
 
@@ -92,9 +90,7 @@ class BillingService:
             )
 
         # Create billing account with trial
-        trial_ends_at = datetime.now(tz=timezone.utc) + timedelta(
-            days=settings.TRIAL_DURATION_DAYS
-        )
+        trial_ends_at = datetime.now(tz=timezone.utc) + timedelta(days=settings.TRIAL_DURATION_DAYS)
 
         billing_account = BillingAccount(
             organization_id=organization_id,
@@ -124,18 +120,12 @@ class BillingService:
 
         return billing_account
 
-    async def get_billing_summary(
-        self, organization_id: UUID
-    ) -> BillingSummaryResponse:
+    async def get_billing_summary(self, organization_id: UUID) -> BillingSummaryResponse:
         """Get complete billing summary (async)"""
-        logger.info(
-            "Fetching billing summary", extra={"organization_id": str(organization_id)}
-        )
+        logger.info("Fetching billing summary", extra={"organization_id": str(organization_id)})
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -215,9 +205,7 @@ class BillingService:
                     next_invoice = NextInvoiceResponse(
                         amount_due=upcoming_invoice.amount_due,
                         currency=upcoming_invoice.currency,
-                        billing_date=datetime.fromtimestamp(
-                            upcoming_invoice.period_end
-                        ),
+                        billing_date=datetime.fromtimestamp(upcoming_invoice.period_end),
                         line_items=[
                             {
                                 "description": item.description,
@@ -312,9 +300,7 @@ class BillingService:
         )
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -340,8 +326,7 @@ class BillingService:
         # Set default URLs if not provided
         if not success_url:
             success_url = (
-                f"{settings.FRONTEND_URL}/billing/success"
-                f"?session_id={{CHECKOUT_SESSION_ID}}"
+                f"{settings.FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
             )
         if not cancel_url:
             cancel_url = f"{settings.FRONTEND_URL}/billing/cancel"
@@ -369,9 +354,7 @@ class BillingService:
                 },
             )
 
-            return CheckoutSessionResponse(
-                checkout_url=session.url, session_id=session.id
-            )
+            return CheckoutSessionResponse(checkout_url=session.url, session_id=session.id)
 
         except Exception as e:
             logger.error(
@@ -388,14 +371,10 @@ class BillingService:
         self, organization_id: UUID, return_url: Optional[str] = None
     ) -> PortalSessionResponse:
         """Create Stripe Portal session (async)"""
-        logger.info(
-            "Creating portal session", extra={"organization_id": str(organization_id)}
-        )
+        logger.info("Creating portal session", extra={"organization_id": str(organization_id)})
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -458,9 +437,7 @@ class BillingService:
         )
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -574,9 +551,7 @@ class BillingService:
         )
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -675,9 +650,7 @@ class BillingService:
         )
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -778,9 +751,7 @@ class BillingService:
         )
 
         # Get billing account
-        statement = select(BillingAccount).where(
-            BillingAccount.organization_id == organization_id
-        )
+        statement = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         result = await self.db.execute(statement)
         billing_account = result.scalar_one_or_none()
 
@@ -842,9 +813,7 @@ class BillingService:
         invoice = result.scalar_one_or_none()
 
         if not invoice:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
 
         # Try database first
         if invoice.invoice_pdf_url:
@@ -852,9 +821,7 @@ class BillingService:
 
         # Fetch from Stripe
         try:
-            pdf_url = await self.stripe_client.get_invoice_pdf(
-                invoice_id=invoice.stripe_invoice_id
-            )
+            pdf_url = await self.stripe_client.get_invoice_pdf(invoice_id=invoice.stripe_invoice_id)
 
             if pdf_url:
                 # Update database

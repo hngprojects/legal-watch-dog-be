@@ -22,9 +22,7 @@ def get_billing_service(db: AsyncSession = Depends(get_db)) -> BillingService:
     return BillingService(db)
 
 
-@router.get(
-    "/{invoice_id}", response_class=RedirectResponse, summary="Download invoice PDF"
-)
+@router.get("/{invoice_id}", response_class=RedirectResponse, summary="Download invoice PDF")
 async def download_invoice_pdf(
     invoice_id: UUID,
     current_user: User = Depends(get_current_user),

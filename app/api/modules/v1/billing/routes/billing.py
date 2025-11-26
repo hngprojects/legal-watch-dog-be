@@ -60,9 +60,7 @@ async def create_or_get_billing_account(
         extra={"org_id": str(org_id), "user_id": str(current_user.id)},
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         billing_account = await billing_service.get_or_create_billing_account(
@@ -115,9 +113,7 @@ async def get_billing_summary(
         extra={"org_id": str(org_id), "user_id": str(current_user.id)},
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         summary = await billing_service.get_billing_summary(organization_id=org_id)
@@ -159,9 +155,7 @@ async def create_checkout_session(
         },
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         checkout_session = await billing_service.create_checkout_session(
@@ -205,9 +199,7 @@ async def create_portal_session(
         extra={"org_id": str(org_id), "user_id": str(current_user.id)},
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         portal_session = await billing_service.create_portal_session(
@@ -252,9 +244,7 @@ async def attach_payment_method(
         },
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         payment_method = await billing_service.attach_payment_method(
@@ -301,9 +291,7 @@ async def update_subscription(
         },
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         subscription = await billing_service.update_subscription(
@@ -326,9 +314,7 @@ async def update_subscription(
         )
 
 
-@router.post(
-    "/cancel", response_model=SubscriptionResponse, summary="Cancel subscription"
-)
+@router.post("/cancel", response_model=SubscriptionResponse, summary="Cancel subscription")
 async def cancel_subscription(
     org_id: UUID,
     request: SubscriptionCancelRequest,
@@ -347,9 +333,7 @@ async def cancel_subscription(
     )
 
     # Validate organization ownership
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         subscription = await billing_service.cancel_subscription(
@@ -393,9 +377,7 @@ async def list_invoices(
         },
     )
 
-    billing_service.validate_organization_ownership(
-        org_id, current_user.organization_id
-    )
+    billing_service.validate_organization_ownership(org_id, current_user.organization_id)
 
     try:
         invoices = await billing_service.list_invoices(

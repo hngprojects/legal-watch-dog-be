@@ -40,19 +40,13 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         )
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-        )
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
     except ValueError:
         logger.error("Invalid payload", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload")
     except stripe.error.SignatureVerificationError:
         logger.error("Invalid signature", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature")
 
     # Check idempotency
     event_statement = select(StripeEventLog).where(StripeEventLog.event_id == event.id)
@@ -70,9 +64,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     event_log = StripeEventLog(
         event_id=event.id,
         type=event.type,
-        object_type=(
-            event.data.object.object if hasattr(event.data.object, "object") else None
-        ),
+        object_type=(event.data.object.object if hasattr(event.data.object, "object") else None),
         payload=event.to_dict(),
         processed_at=datetime.utcnow(),
         processed_success=False,
@@ -151,21 +143,15 @@ async def handle_checkout_completed(event: stripe.Event, db: AsyncSession):
     if subscription_id:
         import asyncio
 
-        stripe_subscription = await asyncio.to_thread(
-            stripe.Subscription.retrieve, subscription_id
-        )
+        stripe_subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
 
         subscription = Subscription(
             billing_account_id=billing_account.id,
             stripe_subscription_id=stripe_subscription.id,
             plan=session.metadata.get("plan", "monthly"),
             status=stripe_subscription.status,
-            current_period_start=datetime.fromtimestamp(
-                stripe_subscription.current_period_start
-            ),
-            current_period_end=datetime.fromtimestamp(
-                stripe_subscription.current_period_end
-            ),
+            current_period_start=datetime.fromtimestamp(stripe_subscription.current_period_start),
+            current_period_end=datetime.fromtimestamp(stripe_subscription.current_period_end),
             cancel_at_period_end=stripe_subscription.cancel_at_period_end,
             canceled_at=None,
             ended_at=None,
@@ -201,9 +187,7 @@ async def handle_invoice_payment_succeeded(event: stripe.Event, db: AsyncSession
     )
 
     # Find billing account
-    statement = select(BillingAccount).where(
-        BillingAccount.stripe_customer_id == invoice.customer
-    )
+    statement = select(BillingAccount).where(BillingAccount.stripe_customer_id == invoice.customer)
     result = await db.execute(statement)
     billing_account = result.scalar_one_or_none()
 
@@ -215,9 +199,7 @@ async def handle_invoice_payment_succeeded(event: stripe.Event, db: AsyncSession
         return
 
     # Check if invoice already exists
-    invoice_statement = select(InvoiceHistory).where(
-        InvoiceHistory.stripe_invoice_id == invoice.id
-    )
+    invoice_statement = select(InvoiceHistory).where(InvoiceHistory.stripe_invoice_id == invoice.id)
     invoice_result = await db.execute(invoice_statement)
     existing_invoice = invoice_result.scalar_one_or_none()
 

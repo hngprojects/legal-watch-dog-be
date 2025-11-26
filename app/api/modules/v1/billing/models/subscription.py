@@ -37,9 +37,7 @@ class Subscription(SQLModel, table=True):
 
     __tablename__ = "billing_subscriptions"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     billing_account_id: uuid.UUID = Field(
         sa_column=Column(
@@ -49,29 +47,21 @@ class Subscription(SQLModel, table=True):
         )
     )
 
-    stripe_subscription_id: str = Field(
-        max_length=255, nullable=False, index=True, unique=True
-    )
+    stripe_subscription_id: str = Field(max_length=255, nullable=False, index=True, unique=True)
 
     stripe_price_id: Optional[str] = Field(default=None, max_length=255, nullable=True)
 
     plan: SubscriptionPlan = Field(default=SubscriptionPlan.MONTHLY, nullable=False)
 
-    status: SubscriptionStatus = Field(
-        default=SubscriptionStatus.ACTIVE, nullable=False
-    )
+    status: SubscriptionStatus = Field(default=SubscriptionStatus.ACTIVE, nullable=False)
 
     current_period_start: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
 
-    current_period_end: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False)
-    )
+    current_period_end: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
-    cancel_at_period_end: bool = Field(
-        default=False, sa_column=Column(Boolean, nullable=False)
-    )
+    cancel_at_period_end: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
 
     canceled_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
