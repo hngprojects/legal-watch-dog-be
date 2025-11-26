@@ -77,7 +77,7 @@ class ScraperService:
             content_type = source.scraping_rules.get("expected_type", "text/html").lower()
 
         # 4. PDF Handling
-     
+
         is_pdf = self.pdf_service.is_pdf(raw_content_bytes, content_type)
         if is_pdf:
             logger.info("PDF detected. Extracting text...")

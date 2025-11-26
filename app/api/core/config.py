@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="lwd")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
-    MINIO_USE_SSL = False
+    MINIO_USE_SSL: bool = False
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")

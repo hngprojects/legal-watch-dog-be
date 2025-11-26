@@ -14,6 +14,7 @@ from sqlmodel import select
 from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.users.models.users_model import User
 
 
@@ -469,7 +470,7 @@ class OrgResourceGuard:
     Automatically enforces that resources belong to the current user's organization.
 
     This guard checks resource ownership based on path parameters such as
-    `project_id` or `jurisdiction_id`. If a resource belongs to a different
+    `project_id`, `jurisdiction_id`, or `source_id`. If a resource belongs to a different
     organization than the current user, it raises an HTTP 403 Forbidden error.
 
     Router-Level Use Case:
@@ -496,7 +497,7 @@ class OrgResourceGuard:
 
     Key Points:
         - Works at the router level: all routes inherit the guard.
-        - Automatically resolves project from jurisdiction if needed.
+        - Automatically resolves project from jurisdiction or source if needed.
         - Raises 404 if the resource is not found.
         - Raises 403 if a cross-organization access attempt is detected.
     """
@@ -511,15 +512,25 @@ class OrgResourceGuard:
 
         project_id = path_params.get("project_id")
         jurisdiction_id = path_params.get("jurisdiction_id")
+        source_id = path_params.get("source_id")
 
         db: AsyncSession = self.request.state.db
 
+        # Handle source_id: source -> jurisdiction -> project
+        if source_id:
+            source = await db.get(Source, source_id)
+            if not source:
+                raise HTTPException(404, "Source not found")
+            jurisdiction_id = source.jurisdiction_id
+
+        # Handle jurisdiction_id: jurisdiction -> project
         if jurisdiction_id:
             jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
             if not jurisdiction:
                 raise HTTPException(404, "Jurisdiction not found")
             project_id = jurisdiction.project_id
 
+        # Verify project belongs to user's organization
         if project_id:
             project = await db.get(Project, project_id)
             if not project:
