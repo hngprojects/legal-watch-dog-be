@@ -7,7 +7,7 @@ from sqlalchemy import JSON, CheckConstraint, Text, UniqueConstraint, event, fun
 from sqlalchemy.orm import Mapped
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 if TYPE_CHECKING:
