@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Dict, Optional
 from uuid import UUID, uuid4
 
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlalchemy import Column, Index, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlmodel import JSON, Field, SQLModel
 
 
 class DataRevision(SQLModel, table=True):
@@ -21,3 +23,11 @@ class DataRevision(SQLModel, table=True):
     ai_confidence_score: Optional[float] = Field(default=None)
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
     was_change_detected: bool = Field(default=False)
+
+    search_vector: Optional[str] = Field(
+        default=None, sa_column=Column(TSVECTOR, nullable=True, server_default=text("NULL"))
+    )
+
+    __table_args__ = (
+        Index("idx_data_revisions_search_vector", "search_vector", postgresql_using="gin"),
+    )
