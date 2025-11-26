@@ -88,7 +88,7 @@ get_current_user_profile._custom_success = get_user_profile_custom_success  # ty
 
 
 @router.get(
-    "/me/organisations",
+    "/me/organizations",
     status_code=status.HTTP_200_OK,
     responses=get_user_organizations_responses,  # type: ignore
 )

@@ -109,6 +109,31 @@ class UserOrganizationCRUD:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_user_organizations(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        active_only: bool = True,
+    ) -> list[UserOrganization]:
+        """
+        Get all organizations a user belongs to.
+
+        Args:
+            db: Database session
+            user_id: User UUID
+            active_only: Only return active memberships
+
+        Returns:
+            List of UserOrganization objects
+        """
+        query = select(UserOrganization).where(UserOrganization.user_id == user_id)
+
+        if active_only:
+            query = query.where(UserOrganization.is_active)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    @staticmethod
     async def get_all_user_organizations(
         db: AsyncSession,
         user_id: uuid.UUID,

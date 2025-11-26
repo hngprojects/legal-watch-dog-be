@@ -217,7 +217,7 @@ async def get_project(
         await tenant.get_membership(organization_id)
 
         project_service = ProjectService(db)
-        project = await project_service.get_project(project_id, organization_id)
+        project = await project_service.get_project_by_id(project_id, organization_id)
 
         if not project:
             return error_response(
