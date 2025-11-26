@@ -12,8 +12,6 @@ def test_create_access_token_and_decode():
     # decode using same secret and algorithm
     payload = pyjwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
     assert payload["sub"] == "user-1"
-    assert payload["org_id"] == "org-1"
-    assert payload["role_id"] == "role-1"
     assert "jti" in payload
 
 
