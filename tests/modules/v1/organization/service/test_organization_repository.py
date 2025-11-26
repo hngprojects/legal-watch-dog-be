@@ -40,7 +40,6 @@ async def test_get_by_id_returns_organization():
     org_id = uuid.uuid4()
     expected_org = Organization(id=org_id, name="Org1", industry="IT")
 
-    # Correct mock: db.execute() returns an object with scalar_one_or_none returning expected_org
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = expected_org
     db.execute.return_value = mock_result
