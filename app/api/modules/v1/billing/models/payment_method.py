@@ -16,7 +16,9 @@ class PaymentMethod(SQLModel, table=True):
 
     __tablename__ = "billing_payment_methods"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
     billing_account_id: uuid.UUID = Field(
         sa_column=Column(
@@ -50,9 +52,9 @@ class PaymentMethod(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
-    ) 
-    
+    )
+
     billing_account: "BillingAccount" = Relationship(
-    back_populates="payment_methods",
-    sa_relationship_kwargs={"foreign_keys": "[PaymentMethod.billing_account_id]"}
+        back_populates="payment_methods",
+        sa_relationship_kwargs={"foreign_keys": "[PaymentMethod.billing_account_id]"},
     )

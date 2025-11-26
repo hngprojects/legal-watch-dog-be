@@ -29,11 +29,15 @@ class InvoiceHistory(SQLModel, table=True):
 
     __tablename__ = "billing_invoices"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
     billing_account_id: uuid.UUID = Field(
         sa_column=Column(
-            ForeignKey("billing_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+            ForeignKey("billing_accounts.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
         )
     )
 

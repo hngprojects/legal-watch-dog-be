@@ -31,7 +31,9 @@ class BillingAccount(SQLModel, table=True):
     __tablename__ = "billing_accounts"
     __table_args__ = (UniqueConstraint("organization_id", name="uq_billing_org"),)
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
+    )
 
     organization_id: uuid.UUID = Field(
         sa_column=Column(
@@ -49,7 +51,9 @@ class BillingAccount(SQLModel, table=True):
         default=None, max_length=255, nullable=True, index=True
     )
 
-    status: BillingStatus = Field(default=BillingStatus.TRIALING, max_length=50, nullable=False)
+    status: BillingStatus = Field(
+        default=BillingStatus.TRIALING, max_length=50, nullable=False
+    )
 
     trial_starts_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
@@ -103,18 +107,16 @@ class BillingAccount(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
-     # Tell SQLAlchemy which FK to use for this relationship
+    # Tell SQLAlchemy which FK to use for this relationship
 
     payment_methods: List["PaymentMethod"] = Relationship(
-    back_populates="billing_account",
-    sa_relationship_kwargs={"foreign_keys": "[PaymentMethod.billing_account_id]"}
+        back_populates="billing_account",
+        sa_relationship_kwargs={"foreign_keys": "[PaymentMethod.billing_account_id]"},
     )
 
-    invoices: List["InvoiceHistory"] = Relationship(
-        back_populates="billing_account"
-    )
+    invoices: List["InvoiceHistory"] = Relationship(back_populates="billing_account")
 
     subscriptions: List["Subscription"] = Relationship(
-    back_populates="billing_account",
-    sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="billing_account",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )

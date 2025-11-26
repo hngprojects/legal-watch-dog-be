@@ -26,17 +26,17 @@ def get_billing_service(db: AsyncSession = Depends(get_db)) -> BillingService:
     "/metrics",
     response_model=BillingMetricsResponse,
     summary="Get billing metrics",
-    description="Retrieves billing analytics and metrics. Admin only."
+    description="Retrieves billing analytics and metrics. Admin only.",
 )
 async def get_billing_metrics(
     current_user: User = Depends(require_admin),
-    billing_service: BillingService = Depends(get_billing_service)
+    billing_service: BillingService = Depends(get_billing_service),
 ) -> BillingMetricsResponse:
     """
     Get billing metrics for admin dashboard.
-    
+
     Requires admin role.
-    
+
     Returns:
     - Total accounts
     - Active subscriptions
@@ -45,33 +45,31 @@ async def get_billing_metrics(
     - MRR / ARR
     - ARPU
     """
-    logger.info("GET /admin/billing/metrics - Fetch billing metrics", extra={
-        "user_id": str(current_user.id),
-        "user_role": current_user.role
-    })
-    
+    logger.info(
+        "GET /admin/billing/metrics - Fetch billing metrics",
+        extra={"user_id": str(current_user.id), "user_role": current_user.role},
+    )
+
     try:
         metrics = await billing_service.get_billing_metrics()
-        
+
         logger.info(
             "Billing metrics retrieved successfully",
             extra={
                 "total_accounts": metrics.total_accounts,
-                "active_subscriptions": metrics.active_subscriptions
-            }
+                "active_subscriptions": metrics.active_subscriptions,
+            },
         )
-        
+
         return metrics
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(
-            "Failed to fetch billing metrics",
-            exc_info=True,
-            extra={"error": str(e)}
+            "Failed to fetch billing metrics", exc_info=True, extra={"error": str(e)}
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve billing metrics"
+            detail="Failed to retrieve billing metrics",
         )

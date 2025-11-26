@@ -9,7 +9,9 @@ from app.api.modules.v1.billing import billing_router
 from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
-from app.api.modules.v1.organization.routes.organization_route import router as organization_router
+from app.api.modules.v1.organization.routes.organization_route import (
+    router as organization_router,
+)
 from app.api.modules.v1.projects.routes.project_routes import router as project_router
 from app.api.modules.v1.scraping.routes import router as scraping_router
 from app.api.modules.v1.search.routes import data_revision_search_router

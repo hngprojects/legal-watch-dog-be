@@ -5,7 +5,9 @@ from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "main.py").exists())
+PROJECT_ROOT = next(
+    p for p in Path(__file__).resolve().parents if (p / "main.py").exists()
+)
 BASE_DIR = PROJECT_ROOT
 
 # Determine which env file to load
@@ -30,7 +32,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = config("ENVIRONMENT", default="dev")
     APP_PORT: int = config("APP_PORT", default=8000, cast=int)
     SECRET_KEY: str = config("SECRET_KEY", default="your-secret-key-for-sessions")
-    LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net")
+    LEGAL_WATCH_DOG_BASE_URL: str = config(
+        "LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net"
+    )
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
 
@@ -49,9 +53,14 @@ class Settings(BaseSettings):
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
     REDIS_RESEND_TTL: int = config("REDIS_RESEND_TTL", default=300, cast=int)
     REDIS_REGISTER_TTL: int = config("REDIS_REGISTER_TTL", default=86400, cast=int)
+    REDIS_CACHE_TTL_SECONDS: int = config(
+        "REDIS_CACHE_TTL_SECONDS", default=300, cast=int
+    )
 
     # JWT Authentication
-    JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
+    JWT_SECRET: str = config(
+        "JWT_SECRET", default="your-super-secret-jwt-key-change-in-production"
+    )
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
     JWT_EXPIRY_HOURS: int = config("JWT_EXPIRY_HOURS", default=24, cast=int)
 
@@ -66,7 +75,9 @@ class Settings(BaseSettings):
     SMTP_PORT: int = config("SMTP_PORT", default=1025, cast=int)
 
     # Email Verification
-    ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
+    ALLOW_TEST_EMAIL_PROVIDERS: bool = config(
+        "ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool
+    )
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
     # MinIO
@@ -94,28 +105,34 @@ class Settings(BaseSettings):
 
     # Stripe API keys and product price IDs for billing
     STRIPE_SECRET_KEY: str = config("STRIPE_SECRET_KEY", default="sk_test_...")
-    STRIPE_PUBLISHABLE_KEY: str = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_...")
+    STRIPE_PUBLISHABLE_KEY: str = config(
+        "STRIPE_PUBLISHABLE_KEY", default="pk_test_..."
+    )
     STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="whsec_...")
-    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="prod_monthly_id")
-    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="prod_yearly_id")
+    STRIPE_MONTHLY_PRICE_ID: str = config(
+        "STRIPE_MONTHLY_PRICE_ID", default="prod_monthly_id"
+    )
+    STRIPE_YEARLY_PRICE_ID: str = config(
+        "STRIPE_YEARLY_PRICE_ID", default="prod_yearly_id"
+    )
 
-    
     # Billing Configuration
     TRIAL_DURATION_DAYS: int = 14
     BILLING_GRACE_PERIOD_DAYS: int = 3
-    
 
     # Frontend URL (for Stripe redirects)
     @property
     def FRONTEND_URL(self) -> str:
-        return os.getenv("FRONTEND_URL") or (self.DEV_URL if self.DEBUG else self.APP_URL)
-
+        return os.getenv("FRONTEND_URL") or (
+            self.DEV_URL if self.DEBUG else self.APP_URL
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
         extra="allow",
     )
+
 
 settings = Settings()
 
@@ -124,8 +141,7 @@ settings = Settings()
 def get_cipher_suite():
     return Fernet(settings.ENCRYPTION_KEY)
 
+
 # For backward compatibility, provide cipher_suite as a module-level variable
 # This will be initialized on first access
 cipher_suite = None
- 
-    

@@ -11,7 +11,9 @@ from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
 from app.api.modules.v1.billing.models.payment_method import PaymentMethod
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
-from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
+from app.api.modules.v1.organization.models.user_organization_model import (
+    UserOrganization,
+)
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
