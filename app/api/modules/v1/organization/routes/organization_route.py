@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
     "",
     response_model=CreateOrganizationResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_organization_responses,  # type: ignore
+    responses=create_organization_responses,
 )
 async def create_organization(
     payload: CreateOrganizationRequest,
@@ -105,15 +105,15 @@ async def create_organization(
         )
 
 
-create_organization._custom_errors = create_organization_custom_errors  # type: ignore
-create_organization._custom_success = create_organization_custom_success  # type: ignore
+create_organization._custom_errors = create_organization_custom_errors
+create_organization._custom_success = create_organization_custom_success
 
 
 @router.patch(
     "/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
-    responses=update_organization_responses,  # type: ignore
+    responses=update_organization_responses,
 )
 async def update_organization(
     organization_id: uuid.UUID,
@@ -191,8 +191,8 @@ async def update_organization(
         )
 
 
-update_organization._custom_errors = update_organization_custom_errors  # type: ignore
-update_organization._custom_success = update_organization_custom_success  # type: ignore
+update_organization._custom_errors = update_organization_custom_errors
+update_organization._custom_success = update_organization_custom_success
 
 
 @router.post(
