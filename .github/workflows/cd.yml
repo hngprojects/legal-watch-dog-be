@@ -31,7 +31,7 @@ jobs:
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
           
           # Application URLs
-          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
+          APP_URL="${{ vars.APP_URL || 'https://staging.minamoto.emerj.net' }}"
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
 
           # Database configuration
@@ -55,7 +55,8 @@ jobs:
 
           # Redis configuration
           REDIS_URL=${{ secrets.REDIS_URL }}
-          REDIS_CACHE_TTL_SECONDS=${{ secrets.REDIS_CACHE_TTL_SECONDS }}
+          REDIS_RESEND_TTL=${{ secrets.REDIS_RESEND_TTL || vars.REDIS_RESEND_TTL || '300' }}
+          REDIS_REGISTER_TTL=${{ secrets.REDIS_REGISTER_TTL || vars.REDIS_REGISTER_TTL || '600' }}
 
           # Secuirity / Auth
           JWT_SECRET=${{ secrets.JWT_SECRET }}
