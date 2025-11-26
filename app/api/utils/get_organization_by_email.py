@@ -5,7 +5,7 @@ from sqlmodel import select
 
 from app.api.modules.v1.users.models.users_model import User
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 async def get_organization_by_email(db: AsyncSession, email: str) -> User | None:

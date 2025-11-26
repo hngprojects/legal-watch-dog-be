@@ -23,7 +23,7 @@ from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 @router.get(

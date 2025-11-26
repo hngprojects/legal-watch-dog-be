@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.utils.permissions import ADMIN_PERMISSIONS, USER_PERMISSIONS
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 class RoleCRUD:
