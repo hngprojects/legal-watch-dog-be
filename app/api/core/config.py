@@ -47,7 +47,8 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
-    REDIS_CACHE_TTL_SECONDS: int = config("REDIS_CACHE_TTL_SECONDS", default=300, cast=int)
+    REDIS_RESEND_TTL: int = config("REDIS_RESEND_TTL", default=300, cast=int)
+    REDIS_REGISTER_TTL: int = config("REDIS_REGISTER_TTL", default=86400, cast=int)
 
     # JWT Authentication
     JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
@@ -67,6 +68,21 @@ class Settings(BaseSettings):
     # Email Verification
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
+
+    # gemini AI Service
+    GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
+    MODEL_NAME: str = "gemini-2.5-flash"
+
+    # LLM Configuration
+    LLM_API_KEY: str = config("LLM_API_KEY", default="your-llm-api-key")
+    LLM_MODEL: str = config("LLM_MODEL", default="gemini-2.0-flash")
+    LLM_API_URL: str = config("LLM_API_URL", default="")
+    LLM_PROVIDER: str = config("LLM_PROVIDER", default="gemini")
+    LLM_TEMPERATURE: float = config("LLM_TEMPERATURE", default=0.1, cast=float)
+    LLM_MAX_TOKENS: int = config("LLM_MAX_TOKENS", default=1000, cast=int)
+    LLM_SYSTEM_PROMPT: str = config(
+        "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
+    )
 
     model_config = SettingsConfigDict(extra="allow")
 

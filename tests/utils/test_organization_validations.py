@@ -37,7 +37,7 @@ async def test_validate_no_pending_registration_passes():
     """Passes when no pending registration exists"""
     redis_mock = AsyncMock()
     with patch(
-        "app.api.utils.organization_validations.get_organization_credentials",
+        "app.api.utils.organization_validations.get_user_credentials",
         new=AsyncMock(return_value=None),
     ):
         await validate_no_pending_registration(redis_mock, "test@example.com")
@@ -48,7 +48,7 @@ async def test_validate_no_pending_registration_fails():
     """Raises ValueError when pending registration exists"""
     redis_mock = AsyncMock()
     with patch(
-        "app.api.utils.organization_validations.get_organization_credentials",
+        "app.api.utils.organization_validations.get_user_credentials",
         new=AsyncMock(return_value={"otp_code": "123456"}),
     ):
         with pytest.raises(ValueError) as exc:

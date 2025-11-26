@@ -63,6 +63,8 @@ class Permission(str, Enum):
     MANAGE_API_KEYS = "manage_api_keys"
 
 
+USER_PERMISSIONS = {}
+
 # Predefined role permission sets
 ADMIN_PERMISSIONS = {
     # Full access to everything
