@@ -17,7 +17,6 @@ async def test_add_user_to_organization_success():
     org_id = uuid.uuid4()
     role_id = uuid.uuid4()
 
-    # Mock get_user_organization to return None
     UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=None)
 
     result = await UserOrganizationCRUD.add_user_to_organization(db, user_id, org_id, role_id)
@@ -56,10 +55,8 @@ async def test_get_user_organization_returns_membership():
         user_id=user_id, organization_id=org_id, role_id=uuid.uuid4()
     )
 
-    # Patch the CRUD method itself
     UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=expected_membership)
 
-    # You can use any db object; it won't be used
     db = AsyncMock()
 
     result = await UserOrganizationCRUD.get_user_organization(db, user_id, org_id)
@@ -132,7 +129,6 @@ async def test_remove_user_from_organization_success():
         user_id=uuid.uuid4(), organization_id=uuid.uuid4(), role_id=uuid.uuid4()
     )
 
-    # Patch get_user_organization to return the membership
     UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=membership)
 
     await UserOrganizationCRUD.remove_user_from_organization(
