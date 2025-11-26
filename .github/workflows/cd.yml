@@ -58,6 +58,20 @@ jobs:
           ALLOW_TEST_EMAIL_PROVIDERS=${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}
           TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
           ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
+
+          # LLM (Gemini / AI Extraction)
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          LLM_MODEL=${{ vars.LLM_MODEL || 'gemini-2.0-flash' }}
+          LLM_API_URL=${{ vars.LLM_API_URL || 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent' }}
+          LLM_PROVIDER=${{ vars.LLM_PROVIDER || 'gemini' }}
+
+          # Optional LLM Settings
+          LLM_TEMPERATURE=${{ vars.LLM_TEMPERATURE || '0.1' }}
+          LLM_MAX_TOKENS=${{ vars.LLM_MAX_TOKENS || '1000' }}
+
+          # Gemini API Key (explicit)
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
