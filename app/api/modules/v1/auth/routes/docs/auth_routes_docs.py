@@ -155,8 +155,6 @@ verify_otp_responses = {
                             "message": "Registration completed successfully",
                             "status_code": 201,
                             "data": {
-                                "organization_id": "org_123456",
-                                "organization_name": "Example Company",
                                 "email": "company@example.com",
                                 "user_id": "123e4567-e89b-12d3-a456-426614174000",
                             },

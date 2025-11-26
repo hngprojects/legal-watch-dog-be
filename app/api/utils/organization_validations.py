@@ -4,7 +4,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.utils.get_organization_by_email import get_organization_by_email
-from app.api.utils.redis import get_organization_credentials
+from app.api.utils.redis import get_user_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ async def validate_no_pending_registration(redis_client: Redis, email: str) -> N
     Raises:
         ValueError: If a pending registration exists for this email
     """
-    pending = await get_organization_credentials(redis_client, email)
+    pending = await get_user_credentials(redis_client, email)
 
     if pending:
         logger.warning("Validation failed: Pending registration exists for email=%s", email)
