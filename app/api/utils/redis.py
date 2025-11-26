@@ -7,11 +7,8 @@ from redis.asyncio.client import Redis
 logger = logging.getLogger(__name__)
 
 
-async def store_organization_credentials(
-    redis_client: Redis,
-    email: str,
-    registration_data: Dict[str, Any],
-    ttl_seconds: int = 600,
+async def store_user_credentials(
+    redis_client: Redis, email: str, registration_data: Dict[str, Any], ttl_seconds: int = 600
 ) -> bool:
     """
     Store user registration credentials in Redis with TTL.
@@ -48,7 +45,7 @@ async def store_organization_credentials(
         raise Exception("Failed to store registration data")
 
 
-async def get_organization_credentials(redis_client: Redis, email: str) -> Optional[Dict[str, Any]]:
+async def get_user_credentials(redis_client: Redis, email: str) -> Optional[Dict[str, Any]]:
     """
     Retrieve user registration credentials from Redis.
 
@@ -90,7 +87,7 @@ async def get_organization_credentials(redis_client: Redis, email: str) -> Optio
         raise Exception("Failed to retrieve registration data")
 
 
-async def delete_organization_credentials(redis_client: Redis, email: str) -> bool:
+async def delete_user_credentials(redis_client: Redis, email: str) -> bool:
     """
     Delete user registration credentials from Redis.
 
@@ -146,7 +143,7 @@ async def verify_and_get_credentials(
         Exception: If Redis operation fails
     """
     try:
-        credentials = await get_organization_credentials(redis_client, email)
+        credentials = await get_user_credentials(redis_client, email)
 
         if not credentials:
             logger.warning("No pending registration found for email=%s", email)

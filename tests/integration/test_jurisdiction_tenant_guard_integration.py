@@ -1,36 +1,57 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as jurisdiction_routes_module
 
 
 def _build_app_and_client():
     app = FastAPI()
-    # include the jurisdiction router under the /api/v1 prefix so paths match
+
     app.include_router(jurisdiction_routes_module.router, prefix="/api/v1")
     client = TestClient(app)
     return app, client
 
 
-def test_routes_blocked_when_user_has_no_org(monkeypatch):
-    """If get_current_user returns a user without an organization_id,
-    TenantGuard (used as a router dependency) should block requests with 403.
+def test_routes_blocked_when_user_has_no_org():
+    """
+    Ensure routes protected by TenantGuard are blocked (403)
+    if the current user has no organization memberships.
     """
 
+    class FakeUser:
+        id = "user-123"
+        email = "fake@example.com"
+        is_active = True
+        is_verified = True
+        organization_memberships = []
+
     def fake_get_current_user():
-        return SimpleNamespace(organization_id=None)
+        return FakeUser()
+
+    class FakeTenantGuard:
+        def __init__(self, current_user=FakeUser()):
+            self.user = current_user
+            if not getattr(current_user, "organization_memberships", []):
+                raise HTTPException(status_code=403, detail="No organization")
+            self.org_id = None
+
+        def verify(self, resource_org_id):
+            return True
 
     app, client = _build_app_and_client()
     app.dependency_overrides[get_current_user] = fake_get_current_user
+    app.dependency_overrides[TenantGuard] = FakeTenantGuard
 
     resp = client.get("/api/v1/jurisdictions/")
     assert resp.status_code == 403
+    assert resp.json()["detail"] == "No organization"
 
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(TenantGuard, None)
 
 
 def test_routes_allow_user_with_org_and_return_data(monkeypatch):
