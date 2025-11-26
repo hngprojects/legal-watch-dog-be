@@ -57,10 +57,14 @@ class SearchService:
         total_count_value = count_result.scalar()
         total_count = total_count_value if total_count_value is not None else 0
 
+        # Calculate pagination
+        offset = (search_request.page - 1) * search_request.limit
+        total_pages = (total_count + search_request.limit - 1) // search_request.limit
+
         statement = (
             statement.order_by(relevance_score_col.desc())
             .filter(relevance_score_col >= search_request.min_rank)
-            .offset(search_request.offset)
+            .offset(offset)
             .limit(search_request.limit)
         )
         results_result = await self.db.execute(statement)
@@ -81,9 +85,12 @@ class SearchService:
 
         return SearchResponse(
             results=search_results,
-            total_count=total_count,
+            total=total_count,
+            page=search_request.page,
+            limit=search_request.limit,
+            total_pages=total_pages,
             query=search_request.query,
-            has_more=(search_request.offset + len(search_results)) < total_count,
+            operator=search_request.operator,
         )
 
     def _build_tsquery(self, query: str, operator: SearchOperator) -> str:

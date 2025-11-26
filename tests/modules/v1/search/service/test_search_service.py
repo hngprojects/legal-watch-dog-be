@@ -74,11 +74,14 @@ async def test_search_basic(pg_async_session):
     await db.commit()
     await db.refresh(revision)
 
-    search_request = SearchRequest(query="test", operator="AND", limit=10, offset=0, min_rank=0.0)
+    search_request = SearchRequest(query="test", operator="AND", page=1, limit=10, min_rank=0.0)
     service = SearchService(db)
     response = await service.search(search_request)
 
-    assert response.total_count >= 1
+    assert response.total >= 1
+    assert response.page == 1
+    assert response.limit == 10
+    assert response.total_pages >= 1
     assert any(
         "test" in (r.title or r.content or r.summary or "").lower() for r in response.results
     )
@@ -171,20 +174,23 @@ async def test_search_with_filters(pg_async_session):
     )
     await db.commit()
 
-    search_request = SearchRequest(query="legal", limit=10, offset=0, min_rank=0.0)
+    search_request = SearchRequest(query="legal", page=1, limit=10, min_rank=0.0)
     service = SearchService(db)
     response = await service.search(search_request)
 
-    assert response.total_count >= 1
+    assert response.total >= 1
+    assert response.page == 1
+    assert response.total_pages >= 1
 
 
 @pytest.mark.asyncio
 async def test_empty_search(pg_async_session):
     """Test search with empty or non-existent query returns no results."""
     db = pg_async_session
-    search_request = SearchRequest(query="nonexistentterm", limit=10, offset=0, min_rank=0.0)
+    search_request = SearchRequest(query="nonexistentterm", page=1, limit=10, min_rank=0.0)
     service = SearchService(db)
     response = await service.search(search_request)
 
-    assert response.total_count == 0
+    assert response.total == 0
+    assert response.total_pages == 0
     assert len(response.results) == 0
