@@ -31,6 +31,7 @@ from app.api.modules.v1.auth.schemas.verify_otp import (
     VerifyOTPResponse,
 )
 from app.api.modules.v1.auth.service.register_service import RegistrationService
+from app.api.modules.v1.organization.models.invitation_model import InvitationStatus
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.service.role import RoleCRUD
@@ -42,7 +43,7 @@ from app.api.utils.response_payloads import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 @router.post(
@@ -267,24 +268,26 @@ async def accept_invitation(
         if not invitation:
             raise ValueError("Invitation not found or invalid.")
 
-        if invitation.status != "pending":
+        if invitation.status != InvitationStatus.PENDING:
             raise ValueError(f"Invitation is already {invitation.status}.")
 
         if invitation.expires_at < datetime.now(timezone.utc):
-            await InvitationCRUD.update_invitation_status(db, invitation.id, "expired")
+            await InvitationCRUD.update_invitation_status(
+                db, invitation.id, InvitationStatus.EXPIRED
+            )
             await db.commit()
             raise ValueError("Invitation has expired.")
 
         user = await UserCRUD.get_by_email(db, invitation.invited_email)
 
         if user:
-            # User is already registered
-            # Check if user is already a member of the organization
             existing_membership = await UserOrganizationCRUD.get_user_organization(
                 db, user.id, invitation.organization_id
             )
             if existing_membership:
-                await InvitationCRUD.update_invitation_status(db, invitation.id, "accepted")
+                await InvitationCRUD.update_invitation_status(
+                    db, invitation.id, InvitationStatus.ACCEPTED
+                )
                 await db.commit()
                 return success_response(
                     status_code=status.HTTP_200_OK,
@@ -304,7 +307,9 @@ async def accept_invitation(
                 role_id=role_id,
                 is_active=True,
             )
-            await InvitationCRUD.update_invitation_status(db, invitation.id, "accepted")
+            await InvitationCRUD.update_invitation_status(
+                db, invitation.id, InvitationStatus.ACCEPTED
+            )
             await db.commit()
 
             return success_response(

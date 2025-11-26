@@ -20,7 +20,7 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
 )
 from app.api.utils.response_payloads import error_response, success_response
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 router = APIRouter(

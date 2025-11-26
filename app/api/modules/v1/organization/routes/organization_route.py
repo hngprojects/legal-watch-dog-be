@@ -446,7 +446,7 @@ async def update_member_status(
 
 @router.patch(
     "/{organization_id}/members/{user_id}/role",
-    response_model=dict,  # This will return a simple success message
+    response_model=dict,
     status_code=status.HTTP_200_OK,
 )
 async def update_member_role(
