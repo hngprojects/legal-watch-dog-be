@@ -18,8 +18,8 @@ from app.api.modules.v1.scraping.schemas.ai_analysis import ExtractionResult
 
 logger = logging.getLogger(__name__)
 
-if _HAS_GENAI and settings.GOOGLE_API_KEY:
-    genai.configure(api_key=settings.GOOGLE_API_KEY)
+if _HAS_GENAI and settings.GEMINI_API_KEY:
+    genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 class AIExtractionServiceError(Exception):
@@ -68,13 +68,13 @@ class AIExtractionService:
 
         Raises:
             ImportError: If the google-generativeai package is not installed.
-            ValueError: If the GOOGLE_API_KEY environment variable is not set.
+            ValueError: If the GEMINI_API_KEY environment variable is not set.
         """
         if not _HAS_GENAI:
             raise ImportError("`google-generativeai` package missing.")
 
-        if not settings.GOOGLE_API_KEY:
-            raise ValueError("GOOGLE_API_KEY is not set.")
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not set.")
 
         self.model = genai.GenerativeModel(
             model_name=settings.MODEL_NAME,
