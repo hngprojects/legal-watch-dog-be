@@ -20,10 +20,7 @@ from app.api.modules.v1.scraping.service.tasks import (
 
 
 def mock_exec_side_effect(session):
-    """
-    Creates a side_effect function that translates SQLModel's db.exec()
-    into SQLAlchemy's db.execute().scalars().
-    """
+    """Translates SQLModel's db.exec() into SQLAlchemy's db.execute().scalars()."""
 
     def side_effect(statement):
         return session.execute(statement).scalars()
@@ -102,7 +99,6 @@ def test_scrape_source_success(sync_session: Session):
         mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
         mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
 
-        # Mock execute to return the source from sync_session
         async def mock_execute(stmt):
             result = MagicMock()
             result.scalars.return_value.first.return_value = (
@@ -140,7 +136,6 @@ def test_scrape_source_not_found(sync_session: Session):
         mock_session_cls.return_value.__aenter__.return_value = mock_db
         mock_db.execute = AsyncMock()
 
-        # Mock execute to query from sync_session and return None
         async def mock_execute(stmt):
             result = MagicMock()
             result.scalars.return_value.first.return_value = (
@@ -302,13 +297,11 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
 
-        # Mock async methods to use sync_session
         mock_db.execute = AsyncMock()
         mock_db.exec = AsyncMock()
         mock_db.add = MagicMock(side_effect=sync_session.add)
         mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
 
-        # Mock execute to query from sync_session
         async def mock_execute(stmt):
             result = MagicMock()
             result.scalars.return_value.all.return_value = (
@@ -390,7 +383,6 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
         mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
 
-        # Mock execute to query from sync_session
         mock_db.execute = AsyncMock()
 
         async def mock_execute(stmt):
