@@ -8,7 +8,7 @@ from sqlmodel import select
 
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 class UserOrganizationCRUD:
