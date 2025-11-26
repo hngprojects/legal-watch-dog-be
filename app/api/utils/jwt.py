@@ -65,8 +65,8 @@ if pyjwt is None:  # pragma: no cover - environment misconfiguration
 
 def create_access_token(
     user_id: str,
-    organization_id: str,
     role_id: str,
+    organization_id: Optional[str] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
@@ -86,20 +86,19 @@ def create_access_token(
     else:
         expire = datetime.now(timezone.utc) + timedelta(hours=settings.JWT_EXPIRY_HOURS)
 
-    # Generate unique JWT ID for revocation tracking
     jti = str(uuid.uuid4())
 
-    # Convert datetime to timestamp for JSON serialization
     iat = datetime.now(timezone.utc)
 
     payload = {
-        "sub": str(user_id),  # Subject (user ID)
-        "org_id": str(organization_id),
+        "sub": str(user_id),
         "role_id": str(role_id),
         "exp": int(expire.timestamp()),
         "iat": int(iat.timestamp()),
-        "jti": jti,  # JWT ID for revocation
+        "jti": jti,
     }
+    if organization_id:
+        payload["organization_id"] = organization_id
 
     encoded_jwt = pyjwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     logger.info(f"Created JWT for user {user_id}, org {organization_id}, jti: {jti}")
