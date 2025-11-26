@@ -13,7 +13,7 @@ from app.api.modules.v1.organization.models.user_organization_model import UserO
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 class UserOrganizationCRUD:

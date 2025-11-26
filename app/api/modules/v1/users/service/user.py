@@ -9,7 +9,7 @@ from sqlmodel import select
 from app.api.modules.v1.users.models.roles_model import Role  # Added import for Role
 from app.api.modules.v1.users.models.users_model import User
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 class UserCRUD:
