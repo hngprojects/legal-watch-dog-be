@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.schemas.invitation_schema import InvitationResponse
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.service.user import UserCRUD
@@ -203,4 +205,53 @@ async def get_user_organization_details(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve organization details. Please try again later.",
+        )
+
+
+@router.get(
+    "/me/invitations",
+    response_model=list[InvitationResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def get_my_invitations(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all pending invitations for the current authenticated user.
+
+    Returns a list of all pending organization invitations that the current user has received.
+
+    Requirements:
+    - User must be authenticated
+
+    Args:
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        List[InvitationResponse]: Success response with list of pending invitations
+
+    Raises:
+        HTTPException: 500 for server errors
+    """
+    try:
+        invitations = await InvitationCRUD.get_pending_invitations_for_user_email(
+            db, current_user.email
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Pending invitations retrieved successfully",
+            data=invitations,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch pending invitations for user_id={current_user.id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve pending invitations",
         )

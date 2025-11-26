@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
@@ -67,51 +68,71 @@ class RoleCRUD:
 
     async def get_default_user_role(
         db: AsyncSession,
-        role_name: str = "User",
-        description: Optional[str] = "LegalWatchDog User",
+        organization_id: uuid.UUID,
+        role_name: str = "Member",
+        description: Optional[str] = "Organization Member with basic permissions",
     ) -> Role:
         """
-        Create and persist a default user role in the database.
+        Get or create a default user role for an organization.
 
-        This function initializes a new role with the given name, description,
-        and a predefined set of user permissions. The role is added to the
-        database, committed, and refreshed before being returned.
+        This function retrieves an existing 'Member' role for a given organization.
+        If it doesn't exist, it creates a new one with predefined user permissions.
 
         Args:
             db (AsyncSession): The active database session.
-            role_name (str, optional): Name of the role to create.
-                Defaults to "User".
-            description (str, optional): Description of the role.
-                Defaults to "LegalWatchDog User".
+            organization_id: UUID of the organization for which to get/create the role.
+            role_name (str, optional): Name of the role to get or create. Defaults to "Member".
+            description (str, optional): Description of the role. Defaults to
+            "Organization Member with basic permissions".
 
         Returns:
-            Role: The newly created and persisted role instance.
+            Role: The existing or newly created role instance.
 
         Raises:
             Exception: If the role creation or database operation fails.
         """
 
         try:
+            existing_role = await db.execute(
+                select(Role).where(
+                    Role.organization_id == organization_id,
+                    Role.name == role_name,
+                )
+            )
+            role = existing_role.scalar_one_or_none()
+
+            if role:
+                logger.info(
+                    "Retrieved existing user role: id=%s, name=%s, organization_id=%s",
+                    role.id,
+                    role.name,
+                    role.organization_id,
+                )
+                return role
+
             role = Role(
                 name=role_name,
+                organization_id=organization_id,
                 description=description,
                 permissions=USER_PERMISSIONS,
             )
             logger.info(
-                "Created user role: id=%s, name=%s",
+                "Created user role: id=%s, name=%s, organization_id=%s",
                 role.id,
                 role.name,
+                role.organization_id,
             )
 
             db.add(role)
-            await db.commit()
+            await db.flush()
             await db.refresh(role)
             return role
 
         except Exception as e:
             logger.error(
-                "Failed to create user role",
+                "Failed to get or create user role for organization_id=%s: %s",
+                organization_id,
                 str(e),
                 exc_info=True,
             )
-            raise Exception("Failed to create user role")
+            raise Exception("Failed to get or create user role")
