@@ -15,6 +15,7 @@ from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.organization_validations import check_user_permission
+from app.api.utils.pagination import calculate_pagination
 
 logger = logging.getLogger("app")
 
@@ -464,39 +465,101 @@ class OrganizationService:
     async def get_user_organizations(
         self,
         user_id: uuid.UUID,
-    ) -> list[dict]:
+        page: int = 1,
+        limit: int = 10,
+    ) -> dict:
         """
-        Get all organizations where the user is a member.
+        Get all organizations where the user is a member (paginated).
 
         Args:
             user_id: User UUID
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
 
         Returns:
-            List of dictionaries containing organization details and user's role
+            dict: Dictionary with paginated organizations and metadata
         """
+        skip = (page - 1) * limit
 
-        memberships = await UserOrganizationCRUD.get_user_organizations(
-            self.db, user_id, active_only=True
+        result = await UserOrganizationCRUD.get_all_user_organizations(
+            db=self.db,
+            user_id=user_id,
+            skip=skip,
+            limit=limit,
         )
 
-        organizations = []
-        for membership in memberships:
-            org = await OrganizationCRUD.get_by_id(self.db, membership.organization_id)
-            if not org:
-                continue
+        organizations = result["organizations"]
+        total = result["total"]
 
-            role = await self.db.get(Role, membership.role_id)
+        pagination = calculate_pagination(total=total, page=page, limit=limit)
 
-            organizations.append(
-                {
-                    "organization_id": str(org.id),
-                    "name": org.name,
-                    "industry": org.industry,
-                    "is_active": org.is_active,
-                    "user_role": role.name if role else None,
-                    "created_at": org.created_at.isoformat(),
-                    "updated_at": org.updated_at.isoformat(),
-                }
+        return {"organizations": organizations, **pagination}
+
+    async def get_organization_users(
+        self,
+        organization_id: uuid.UUID,
+        requesting_user_id: uuid.UUID,
+        page: int = 1,
+        limit: int = 10,
+        active_only: bool = True,
+    ) -> dict:
+        """
+        Get all users in an organization (paginated).
+
+        Args:
+            organization_id: Organization UUID
+            requesting_user_id: UUID of the user requesting the data
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
+            active_only: Only return active memberships (default: True)
+
+        Returns:
+            dict: Dictionary with paginated users and metadata
+
+        Raises:
+            ValueError: If validation fails
+        """
+        logger.info(f"Fetching users for org_id={organization_id} by user_id={requesting_user_id}")
+
+        try:
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            membership = await UserOrganizationCRUD.get_user_organization(
+                self.db, requesting_user_id, organization_id
             )
 
-        return organizations
+            if not membership or not membership.is_active:
+                raise ValueError("You do not have access to this organization")
+
+            skip = (page - 1) * limit
+
+            result = await UserOrganizationCRUD.get_all_users_in_organization(
+                db=self.db,
+                organization_id=organization_id,
+                skip=skip,
+                limit=limit,
+                active_only=active_only,
+            )
+
+            users = result["users"]
+            total = result["total"]
+
+            pagination = calculate_pagination(total=total, page=page, limit=limit)
+
+            logger.info(f"Successfully retrieved {len(users)} users for org_id={organization_id}")
+
+            return {"users": users, **pagination}
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error fetching users for org_id={organization_id}: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching users for org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to retrieve organization users")

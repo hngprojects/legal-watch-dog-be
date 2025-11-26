@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -95,3 +95,28 @@ class UpdateMemberRoleRequest(BaseModel):
 
     class Config:
         json_schema_extra = {"example": {"role_name": "Manager"}}
+
+
+class OrganizationUserItem(BaseModel):
+    """Schema for a single user in an organization"""
+
+    user_id: str
+    email: str
+    name: str
+    is_active: bool
+    is_verified: bool
+    role: str | None
+    role_id: str | None
+    membership_active: bool
+    joined_at: str
+    created_at: str
+
+
+class OrganizationUsersResponse(BaseModel):
+    """Schema for organization users response"""
+
+    users: List[OrganizationUserItem]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
