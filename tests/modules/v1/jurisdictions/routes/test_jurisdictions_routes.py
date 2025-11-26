@@ -138,7 +138,31 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_all_jurisdictions", fake_all)
 
-    res = await routes.get_all_jurisdictions(db=cast(Any, None))
+    # Provide a minimal fake DB object in case the monkeypatch does not get
+    # applied to the instance method (some test environments bind methods
+    # differently). The fake db implements an async `execute` that returns an
+    # object with a `scalars().all()` chain returning an empty list so the
+    # original service implementation (if called) behaves like the fake.
+    class _FakeResult:
+        def scalar(self):
+            return 0
+
+        def scalars(self):
+            class _S:
+                def all(self):
+                    return []
+
+                def first(self):
+                    return None
+
+            return _S()
+
+    async def _fake_execute(stmt):
+        return _FakeResult()
+
+    fake_db = SimpleNamespace(execute=_fake_execute)
+
+    res = await routes.get_all_jurisdictions(db=cast(Any, fake_db))
     assert hasattr(res, "status_code")
     assert res.status_code == 404
 

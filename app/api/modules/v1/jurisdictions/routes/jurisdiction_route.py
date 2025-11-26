@@ -4,7 +4,9 @@ from typing import List, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard
 from app.api.db.database import get_db
@@ -19,6 +21,7 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     OrgResourceGuard,
     get_descendant_ids,
 )
+from app.api.utils.pagination import calculate_pagination
 from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -92,47 +95,50 @@ async def create_jurisdiction(
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
-async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
+async def get_all_jurisdictions(
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    page_size: int = 10,
+):
     """
-    Retrieve jurisdictions from the system.
-
-    This endpoint returns a list of jurisdictions in the database.
-    Flat Structure (non-nested)
-    Soft-deleted jurisdictions may be excluded
-    depending on the implementation of the underlying query logic.
+    Retrieve jurisdictions from the system with pagination.
 
     Args:
         db (AsyncSession): Database session used to retrieve jurisdiction records.
+        page (int): Page number (1-based).
+        page_size (int): Number of items per page.
 
     Returns:
-        List[JurisdictionResponseSchema]: A list of all jurisdiction records.
-        Each returned jurisdiction includes:
-            - id (UUID): Unique identifier of the jurisdiction.
-            - project_id (UUID): Identifier of the project it belongs to.
-            - parent_id (Optional[UUID]): ID of the parent jurisdiction, if any.
-            - name (str): The jurisdiction's name.
-            - description (str): Descriptive text explaining the jurisdiction.
-            - prompt (Optional[str]): Optional prompt or instruction text.
-            - scrape_output (Optional[Dict[str, Any]]): Optional structured data from
-            automated processes or scraping.
-            - created_at (Optional[datetime]): Timestamp when the jurisdiction was created.
-            - updated_at (Optional[datetime]): Timestamp of the last update.
-            - deleted_at (Optional[datetime]): Timestamp marking soft deletion, if deleted.
-            - is_deleted (bool): Indicates whether the jurisdiction has been soft-deleted.
-
-    Raises:
-        HTTPException: If database retrieval fails or invalid parameters are provided.
+        List[JurisdictionResponseSchema]: A paginated list of jurisdiction records.
     """
 
-    logger.debug("Fetching all jurisdictions from DB")
-    jurisdictions = await service.get_all_jurisdictions(db)
-    logger.debug("Retrieved %d jurisdictions", len(jurisdictions) if jurisdictions else 0)
+    logger.debug("Fetching jurisdictions from DB (page=%s, page_size=%s)", page, page_size)
 
-    if not jurisdictions:
+    try:
+        page = int(page)
+        page_size = int(page_size)
+    except Exception:
+        return error_response(status_code=400, message="Invalid pagination parameters")
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 10
+
+    stmt_total = select(func.count(Jurisdiction.id))  # type: ignore
+    result_total = await db.execute(stmt_total)
+    total = result_total.scalar() or 0
+
+    if total == 0:
         logger.info("No jurisdictions found")
         return error_response(status_code=404, message="No jurisdictions found")
 
-    logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
+    stmt_page = select(Jurisdiction).offset((page - 1) * page_size).limit(page_size)
+    result_page = await db.execute(stmt_page)
+    page_items = result_page.scalars().all()
+
+    pagination = calculate_pagination(total=total, page=page, limit=page_size)
+
+    logger.info("Retrieved %d jurisdictions for page %d", len(page_items), page)
 
     def _jid(j):
         try:
@@ -140,11 +146,12 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
         except Exception:
             return ""
 
-    logger.debug("Jurisdiction IDs: %s", [_jid(j) for j in jurisdictions])
+    logger.debug("Jurisdiction IDs on page %d: %s", page, [_jid(j) for j in page_items])
+
     return success_response(
         status_code=200,
-        message="All Jurisdictions retrieved successfully",
-        data={"jurisdictions": jurisdictions},
+        message="Jurisdictions retrieved successfully",
+        data={"jurisdictions": page_items, "pagination": pagination},
     )
 
 
@@ -153,39 +160,23 @@ async def get_all_jurisdictions(db: AsyncSession = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     response_model=List[JurisdictionResponseSchema],
 )
-async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_jurisdictions_by_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    page_size: int = 10,
+):
     """
-    Retrieve jurisdictions from the system by project id
-    including all nested children Jurisdiction.
-
-    This endpoint returns a list of jurisdictions by a specific
-    project. Soft-deleted jurisdictions may be excluded
-    depending on the implementation of the underlying query logic.
+    Retrieve jurisdictions from the system by project id including pagination.
 
     Args:
-        project_id (UUID | None): Optional ID of a project to filter jurisdictions by.
-            When provided, only jurisdictions linked to this project are returned.
-            When omitted, all jurisdictions in the system are returned.
+        project_id (UUID): ID of a project to filter jurisdictions by.
         db (AsyncSession): Database session used to retrieve jurisdiction records.
+        page (int): Page number (1-based).
+        page_size (int): Number of items per page.
 
     Returns:
-        List[JurisdictionResponseSchema]: A list of jurisdiction records matching the
-        provided filter. Each returned jurisdiction includes:
-            - id (UUID): Unique identifier of the jurisdiction.
-            - project_id (UUID): Identifier of the project it belongs to.
-            - parent_id (Optional[UUID]): ID of the parent jurisdiction, if any.
-            - name (str): The jurisdiction's name.
-            - description (str): Descriptive text explaining the jurisdiction.
-            - prompt (Optional[str]): Optional prompt or instruction text.
-            - scrape_output (Optional[Dict[str, Any]]): Optional structured data from
-            automated processes or scraping.
-            - created_at (Optional[datetime]): Timestamp when the jurisdiction was created.
-            - updated_at (Optional[datetime]): Timestamp of the last update.
-            - deleted_at (Optional[datetime]): Timestamp marking soft deletion, if deleted.
-            - is_deleted (bool): Indicates whether the jurisdiction has been soft-deleted.
-
-    Raises:
-        HTTPException: If database retrieval fails or invalid parameters are provided.
+        List[JurisdictionResponseSchema]: A paginated list of jurisdiction records.
     """
 
     jurisdictions = await service.get_jurisdictions_by_project(db, project_id)
@@ -195,21 +186,38 @@ async def get_jurisdictions_by_project(project_id: UUID, db: AsyncSession = Depe
         logger.info("No jurisdictions found")
         return error_response(status_code=404, message="No jurisdictions found")
 
-    logger.info("Retrieved %d jurisdictions successfully", len(jurisdictions))
+    try:
+        page = int(page)
+        page_size = int(page_size)
+    except Exception:
+        return error_response(status_code=400, message="Invalid pagination parameters")
 
-    # jurisdictions may be plain dicts (serialized by the service) or ORM objects.
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 10
+
+    total = len(jurisdictions)
+    pagination = calculate_pagination(total=total, page=page, limit=page_size)
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = jurisdictions[start:end]
+
+    logger.info("Retrieved %d jurisdictions for page %d", len(page_items), page)
+
     def _jid(j):
         try:
             return str(j["id"]) if isinstance(j, dict) else str(getattr(j, "id", ""))
         except Exception:
             return ""
 
-    logger.debug("Jurisdiction IDs: %s", [_jid(j) for j in jurisdictions])
+    logger.debug("Jurisdiction IDs on page %d: %s", page, [_jid(j) for j in page_items])
 
     return success_response(
         status_code=200,
         message="Jurisdictions retrieved successfully",
-        data={"jurisdictions": jurisdictions},
+        data={"jurisdictions": page_items, "pagination": pagination},
     )
 
 
@@ -258,63 +266,90 @@ async def soft_delete_jurisdictions_by_project(
     status_code=status.HTTP_200_OK,
     response_model=JurisdictionResponseSchema,
 )
-async def get_jurisdiction(jurisdiction_id, db: AsyncSession = Depends(get_db)):
+async def get_jurisdiction(
+    jurisdiction_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    page_size: int = 10,
+):
     """
     Retrieve a single jurisdiction by its unique identifier.
-
-    This endpoint returns the full details of a specific jurisdiction if it exists
-    in the system. The jurisdiction is looked up by its `jurisdiction_id`, and the
-    response includes all metadata and structural information about the record.
-    If the jurisdiction does not exist—or has been soft-deleted depending on the
-    query behavior—an appropriate error is returned.
-
-    Args:
-        jurisdiction_id (UUID): The unique identifier of the jurisdiction to retrieve.
-        db (AsyncSession): Database session used to perform the lookup.
-
-    Returns:
-        JurisdictionResponseSchema: A detailed representation of the jurisdiction,
-        including:
-            - id (UUID): Unique ID of the jurisdiction.
-            - project_id (UUID): ID of the project it belongs to.
-            - parent_id (Optional[UUID]): Optional parent jurisdiction.
-            - name (str): The jurisdiction's name.
-            - description (str): Text describing the jurisdiction.
-            - prompt (Optional[str]): Optional prompt or instruction text.
-            - scrape_output (Optional[Dict[str, Any]]): Structured data generated by
-              automated or scraping processes.
-            - created_at (Optional[datetime]): Timestamp of creation.
-            - updated_at (Optional[datetime]): Timestamp of last update.
-            - deleted_at (Optional[datetime]): Timestamp of deletion if soft-deleted.
-            - is_deleted (bool): Whether the jurisdiction is soft-deleted.
-
-    Raises:
-        HTTPException: If the jurisdiction does not exist, is unavailable, or if a
-        database error occurs during retrieval.
+    Supports pagination for the jurisdiction's children via `page` and `page_size`.
     """
 
-    logger.debug("Fetching jurisdiction with id=%s", jurisdiction_id)
+    logger.debug(
+        "Fetching jurisdiction with id=%s (page=%s, page_size=%s)", jurisdiction_id, page, page_size
+    )
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
     if not jurisdiction:
-        logger.info("jurisdiction not found")
+        logger.info("jurisdiction not found: id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found")
 
-    def _get_attr(obj, attr):
-        try:
-            return obj.get(attr) if isinstance(obj, dict) else getattr(obj, attr, "")
-        except Exception:
-            return ""
+    try:
+        page = int(page)
+        page_size = int(page_size)
+    except Exception:
+        return error_response(status_code=400, message="Invalid pagination parameters")
+
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 10
+
+    try:
+        if isinstance(jurisdiction, dict):
+            children = jurisdiction.get("children") or []
+        else:
+            children = getattr(jurisdiction, "children", []) or []
+    except Exception:
+        children = []
+
+    if children is None or not isinstance(children, (list, tuple)):
+        children = []
+
+    total_children = len(children)
+    pagination = calculate_pagination(total=total_children, page=page, limit=page_size)
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_children = children[start:end]
+
+    try:
+        if isinstance(jurisdiction, dict):
+            jurisdiction_payload = dict(jurisdiction)
+        else:
+            jurisdiction_payload = service._serialize_jurisdiction(jurisdiction)
+    except Exception:
+        jurisdiction_payload = {
+            "id": getattr(jurisdiction, "id", None),
+            "project_id": getattr(jurisdiction, "project_id", None),
+            "parent_id": getattr(jurisdiction, "parent_id", None),
+            "name": getattr(jurisdiction, "name", None),
+            "description": getattr(jurisdiction, "description", None),
+            "prompt": getattr(jurisdiction, "prompt", None),
+            "scrape_output": getattr(jurisdiction, "scrape_output", None),
+            "created_at": getattr(jurisdiction, "created_at", None),
+            "updated_at": getattr(jurisdiction, "updated_at", None),
+            "deleted_at": getattr(jurisdiction, "deleted_at", None),
+            "is_deleted": getattr(jurisdiction, "is_deleted", None),
+            "children": getattr(jurisdiction, "children", []) or [],
+        }
+
+    jurisdiction_payload["children"] = page_children
 
     logger.info(
-        "Jurisdiction retrieved successfully: id=%s, project_id=%s",
-        _get_attr(jurisdiction, "id"),
-        _get_attr(jurisdiction, "project_id"),
+        "Jurisdiction retrieved successfully: id=%s, project_id=%s, returned_children=%d/%d",
+        jurisdiction_payload.get("id"),
+        jurisdiction_payload.get("project_id"),
+        len(page_children),
+        total_children,
     )
-    logger.debug("Jurisdiction details: %s", jurisdiction)
+    logger.debug("Jurisdiction details: %s", jurisdiction_payload)
+
     return success_response(
         status_code=200,
         message="Jurisdiction retrieved successfully",
-        data={"jurisdiction": jurisdiction},
+        data={"jurisdiction": jurisdiction_payload, "pagination": pagination},
     )
 
 
@@ -459,8 +494,6 @@ async def soft_delete_jurisdiction(
     if not deleted:
         logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found")
-
-    # deleted_jurisdiction = cast(Jurisdiction, deleted)
 
     logger.info(
         "Jurisdiction (including nested jurisdiction if any) archived successfully: id=%s",
