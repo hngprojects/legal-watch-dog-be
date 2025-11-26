@@ -110,9 +110,8 @@ async def test_update_project_service_not_found(pg_async_session: AsyncSession):
     project_id = uuid.uuid4()
     data = ProjectUpdate(title="Updated Title")
 
-    project, message = await project_service.update_project(project_id, org_id, data)
+    project = await project_service.update_project(project_id, org_id, data)
     assert project is None
-    assert "not found" in message.lower()
 
 
 @pytest.mark.asyncio

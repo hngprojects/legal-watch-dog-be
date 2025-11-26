@@ -369,8 +369,8 @@ async def delete_project(
         )
 
     except Exception:
-        logger.exception(f"Error during hard delete of project_id={project_id}")
+        logger.exception(f"Error during archiving of project_id={project_id}")
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Failed to permanently delete project.",
+            message="Failed to archive project.",
         )

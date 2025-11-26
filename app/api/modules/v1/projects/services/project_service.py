@@ -157,7 +157,7 @@ class ProjectService:
         project_id: UUID,
         organization_id: UUID,
         data: ProjectUpdate,
-    ) -> tuple[Optional[Project]]:
+    ) -> Optional[Project]:
         """
         Update project with provided data.
 
