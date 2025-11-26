@@ -68,7 +68,6 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
-    
     # MinIO
 
     MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
@@ -76,7 +75,6 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="minioadmin")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="allow")
     model_config = SettingsConfigDict(extra="allow")
 
 

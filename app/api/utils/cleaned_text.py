@@ -13,6 +13,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 def normalize_text(text: str) -> str:
     """
     Normalize a text string by collapsing and cleaning whitespace.
@@ -70,7 +71,6 @@ def cleaned_html(raw_bytes: bytes) -> str:
         return ""
 
     try:
-        
         try:
             html_str = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:

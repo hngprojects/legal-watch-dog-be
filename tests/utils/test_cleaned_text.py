@@ -6,7 +6,7 @@ from app.api.utils.cleaned_text import (
 
 def test_normalize_text():
     """
-   Test that `normalize_text` correctly normalizes whitespace, newlines, and non-breaking spaces.
+    Test that `normalize_text` correctly normalizes whitespace, newlines, and non-breaking spaces.
     """
     assert normalize_text("hello   world") == "hello world"
     assert normalize_text("a\n\nb") == "a b"
@@ -15,7 +15,7 @@ def test_normalize_text():
 
 def test_cleaned_html_basic():
     """
-    Test that `cleaned_html` extracts visible text while 
+    Test that `cleaned_html` extracts visible text while
     removing all HTML tags.
     """
     html = b"""
@@ -30,7 +30,7 @@ def test_cleaned_html_basic():
     result = cleaned_html(html)
     assert "Hello" in result
     assert "World" in result
-    assert "<" not in result  
+    assert "<" not in result
 
 
 def test_cleaned_html_removes_junk():
