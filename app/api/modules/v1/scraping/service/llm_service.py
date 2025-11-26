@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import random
 from typing import Any, Dict
 
 try:
@@ -177,12 +179,28 @@ SUMMARY RULES (UI RENDER):
                     f"AI Extraction Failed (Attempt {attempt + 1}/{max_retries + 1}): {e}"
                 )
 
-                if attempt == max_retries:
+                if attempt < max_retries:
+                    base_delay = 1.0
+                    exponential_delay = base_delay * (2 ** attempt)
+                    jitter = random.uniform(0, exponential_delay * 0.5)
+                    total_delay = exponential_delay + jitter
+                    
+                    logger.info(f"Retrying in {total_delay:.2f}s (attempt {attempt + 1})")
+                    await asyncio.sleep(total_delay)
+                else:
                     error_msg = f"Extraction failed after {max_retries} retries. Error: {str(e)}"
                     logger.error(error_msg)
                     raise AIExtractionServiceError(error_msg)
 
             except Exception as e:
                 logger.error(f"Unexpected AI Error: {e}")
-                if attempt == max_retries:
+                if attempt < max_retries:
+                    base_delay = 1.0
+                    exponential_delay = base_delay * (2 ** attempt)
+                    jitter = random.uniform(0, exponential_delay * 0.5)
+                    total_delay = exponential_delay + jitter
+                    
+                    logger.info(f"Retrying in {total_delay:.2f}s (attempt {attempt + 1})")
+                    await asyncio.sleep(total_delay)
+                else:
                     raise AIExtractionServiceError(f"System Error: {str(e)}")
