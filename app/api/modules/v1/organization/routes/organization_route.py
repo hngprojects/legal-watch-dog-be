@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -184,3 +184,83 @@ async def update_organization(
 
 update_organization._custom_errors = update_organization_custom_errors  # type: ignore
 update_organization._custom_success = update_organization_custom_success  # type: ignore
+
+
+@router.get(
+    "/{organization_id}/users",
+    status_code=status.HTTP_200_OK,
+)
+async def get_all_users_in_organization(
+    organization_id: uuid.UUID,
+    page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
+    limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
+    active_only: bool = Query(default=True, description="Only return active members"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all users in an organization.
+
+    Returns all users who are members of the specified organization,
+    along with their roles and membership details.
+
+    Requirements:
+    - User must be authenticated
+    - User must be a member of the organization to view other members
+
+    Args:
+        organization_id: UUID of the organization
+        page: Page number (default: 1)
+        limit: Items per page (default: 10, max: 100)
+        active_only: Only return active members (default: True)
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with paginated list of users
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden,
+                      404 for not found, 500 for server errors
+    """
+    try:
+        service = OrganizationService(db)
+        result = await service.get_organization_users(
+            organization_id=organization_id,
+            requesting_user_id=current_user.id,
+            page=page,
+            limit=limit,
+            active_only=active_only,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organization users retrieved successfully",
+            data=result,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to get users for org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have access" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve users for org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organization users. Please try again later.",
+        )
