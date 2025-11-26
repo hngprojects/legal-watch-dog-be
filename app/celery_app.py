@@ -2,6 +2,7 @@ from celery import Celery
 from celery.schedules import crontab
 
 from app.api.core.config import settings
+from app.api.modules.v1.scraping.service.tasks import dispatch_due_sources
 
 celery_app = Celery(
     "legal_watch_dog",
@@ -12,7 +13,7 @@ celery_app = Celery(
 
 celery_app.conf.beat_schedule = {
     "dispatch-due-sources-every-minute": {
-        "task": "app.api.modules.v1.scraping.service.tasks.dispatch_due_sources",
+        "task": dispatch_due_sources.name,
         "schedule": crontab(minute="*"),
         "args": (),
     },

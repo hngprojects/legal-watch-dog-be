@@ -3,9 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
-import sqlalchemy
 from cryptography.fernet import Fernet
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -70,11 +69,14 @@ def mock_encrypt_auth_details():
 
 
 @pytest.fixture(autouse=True, scope="function")
-def mock_redis():
+def mock_redis(monkeypatch):
     """
     Mock Redis client for all tests to avoid connection errors.
     This fixture is autouse=True so it applies to all tests automatically.
     """
+    # Set a mock Redis URL
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+
     # Create a simple in-memory store to simulate Redis behavior
     redis_store = {}
 
@@ -131,14 +133,23 @@ def mock_redis():
     mock_redis_client.exists.side_effect = mock_exists
     mock_redis_client.close.return_value = None
 
-    # Patch redis.from_url to return our mock instead of trying to connect
-    with patch("redis.asyncio.from_url", return_value=mock_redis_client):
+    # Patch ConnectionPool.from_url to return a mock pool
+    mock_pool = MagicMock()
+    mock_pool.disconnect = AsyncMock()
+
+    # Patch both the ConnectionPool and Redis client creation
+    with (
+        patch("redis.asyncio.connection.ConnectionPool.from_url", return_value=mock_pool),
+        patch("redis.asyncio.Redis", return_value=mock_redis_client),
+    ):
         # Reset the global _redis_client before each test
         import app.api.core.dependencies.redis_service as redis_module
 
         redis_module._redis_client = None
+        redis_module._connection_pool = None
         yield mock_redis_client
         redis_module._redis_client = None
+        redis_module._connection_pool = None
 
 
 @pytest.fixture
@@ -155,15 +166,7 @@ def pg_sync_session():
     sync_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     engine = create_engine(sync_url, echo=False)
 
-    # Drop any existing tables first to ensure schema is recreated with the
-    # current SQLModel definitions (this is important when tests run against
-    # a database that may already have old schema from Alembic migrations).
-    # Use raw SQL to drop tables with CASCADE to handle foreign key constraints
-    with engine.connect() as conn:
-        conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
-        conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
-        conn.commit()
-
+    # Create all tables
     SQLModel.metadata.create_all(engine)
 
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -172,11 +175,12 @@ def pg_sync_session():
         yield session
     finally:
         session.close()
-        # Clean up with CASCADE
-        with engine.connect() as conn:
-            conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
-            conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
-            conn.commit()
+        # Clean up with CASCADE to handle foreign key dependencies
+        with engine.begin() as conn:
+            # Drop tables in correct order or use CASCADE
+            for table in reversed(SQLModel.metadata.sorted_tables):
+                conn.execute(text(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
+        engine.dispose()
 
 
 @pytest_asyncio.fixture
@@ -196,19 +200,43 @@ async def pg_async_session(event_loop):
     )
 
     async with engine.begin() as conn:
-        # ensure we start with a clean schema for the async Postgres fixture
-        # Use CASCADE to handle foreign key constraints
-        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
-        await conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
+        # First drop all tables to ensure clean state with correct types
+        # Use CASCADE to drop dependent objects
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        # Grant permissions on the schema
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+        await conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{settings.DB_USER}"'))
+        # Then create all tables fresh
         await conn.run_sync(SQLModel.metadata.create_all)
+        # Add missing columns that exist in model but not auto-created
+        await conn.execute(
+            text("""
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='projects' AND column_name='is_deleted'
+                ) THEN
+                    ALTER TABLE projects 
+                    ADD COLUMN is_deleted BOOLEAN DEFAULT false NOT NULL,
+                    ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE;
+                END IF;
+            END $$;
+        """)
+        )
 
     async with async_session_maker_local() as session:
         yield session
+        await session.rollback()
 
-    async with engine.begin() as conn:
-        # Clean up with CASCADE
-        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE;"))
-        await conn.execute(sqlalchemy.text("CREATE SCHEMA public;"))
+    # Clean up data, not tables
+    async with async_session_maker_local() as session:
+        for table in reversed(SQLModel.metadata.sorted_tables):
+            await session.execute(table.delete())
+        await session.commit()
+
+    await engine.dispose()
 
 
 @pytest.fixture(scope="session")
@@ -220,9 +248,28 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def test_session():
-    """Create tables"""
+    """Create tables for SQLite test session, excluding PostgreSQL-specific tables"""
+
+    # Create only tables that don't have PostgreSQL-specific features
+    def create_sqlite_tables(connection, **kw):
+        """Create tables but skip those with TSVECTOR columns (PostgreSQL-specific)"""
+
+        # Create a copy of metadata for SQLite
+        sqlite_metadata = SQLModel.metadata.__class__()
+
+        for table in SQLModel.metadata.sorted_tables:
+            # Skip tables with TSVECTOR columns (like data_revisions)
+            has_tsvector = any(
+                hasattr(col.type, "__class__") and col.type.__class__.__name__ == "TSVECTOR"
+                for col in table.columns
+            )
+            if not has_tsvector:
+                table.to_metadata(sqlite_metadata)
+
+        sqlite_metadata.create_all(connection)
+
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(create_sqlite_tables)
 
     async with async_session_maker() as session:
         yield session
