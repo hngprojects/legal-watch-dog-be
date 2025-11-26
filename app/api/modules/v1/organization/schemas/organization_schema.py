@@ -79,6 +79,24 @@ class OrganizationDetailResponse(BaseModel):
         }
 
 
+class UpdateMemberStatusRequest(BaseModel):
+    """Schema for updating a member's active status within an organization."""
+
+    is_active: bool = Field(..., description="New active status for the member")
+
+    class Config:
+        json_schema_extra = {"example": {"is_active": True}}
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    """Schema for updating a member's role within an organization."""
+
+    role_name: str = Field(..., description="New role name to assign to the member")
+
+    class Config:
+        json_schema_extra = {"example": {"role_name": "Manager"}}
+
+
 class OrganizationUserItem(BaseModel):
     """Schema for a single user in an organization"""
 
