@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
@@ -291,9 +291,7 @@ async def update_project(
         await tenant.get_membership(organization_id)
 
         project_service = ProjectService(db)
-        project, message = await project_service.update_project(
-            project_id, organization_id, payload
-        )
+        project = await project_service.update_project(project_id, organization_id, payload)
 
         if project is None:
             return error_response(
@@ -303,7 +301,7 @@ async def update_project(
 
         return success_response(
             status_code=status.HTTP_200_OK,
-            message=message,
+            message="Project updated successfully",
             data=ProjectResponse.model_validate(project).model_dump(),
         )
 
@@ -326,15 +324,14 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-     Permanently delete a project from the database.
+    Soft delete a project from the database.
 
-    This endpoint performs irreversible deletion of a project and all its
-    associated data. This operation cannot be undone and should be used
-    with extreme caution. Typically requires administrative privileges.
+    This endpoint performs a soft deletion of a project by marking it as deleted.
+    The project can be restored later using the update endpoint.
 
     Args:
         project_id (UUID):
-            The unique identifier of the project to delete permanently
+            The unique identifier of the project to delete
         current_user (User):
             The authenticated user for organization access verification
         db (AsyncSession):
@@ -346,26 +343,30 @@ async def delete_project(
     Raises:
         HTTPException:
             - 401 Unauthorized: If user authentication fails
-            - 403 Forbidden: If user lacks permission for permanent deletion
+            - 403 Forbidden: If user lacks permission for soft deletion
             - 404 Not Found: If the project doesn't exist or isn't accessible
             - 500 Internal Server Error: If project deletion fails
     """
-    logger.info(f"Permanently deleting project_id={project_id}")
+    logger.info(f"Soft deleting project_id={project_id}")
 
     try:
         tenant = TenantGuard(db, current_user)
         await tenant.get_membership(organization_id)
 
         project_service = ProjectService(db)
-        deleted = await project_service.delete_project(project_id, organization_id)
+        project = await project_service.soft_delete_project(project_id, organization_id)
 
-        if not deleted:
+        if not project:
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
             )
 
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Project archived successfully",
+            data=ProjectResponse.model_validate(project).model_dump(),
+        )
 
     except Exception:
         logger.exception(f"Error during hard delete of project_id={project_id}")
