@@ -1,18 +1,18 @@
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlmodel import Session
 
+from app.api.core.config import settings
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
-    MAX_RETRIES,
     dispatch_due_sources,
     get_next_scrape_time,
     scrape_source,
@@ -20,10 +20,7 @@ from app.api.modules.v1.scraping.service.tasks import (
 
 
 def mock_exec_side_effect(session):
-    """
-    Creates a side_effect function that translates SQLModel's db.exec()
-    into SQLAlchemy's db.execute().scalars().
-    """
+    """Translates SQLModel's db.exec() into SQLAlchemy's db.execute().scalars()."""
 
     def side_effect(statement):
         return session.execute(statement).scalars()
@@ -92,15 +89,24 @@ def test_scrape_source_success(sync_session: Session):
     sync_session.refresh(source)
 
     with (
-        patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
-        patch("time.sleep", return_value=None),
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
+        patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__.return_value = mock_db
-        mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
-        mock_db.add.side_effect = sync_session.add
-        mock_db.commit.side_effect = sync_session.commit
-        mock_db.refresh.side_effect = sync_session.refresh
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock()
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+        mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.first.return_value = (
+                sync_session.execute(stmt).scalars().first()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_context = MagicMock()
         mock_context.retries = 0
@@ -125,10 +131,19 @@ def test_scrape_source_not_found(sync_session: Session):
     """Tests the case where the source ID does not exist."""
     non_existent_id = uuid.uuid4()
 
-    with patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls:
+    with patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls:
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__.return_value = mock_db
-        mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock()
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.first.return_value = (
+                sync_session.execute(stmt).scalars().first()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         result = scrape_source.run(str(non_existent_id))
 
@@ -175,26 +190,26 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     sync_session.refresh(source)
 
     with (
-        patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
-        patch(
-            "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-        ) as mock_redis_from_url,
-        patch("time.sleep", return_value=None),
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
+        patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__.return_value = mock_db
-        mock_db.exec.side_effect = Exception("Simulated scraping failure")
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock(side_effect=Exception("Simulated scraping failure"))
 
         mock_redis_client = MagicMock()
-        mock_redis_from_url.return_value = mock_redis_client
+        mock_redis_cls.return_value = mock_redis_client
 
-        for i in range(MAX_RETRIES):
+        for i in range(settings.SCRAPE_MAX_RETRIES):
             scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=i)
             with pytest.raises(Exception):
                 scrape_source.run(str(source.id))
             scrape_source.pop_request()
 
-        scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=MAX_RETRIES)
+        scrape_source.push_request(
+            id="test_task_id", args=[str(source.id)], retries=settings.SCRAPE_MAX_RETRIES
+        )
 
         result = scrape_source.run(str(source.id))
         scrape_source.pop_request()
@@ -271,19 +286,30 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session.commit()
 
     with (
-        patch(
-            "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-        ) as mock_redis_from_url,
-        patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
     ):
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
-        mock_redis_from_url.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__.return_value = mock_db
-        mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+
+        mock_db.execute = AsyncMock()
+        mock_db.exec = AsyncMock()
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = (
+                sync_session.execute(stmt).scalars().all()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_app.send_task = MagicMock()
 
@@ -296,13 +322,11 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
 
 def test_dispatch_due_sources_lock_already_held():
     """Tests that the dispatcher skips if the lock is already held."""
-    with patch(
-        "app.api.modules.v1.scraping.service.tasks.redis.Redis.from_url"
-    ) as mock_redis_from_url:
+    with patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls:
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = False
 
-        mock_redis_from_url.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         result = dispatch_due_sources.run()
 
@@ -348,17 +372,27 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     sync_session.commit()
 
     with (
-        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_class,
-        patch("app.api.modules.v1.scraping.service.tasks.Session") as mock_session_cls,
+        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
         patch.object(dispatch_due_sources, "app") as mock_app,
     ):
         mock_redis_instance = MagicMock()
         mock_redis_instance.set.return_value = True
-        mock_redis_class.return_value = mock_redis_instance
+        mock_redis_cls.return_value = mock_redis_instance
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__.return_value = mock_db
-        mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+
+        mock_db.execute = AsyncMock()
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = (
+                sync_session.execute(stmt).scalars().all()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_app.send_task = MagicMock()
 
