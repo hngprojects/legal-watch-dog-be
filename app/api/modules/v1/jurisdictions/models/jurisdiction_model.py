@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Text, UniqueConstraint, event, func
+from sqlalchemy import JSON, CheckConstraint, Text, UniqueConstraint, event, func
 from sqlalchemy.orm import Mapped
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
@@ -64,7 +64,12 @@ class Jurisdiction(SQLModel, table=True):
     """
 
     __tablename__ = "jurisdictions"  # type: ignore
-    __table_args__ = (UniqueConstraint("project_id", "name", name="uix_project_name"),)
+    __table_args__ = (
+        UniqueConstraint("project_id", "parent_id", "name", name="uix_project_name"),
+        CheckConstraint(
+            "id IS NULL OR parent_id IS NULL OR id != parent_id", name="chk_parent_not_self"
+        ),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     project_id: UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
@@ -88,8 +93,6 @@ class Jurisdiction(SQLModel, table=True):
     deleted_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     is_deleted: bool = Field(default=False)
 
-    project: "Project" = Relationship(back_populates="jurisdictions")
-
     parent: Optional["Jurisdiction"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={"remote_side": "Jurisdiction.id"},
@@ -97,9 +100,11 @@ class Jurisdiction(SQLModel, table=True):
 
     children: Mapped[List["Jurisdiction"]] = Relationship(
         back_populates="parent",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={"cascade": "save-update, merge, refresh-expire"},
     )
-     
+
+    project: "Project" = Relationship(back_populates="jurisdictions")
+
     sources: List["Source"] = Relationship(back_populates="jurisdiction")
 
     def __repr__(self):
@@ -146,5 +151,3 @@ def validate_hierarchy(mapper, connection, target):
 
         parent_id = parent_row["parent_id"]
         depth += 1
-        
-

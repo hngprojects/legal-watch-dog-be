@@ -5,16 +5,16 @@ from typing import Any, Optional, Union, cast
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy import literal, text, update
+from sqlalchemy import inspect, literal, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, with_loader_criteria
+from sqlalchemy.orm import aliased, selectinload, with_loader_criteria
 from sqlmodel import select
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.projects.models.project_model import Project
-from app.api.modules.v1.users.models.users_model import User
 
 
 async def filter_archived_recursive(jurisdiction: Jurisdiction, db: AsyncSession):
@@ -30,17 +30,32 @@ async def filter_archived_recursive(jurisdiction: Jurisdiction, db: AsyncSession
     return jurisdiction
 
 
-async def _soft_delete_jurisdiction(jurisdiction: Jurisdiction, db: AsyncSession):
-    jurisdiction.is_deleted = True
-    jurisdiction.deleted_at = datetime.now(timezone.utc)
-    db.add(jurisdiction)
+async def _soft_delete_jurisdiction(root_id: UUID, db: AsyncSession):
+    j = Jurisdiction.__table__  # type: ignore[attr-defined]
+    cte = select(j.c.id).where(j.c.id == root_id).cte(name="descendants", recursive=True)
 
-    stmt = select(Jurisdiction).where(Jurisdiction.parent_id == jurisdiction.id)
-    result = await db.execute(stmt)
-    children = result.scalars().all()
+    j_alias = aliased(j)
+    cte = cte.union_all(select(j_alias.c.id).where(j_alias.c.parent_id == cte.c.id))
 
-    for child in children:
-        await _soft_delete_jurisdiction(child, db)
+    descendant_ids = (await db.execute(select(cte.c.id))).scalars().all()
+    if not descendant_ids:
+        return
+
+    stmt = (
+        update(Jurisdiction)
+        .where(Jurisdiction.id.in_(descendant_ids))  # type: ignore
+        .values(is_deleted=True, deleted_at=datetime.now(timezone.utc))
+    )
+
+    try:
+        if getattr(db, "in_transaction", None) and db.in_transaction():
+            async with db.begin_nested():
+                await db.execute(stmt)
+        else:
+            async with db.begin():
+                await db.execute(stmt)
+    except Exception:
+        raise
 
 
 async def _restore_jurisdiction_recursive(jurisdiction: "Jurisdiction", db: AsyncSession):
@@ -60,6 +75,19 @@ async def _restore_jurisdiction_recursive(jurisdiction: "Jurisdiction", db: Asyn
 
     for child in children:
         await _restore_jurisdiction_recursive(child, db)
+
+
+async def get_descendant_ids(root_id: UUID, db: AsyncSession) -> list[UUID]:
+    """Return all descendant IDs (including root) using a recursive CTE."""
+    table = inspect(Jurisdiction).local_table
+
+    cte = select(table.c.id).where(table.c.id == root_id).cte(name="descendants", recursive=True)
+
+    t_alias = table.alias("t_alias")
+    cte = cte.union_all(select(t_alias.c.id).where(t_alias.c.parent_id == cte.c.id))
+
+    result = await db.execute(select(cte.c.id))
+    return [UUID(str(i)) for i in result.scalars().all()]
 
 
 class JurisdictionService:
@@ -299,7 +327,7 @@ class JurisdictionService:
 
             try:
                 if getattr(jurisdiction, "is_deleted", False):
-                    await _soft_delete_jurisdiction(jurisdiction, db)
+                    await _soft_delete_jurisdiction(jurisdiction.id, db)
                     await db.commit()
                     await db.refresh(jurisdiction)
                 else:
@@ -379,7 +407,7 @@ class JurisdictionService:
                     return None
                 jurisdiction.is_deleted = True
                 jurisdiction.deleted_at = datetime.now(timezone.utc)
-                await _soft_delete_jurisdiction(jurisdiction, db)
+                await _soft_delete_jurisdiction(jurisdiction.id, db)
                 await db.commit()
                 await db.refresh(jurisdiction)
 
@@ -399,7 +427,7 @@ class JurisdictionService:
                     return []
 
                 for jurisdiction in updated_jurisdictions:
-                    await _soft_delete_jurisdiction(jurisdiction, db)
+                    await _soft_delete_jurisdiction(jurisdiction.id, db)
 
                 return updated_jurisdictions
 
@@ -734,7 +762,9 @@ class OrgResourceGuard:
         - Raises 403 if a cross-organization access attempt is detected.
     """
 
-    def __init__(self, request: Request, current_user: User = Depends(get_current_user)):
+    def __init__(
+        self, request: Request, current_user: UserOrganization = Depends(get_current_user)
+    ):
         self.request = request
         self.user = current_user
 

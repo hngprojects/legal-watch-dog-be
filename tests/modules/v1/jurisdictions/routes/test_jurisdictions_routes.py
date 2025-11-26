@@ -155,7 +155,6 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
     fake_id = uuid4()
 
     async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
-        # return a lightweight object rather than a SQLModel instance
         return SimpleNamespace(id=fake_id, project_id=uuid4(), name="x", description="d")
 
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
@@ -170,7 +169,7 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
     else:
         content = json.loads(res.body)
         expected = {
-            "status": "success",
+            "status": "SUCCESS",
             "status_code": 204,
             "message": "Jurisdiction archived successfully",
             "data": {},
@@ -215,7 +214,7 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
     else:
         content = json.loads(res.body)
         expected = {
-            "status": "success",
+            "status": "SUCCESS",
             "status_code": 204,
             "message": "1 Jurisdiction(s) archived successfully",
             "data": {},
