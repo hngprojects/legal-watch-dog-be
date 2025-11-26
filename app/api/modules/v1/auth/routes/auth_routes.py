@@ -68,7 +68,7 @@ async def company_signup(
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_company(payload, background_tasks)
+        result = await service.register_user(payload, background_tasks)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -192,7 +192,7 @@ async def request_new_otp(
             background_tasks=background_tasks,
         )
 
-        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes = settings.REDIS_RESEND_TTL / 60
         minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
         unit = "minute" if minutes_display == 1 else "minutes"
         return success_response(

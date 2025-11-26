@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
+    from app.api.modules.v1.scraping.models.source_model import Source
 
 
 class Jurisdiction(SQLModel, table=True):
@@ -88,6 +89,7 @@ class Jurisdiction(SQLModel, table=True):
     is_deleted: bool = Field(default=False)
 
     project: "Project" = Relationship(back_populates="jurisdictions")
+
     parent: Optional["Jurisdiction"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={"remote_side": "Jurisdiction.id"},
@@ -97,6 +99,8 @@ class Jurisdiction(SQLModel, table=True):
         back_populates="parent",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+     
+    sources: List["Source"] = Relationship(back_populates="jurisdiction")
 
     def __repr__(self):
         return f"<Jurisdiction id={self.id} name={self.name} project_id={self.project_id}>"
@@ -142,3 +146,5 @@ def validate_hierarchy(mapper, connection, target):
 
         parent_id = parent_row["parent_id"]
         depth += 1
+        
+
