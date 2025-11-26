@@ -255,7 +255,7 @@ class OrganizationService:
                 raise ValueError("Organization not found")
 
             has_permission = await check_user_permission(
-                requesting_user_id, organization_id, "manage_organization"
+                self.db, requesting_user_id, organization_id, "manage_organization"
             )
 
             if not has_permission:
