@@ -26,8 +26,8 @@ class SearchRequest(BaseModel):
     operator: SearchOperator = Field(
         SearchOperator.AND, description="Boolean operator for multiple terms"
     )
-    limit: int = Field(100, ge=1, le=1000, description="Maximum number of results")
-    offset: int = Field(0, ge=0, description="Pagination offset")
+    page: int = Field(1, ge=1, description="Page number (1-indexed)")
+    limit: int = Field(10, ge=1, le=100, description="Number of results per page")
     min_rank: float = Field(0.0, ge=0.0, le=1.0, description="Minimum relevance score")
     extracted_data_filters: Optional[dict] = Field(
         default_factory=dict,
@@ -44,8 +44,8 @@ class SearchRequest(BaseModel):
             "example": {
                 "query": "environmental protection",
                 "operator": "AND",
+                "page": 1,
                 "limit": 10,
-                "offset": 0,
                 "min_rank": 0.0,
                 "extracted_data_filters": {},
             }
@@ -71,6 +71,9 @@ class SearchResponse(BaseModel):
     """Response schema for search results with pagination metadata."""
 
     results: List[DataRevisionSearchResult]
-    total_count: int
-    query: str
-    has_more: bool
+    total: int = Field(..., description="Total number of matching results")
+    page: int = Field(..., description="Current page number")
+    limit: int = Field(..., description="Number of results per page")
+    total_pages: int = Field(..., description="Total number of pages")
+    query: str = Field(..., description="Search query used")
+    operator: str = Field(..., description="Search operator used")
