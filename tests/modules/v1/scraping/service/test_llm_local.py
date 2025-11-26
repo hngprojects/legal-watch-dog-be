@@ -166,7 +166,7 @@ async def test_llm_service_exponential_backoff():
     """Test LLM service exponential backoff with jitter."""
     service = AIExtractionService()
     service.model = Mock()
-    
+
     service.model.generate_content_async = AsyncMock(
         side_effect=[
             Exception("First failure"),
