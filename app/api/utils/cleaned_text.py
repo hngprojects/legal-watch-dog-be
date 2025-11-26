@@ -78,7 +78,6 @@ def cleaned_html(raw_bytes: bytes) -> str:
 
         soup = BeautifulSoup(html_str, "html.parser")
 
-        # Remove junk tags completely
         junk_tags = [
             "script",
             "style",
@@ -104,11 +103,9 @@ def cleaned_html(raw_bytes: bytes) -> str:
             for tag in soup.find_all(tag_name):
                 tag.decompose()
 
-        # Remove comments
         for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
             comment.extract()
 
-        # Remove elements with junk keywords in ID or class
         junk_keywords = [
             "cookie",
             "popup",
@@ -124,13 +121,18 @@ def cleaned_html(raw_bytes: bytes) -> str:
         ]
         pattern = re.compile("|".join(junk_keywords), re.IGNORECASE)
 
+        elements_to_remove = []
         for element in soup.find_all(True):
+            if not hasattr(element, "get"):
+                continue
             elem_id = element.get("id", "")
             elem_class = " ".join(element.get("class", []))
             if pattern.search(elem_id) or pattern.search(elem_class):
-                element.decompose()
+                elements_to_remove.append(element)
 
-        # Extract readable text
+        for element in elements_to_remove:
+            element.decompose()
+
         lines = [
             normalize_text(line)
             for line in soup.get_text(separator="\n").splitlines()

@@ -1,13 +1,21 @@
 import logging
 import uuid
+from typing import Optional
 
+from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.config import settings
+from app.api.core.dependencies.send_mail import send_email
+from app.api.modules.v1.organization.models.invitation_model import Invitation
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
+from app.api.utils.organization_validations import check_user_permission
+from app.api.utils.pagination import calculate_pagination
 
 logger = logging.getLogger("app")
 
@@ -35,10 +43,9 @@ class OrganizationService:
 
 
         - Validates that the user exists and is verified
-        - Validates that the user hasn't already created an organization
         - Creates the organization
-        - Creates an admin role for the organization
-        - Updates the user's organization_id and role_id to admin
+        - Creates default roles for the organization (Admin, Member, etc.)
+        - Adds the user as admin
 
         Args:
             user_id: UUID of the user creating the organization
@@ -79,6 +86,13 @@ class OrganizationService:
                 organization_id=organization.id,
                 role_name="Admin",
                 description="Organization administrator with full permissions",
+            )
+
+            await RoleCRUD.get_default_user_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Member",
+                description="Organization member with basic permissions",
             )
 
             await UserOrganizationCRUD.add_user_to_organization(
@@ -141,39 +155,6 @@ class OrganizationService:
 
         role = await self.db.get(Role, membership.role_id)
         return role.name if role else None
-
-    async def check_user_permission(
-        self,
-        user_id: uuid.UUID,
-        organization_id: uuid.UUID,
-        permission: str,
-    ) -> bool:
-        """
-        Check if user has a specific permission in an organization.
-
-        Args:
-            user_id: User UUID
-            organization_id: Organization UUID
-            permission: Permission to check (e.g., "organization:write")
-
-        Returns:
-            True if user has permission, False otherwise
-        """
-        membership = await UserOrganizationCRUD.get_user_organization(
-            self.db, user_id, organization_id
-        )
-
-        if not membership or not membership.is_active:
-            return False
-
-        from app.api.modules.v1.users.models.roles_model import Role
-
-        role = await self.db.get(Role, membership.role_id)
-
-        if not role:
-            return False
-
-        return role.permissions.get(permission, False)
 
     async def get_organization_details(
         self,
@@ -273,8 +254,8 @@ class OrganizationService:
             if not organization:
                 raise ValueError("Organization not found")
 
-            has_permission = await self.check_user_permission(
-                requesting_user_id, organization_id, "manage_organization"
+            has_permission = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "manage_organization"
             )
 
             if not has_permission:
@@ -328,6 +309,122 @@ class OrganizationService:
             await self.db.rollback()
             raise Exception("Failed to update organization")
 
+    async def send_invitation(
+        self,
+        background_tasks: BackgroundTasks,
+        organization_id: uuid.UUID,
+        invited_email: str,
+        inviter_id: uuid.UUID,
+        role_name: Optional[str] = "Member",
+    ) -> Invitation:
+        """
+        Send an invitation to a user to join an organization.
+
+        - Generates a unique token.
+        - Creates an invitation record in the database.
+        - Sends an email to the invited user with the invitation link.
+
+        Args:
+            organization_id: UUID of the organization the user is invited to
+            invited_email: Email address of the user to invite
+            inviter_id: UUID of the user sending the invitation (admin)
+            role_name: Role name to assign the invited user (default: "Member")
+
+        Returns:
+            Invitation: The created invitation object
+
+        Raises:
+            ValueError: If the organization or inviter is not found,
+            or if the user is already a member
+            Exception: For unexpected errors during the invitation process
+        """
+        logger.info(
+            f"Send invite org_id={organization_id} to email={invited_email} by inviter={inviter_id}"
+        )
+
+        try:
+            has_permission = await check_user_permission(
+                self.db, inviter_id, organization_id, "invite_users"
+            )
+            if not has_permission:
+                raise ValueError("You do not have permission to invite users to this organization")
+
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            inviter = await UserCRUD.get_by_id(self.db, inviter_id)
+            if not inviter:
+                raise ValueError("Inviter user not found")
+
+            existing_user = await UserCRUD.get_by_email(self.db, invited_email)
+            if existing_user:
+                existing_membership = await UserOrganizationCRUD.get_user_organization(
+                    self.db, user_id=existing_user.id, organization_id=organization_id
+                )
+                if existing_membership:
+                    raise ValueError("User is already a member of this organization")
+
+            role = await RoleCRUD.get_role_by_name_and_organization(
+                self.db, role_name, organization_id
+            )
+            if not role:
+                raise ValueError(f"Role '{role_name}' not found in this organization")
+
+            role_id = role.id
+
+            token = str(uuid.uuid4())
+
+            invitation = await InvitationCRUD.create_invitation(
+                db=self.db,
+                organization_id=organization_id,
+                invited_email=invited_email,
+                inviter_id=inviter_id,
+                token=token,
+                role_id=role_id,
+                role_name=role_name,
+            )
+
+            logger.info(
+                "INVITATION TOKEN GENERATED - Token: %s, Email: %s, Org: %s",
+                token,
+                invited_email,
+                organization_id,
+            )
+
+            invitation_link = f"{settings.APP_URL}/auth/accept-invite/{token}"
+
+            logger.info("TESTING - Invitation link: %s", invitation_link)
+
+            context = {
+                "organization_name": organization.name,
+                "inviter_name": inviter.name,
+                "invited_email": invited_email,
+                "invitation_link": invitation_link,
+            }
+
+            background_tasks.add_task(
+                send_email,
+                template_name="invitation_email.html",
+                subject=f"You're invited to join {organization.name} as {role_name}!",
+                recipient=invited_email,
+                context=context,
+            )
+            logger.info(f"Invitation email queued for background sending to {invited_email}")
+            await self.db.commit()
+            return invitation
+
+        except ValueError:
+            await self.db.rollback()
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error sending invitation for org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            await self.db.rollback()
+            raise Exception("An error occurred while sending the invitation. Please try again.")
+
     async def get_admin_organization(
         self,
         user_id: uuid.UUID,
@@ -356,6 +453,7 @@ class OrganizationService:
                             "is_active": org.is_active,
                             "created_at": org.created_at.isoformat(),
                             "updated_at": org.updated_at.isoformat(),
+                            "user_role": role.name,
                         }
                     )
 
@@ -364,39 +462,101 @@ class OrganizationService:
     async def get_user_organizations(
         self,
         user_id: uuid.UUID,
-    ) -> list[dict]:
+        page: int = 1,
+        limit: int = 10,
+    ) -> dict:
         """
-        Get all organizations where the user is a member.
+        Get all organizations where the user is a member (paginated).
 
         Args:
             user_id: User UUID
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
 
         Returns:
-            List of dictionaries containing organization details and user's role
+            dict: Dictionary with paginated organizations and metadata
         """
+        skip = (page - 1) * limit
 
-        memberships = await UserOrganizationCRUD.get_user_organizations(
-            self.db, user_id, active_only=True
+        result = await UserOrganizationCRUD.get_all_user_organizations(
+            db=self.db,
+            user_id=user_id,
+            skip=skip,
+            limit=limit,
         )
 
-        organizations = []
-        for membership in memberships:
-            org = await OrganizationCRUD.get_by_id(self.db, membership.organization_id)
-            if not org:
-                continue
+        organizations = result["organizations"]
+        total = result["total"]
 
-            role = await self.db.get(Role, membership.role_id)
+        pagination = calculate_pagination(total=total, page=page, limit=limit)
 
-            organizations.append(
-                {
-                    "organization_id": str(org.id),
-                    "name": org.name,
-                    "industry": org.industry,
-                    "is_active": org.is_active,
-                    "user_role": role.name if role else None,
-                    "created_at": org.created_at.isoformat(),
-                    "updated_at": org.updated_at.isoformat(),
-                }
+        return {"organizations": organizations, **pagination}
+
+    async def get_organization_users(
+        self,
+        organization_id: uuid.UUID,
+        requesting_user_id: uuid.UUID,
+        page: int = 1,
+        limit: int = 10,
+        active_only: bool = True,
+    ) -> dict:
+        """
+        Get all users in an organization (paginated).
+
+        Args:
+            organization_id: Organization UUID
+            requesting_user_id: UUID of the user requesting the data
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
+            active_only: Only return active memberships (default: True)
+
+        Returns:
+            dict: Dictionary with paginated users and metadata
+
+        Raises:
+            ValueError: If validation fails
+        """
+        logger.info(f"Fetching users for org_id={organization_id} by user_id={requesting_user_id}")
+
+        try:
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            membership = await UserOrganizationCRUD.get_user_organization(
+                self.db, requesting_user_id, organization_id
             )
 
-        return organizations
+            if not membership or not membership.is_active:
+                raise ValueError("You do not have access to this organization")
+
+            skip = (page - 1) * limit
+
+            result = await UserOrganizationCRUD.get_all_users_in_organization(
+                db=self.db,
+                organization_id=organization_id,
+                skip=skip,
+                limit=limit,
+                active_only=active_only,
+            )
+
+            users = result["users"]
+            total = result["total"]
+
+            pagination = calculate_pagination(total=total, page=page, limit=limit)
+
+            logger.info(f"Successfully retrieved {len(users)} users for org_id={organization_id}")
+
+            return {"users": users, **pagination}
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error fetching users for org_id={organization_id}: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching users for org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to retrieve organization users")

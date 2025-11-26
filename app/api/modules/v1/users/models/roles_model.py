@@ -6,6 +6,7 @@ from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.organization_model import Organization
 
 
@@ -38,3 +39,4 @@ class Role(SQLModel, table=True):
     )
 
     organization: "Organization" = Relationship(back_populates="roles")
+    invitations: list["Invitation"] = Relationship(back_populates="role")
