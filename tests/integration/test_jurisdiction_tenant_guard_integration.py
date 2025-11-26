@@ -86,6 +86,40 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
         fake_get_all,
     )
 
+    class _FakeResult:
+        def __init__(self, items):
+            self._items = items
+
+        def scalar(self):
+            return len(self._items)
+
+        def scalars(self):
+            class _S:
+                def __init__(self, items):
+                    self._items = items
+
+                def all(self):
+                    return self._items
+
+            return _S(self._items)
+
+    async def _fake_execute(stmt):
+
+        items = [
+            SimpleNamespace(
+                id=str(uuid4()),
+                project_id=str(uuid4()),
+                name="J-1",
+                description="desc",
+            )
+        ]
+        return _FakeResult(items)
+
+    fake_db = SimpleNamespace(execute=_fake_execute)
+    from app.api.db.database import get_db
+
+    app.dependency_overrides[get_db] = lambda: fake_db
+
     resp = client.get(f"/api/v1/organizations/{org_id}/jurisdictions/")
 
     assert resp.status_code == 200
