@@ -6,6 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
+    create_organization_custom_errors,
+    create_organization_custom_success,
+    create_organization_responses,
+    get_organization_custom_errors,
+    get_organization_custom_success,
+    get_organization_responses,
+    update_organization_custom_errors,
+    update_organization_custom_success,
+    update_organization_responses,
+)
 from app.api.modules.v1.organization.schemas.organization_schema import (
     CreateOrganizationRequest,
     CreateOrganizationResponse,
@@ -25,6 +36,7 @@ logger = logging.getLogger(__name__)
     "",
     response_model=CreateOrganizationResponse,
     status_code=status.HTTP_201_CREATED,
+    responses=create_organization_responses,  # type: ignore
 )
 async def create_organization(
     payload: CreateOrganizationRequest,
@@ -87,10 +99,15 @@ async def create_organization(
         )
 
 
+create_organization._custom_errors = create_organization_custom_errors  # type: ignore
+create_organization._custom_success = create_organization_custom_success  # type: ignore
+
+
 @router.get(
     "/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
+    responses=get_organization_responses,  # type: ignore
 )
 async def get_organization_details(
     organization_id: uuid.UUID,
@@ -159,10 +176,15 @@ async def get_organization_details(
         )
 
 
+get_organization_details._custom_errors = get_organization_custom_errors  # type: ignore
+get_organization_details._custom_success = get_organization_custom_success  # type: ignore
+
+
 @router.patch(
     "/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
+    responses=update_organization_responses,  # type: ignore
 )
 async def update_organization(
     organization_id: uuid.UUID,
@@ -238,3 +260,7 @@ async def update_organization(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to update organization. Please try again later.",
         )
+
+
+update_organization._custom_errors = update_organization_custom_errors  # type: ignore
+update_organization._custom_success = update_organization_custom_success  # type: ignore
