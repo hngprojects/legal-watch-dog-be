@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
@@ -42,8 +43,8 @@ class OrganizationService:
 
         - Validates that the user exists and is verified
         - Creates the organization
-        - Creates an admin role for the organization
-        - Updates the user's role_id to admin
+        - Creates default roles for the organization (Admin, Member, etc.)
+        - Adds the user as admin
 
         Args:
             user_id: UUID of the user creating the organization
@@ -84,6 +85,13 @@ class OrganizationService:
                 organization_id=organization.id,
                 role_name="Admin",
                 description="Organization administrator with full permissions",
+            )
+
+            await RoleCRUD.get_default_user_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Member",
+                description="Organization member with basic permissions",
             )
 
             await UserOrganizationCRUD.add_user_to_organization(
@@ -306,7 +314,7 @@ class OrganizationService:
         organization_id: uuid.UUID,
         invited_email: str,
         inviter_id: uuid.UUID,
-        role_id: Optional[str] = "Member",#name
+        role_name: Optional[str] = "Member",
     ) -> Invitation:
         """
         Send an invitation to a user to join an organization.
@@ -319,8 +327,7 @@ class OrganizationService:
             organization_id: UUID of the organization the user is invited to
             invited_email: Email address of the user to invite
             inviter_id: UUID of the user sending the invitation (admin)
-            role_id: Optional UUID of the role to assign the invited user.
-            If None, a default 'Member' role will be assigned.
+            role_name: Role name to assign the invited user (default: "Member")
 
         Returns:
             Invitation: The created invitation object
@@ -357,9 +364,13 @@ class OrganizationService:
                 if existing_membership:
                     raise ValueError("User is already a member of this organization")
 
-            if not role_id:
-                default_role = await RoleCRUD.get_default_user_role(self.db, organization_id)
-                role_id = default_role.id
+            role = await RoleCRUD.get_role_by_name_and_organization(
+                self.db, role_name, organization_id
+            )
+            if not role:
+                raise ValueError(f"Role '{role_name}' not found in this organization")
+
+            role_id = role.id
 
             token = str(uuid.uuid4())
 
@@ -370,23 +381,26 @@ class OrganizationService:
                 inviter_id=inviter_id,
                 token=token,
                 role_id=role_id,
+                role_name=role_name,
             )
+
+            invitation_link = f"{settings.APP_URL}/auth/accept-invite/{token}"
 
             context = {
                 "organization_name": organization.name,
                 "inviter_name": inviter.name,
                 "invited_email": invited_email,
+                "invitation_link": invitation_link,
             }
 
             background_tasks.add_task(
                 send_email,
                 template_name="invitation_email.html",
-                subject=f"You're invited to join {organization.name}!",
-                recipient_email=invited_email,
+                subject=f"You're invited to join {organization.name} as {role_name}!",
+                recipient=invited_email,
                 context=context,
             )
-
-            logger.info(f"Invitation email content for {invited_email}: {context}")
+            logger.info(f"Invitation email queued for background sending to {invited_email}")
             await self.db.commit()
             return invitation
 

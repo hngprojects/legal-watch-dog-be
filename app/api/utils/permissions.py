@@ -163,3 +163,13 @@ class RoleTemplates:
     @classmethod
     def get_available_templates(cls) -> list:
         return list(cls.TEMPLATES.keys())
+
+
+class PermissionChecker:
+    @staticmethod
+    def has_permission(user_permissions: dict, permission: Permission) -> bool:
+        return user_permissions.get(permission.value, False)
+
+    @staticmethod
+    def has_any_permission(user_permissions: dict, permissions: list) -> bool:
+        return any(user_permissions.get(perm.value, False) for perm in permissions)

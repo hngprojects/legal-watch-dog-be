@@ -3,12 +3,14 @@ import uuid
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
+from app.api.modules.v1.users.models.roles_model import Role
 from app.api.utils.get_organization_by_email import get_organization_by_email
 from app.api.utils.redis import get_user_credentials
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 async def validate_organization_email_available(db: AsyncSession, email: str) -> None:
@@ -70,9 +72,8 @@ async def check_user_permission(
     if not membership or not membership.is_active:
         return False
 
-    from app.api.modules.v1.users.models.roles_model import Role
-
-    role = await db.get(Role, membership.role_id)
+    result = await db.execute(select(Role).where(Role.id == membership.role_id))
+    role = result.scalar_one_or_none()
 
     if not role:
         return False

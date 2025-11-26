@@ -47,7 +47,8 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379/0")
-    REDIS_CACHE_TTL_SECONDS: int = config("REDIS_CACHE_TTL_SECONDS", default=300, cast=int)
+    REDIS_RESEND_TTL: int = config("REDIS_RESEND_TTL", default=300, cast=int)
+    REDIS_REGISTER_TTL: int = config("REDIS_REGISTER_TTL", default=86400, cast=int)
 
     # JWT Authentication
     JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
@@ -73,6 +74,12 @@ class Settings(BaseSettings):
         "INVITATION_TOKEN_EXPIRE_MINUTES", default=1440, cast=int
     )
 
+    # MinIO
+
+    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
+    MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="minioadmin")
+    MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="minioadmin")
+    MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
     MODEL_NAME: str = "gemini-2.5-flash"

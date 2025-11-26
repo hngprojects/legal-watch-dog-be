@@ -38,6 +38,13 @@ class Invitation(SQLModel, table=True):
 
     status: InvitationStatus = Field(default=InvitationStatus.PENDING, nullable=False)
 
+    role_name: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        nullable=True,
+        description="Name of the role assigned to the invited user",
+    )
+
     accepted_at: Optional[datetime] = Field(
         sa_column=Column(DateTime(timezone=True), nullable=True), default=None
     )

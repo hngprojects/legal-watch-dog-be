@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +56,7 @@ async def company_signup(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
+    token: Optional[str] = None,  # Added optional token parameter
 ):
     """
     Initiate company registration with email verification.
@@ -73,7 +76,9 @@ async def company_signup(
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_user(payload, background_tasks)
+        result = await service.register_user(
+            payload, background_tasks, token
+        )  # Pass token to service
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -197,7 +202,7 @@ async def request_new_otp(
             background_tasks=background_tasks,
         )
 
-        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes = settings.REDIS_RESEND_TTL / 60
         minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
         unit = "minute" if minutes_display == 1 else "minutes"
         return success_response(
@@ -233,8 +238,8 @@ request_new_otp._custom_success = request_new_otp_custom_success  # type: ignore
 
 @router.get(
     "/accept-invite/{token}",
-    status_code=status.HTTP_200_OK,
-    response_model=dict,
+    status_code=status.HTTP_302_FOUND,  # Changed to 302 Found for redirection
+    response_model=None,  # Response model will be handled dynamically
 )
 async def accept_invitation(
     token: str,
@@ -287,10 +292,8 @@ async def accept_invitation(
                     data={"organization_id": str(invitation.organization_id)},
                 )
 
-            # Add user to the organization
             role_id = invitation.role_id
             if not role_id:
-                # Get default member role if not specified in invitation
                 default_role = await RoleCRUD.get_default_user_role(db, invitation.organization_id)
                 role_id = default_role.id
 
@@ -310,19 +313,9 @@ async def accept_invitation(
                 data={"organization_id": str(invitation.organization_id)},
             )
         else:
-            # User is not registered. Redirect to registration with token.
-            # Frontend should handle the redirect to a registration page,
-            # passing the token as a query parameter.
-            registration_url = f"{settings.DEV_URL}/register?token={token}"
-            # In a real scenario, you'd return a redirect response here.
-            # For FastAPI, this might involve a RedirectResponse from fastapi.responses
-            # For now, we'll just return a message indicating the redirect.
+            registration_url = f"{settings.APP_URL}/signup?token={token}"
             logger.info(f"Unregistered user. Redirecting to: {registration_url}")
-            return success_response(
-                status_code=status.HTTP_200_OK,
-                message="Please register to accept the invitation.",
-                data={"redirect_url": registration_url},
-            )
+            return RedirectResponse(url=registration_url, status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         logger.warning(f"Invitation acceptance failed for token={token}: {str(e)}")
