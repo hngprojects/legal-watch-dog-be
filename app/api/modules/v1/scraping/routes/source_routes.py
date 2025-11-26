@@ -468,3 +468,121 @@ async def update_source_patch(
         message="Source updated successfully",
         data={"source": source.model_dump()},
     )
+
+
+@router.get("/{source_id}/revisions", status_code=200)
+async def get_source_revisions(
+    source_id: uuid.UUID,
+    skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve revision history for a specific source.
+
+    Returns a paginated list of all data revisions (scrapes) for the given source,
+    ordered by most recent first. Each revision includes the extracted data,
+    AI summary, timestamp, and change detection flag.
+
+    Args:
+        source_id (uuid.UUID): Source unique identifier.
+        skip (int): Pagination offset (default 0, min 0).
+        limit (int): Maximum records to return (default 50, min 1, max 200).
+        db (AsyncSession): Database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        JSONResponse: Standard success response with revisions list and metadata.
+
+    Raises:
+        HTTPException: 404 if source not found.
+
+    Examples:
+        **Basic Request:**
+        ```
+        GET /sources/123e4567-e89b-12d3-a456-426614174000/revisions
+
+        Response (200 OK):
+        {
+            "status": "success",
+            "status_code": 200,
+            "message": "Revisions retrieved successfully",
+            "data": {
+                "revisions": [
+                    {
+                        "id": "987e6543-e21c-34d5-b678-556655440000",
+                        "source_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "extracted_data": {
+                            "title": "New Regulation 2025-001",
+                            "content": "Full text of the regulation...",
+                            "effective_date": "2025-12-01"
+                        },
+                        "ai_summary": "New data privacy regulation effective December 2025",
+                        "scraped_at": "2025-11-25T10:30:00Z",
+                        "was_change_detected": true,
+                        "minio_object_key": "scrapes/2025/11/25/source-123e4567.html"
+                    },
+                    {
+                        "id": "876e5432-d10b-23c4-a567-445544330000",
+                        "source_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "extracted_data": {
+                            "title": "Previous Regulation Update",
+                            "content": "Updated text...",
+                            "effective_date": "2025-11-01"
+                        },
+                        "ai_summary": "Minor update to existing regulation",
+                        "scraped_at": "2025-11-20T08:15:00Z",
+                        "was_change_detected": false,
+                        "minio_object_key": "scrapes/2025/11/20/source-123e4567.html"
+                    }
+                ],
+                "total": 150,
+                "skip": 0,
+                "limit": 50
+            }
+        }
+        ```
+
+        **Paginated Request:**
+        ```
+        GET /sources/123e4567-e89b-12d3-a456-426614174000/revisions?skip=50&limit=25
+
+        Response (200 OK): Same structure with 25 results starting from offset 50
+        ```
+
+        **Source Not Found:**
+        ```
+        GET /sources/invalid-uuid/revisions
+
+        Response (404 Not Found):
+        {
+            "status": "error",
+            "status_code": 404,
+            "message": "Source not found"
+        }
+        ```
+    """
+    logger.info(
+        f"User {current_user.id} retrieving revisions for source {source_id} "
+        f"(skip={skip}, limit={limit})"
+    )
+
+    service = SourceService()
+    revisions, total = await service.get_source_revisions(
+        db=db,
+        source_id=source_id,
+        skip=skip,
+        limit=limit,
+    )
+
+    return success_response(
+        status_code=200,
+        message="Revisions retrieved successfully",
+        data={
+            "revisions": [revision.model_dump() for revision in revisions],
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
+    )
