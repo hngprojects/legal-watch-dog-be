@@ -1,197 +1,188 @@
-import asyncio
 import json
 import logging
 from typing import Any, Dict
 
-import httpx
+try:
+    import google.generativeai as genai
+    from google.generativeai.types import GenerationConfig
+
+    _HAS_GENAI = True
+except ImportError:
+    genai = None
+    _HAS_GENAI = False
+
+from pydantic import ValidationError
 
 from app.api.core.config import settings
+from app.api.modules.v1.scraping.schemas.ai_analysis import ExtractionResult
 
 logger = logging.getLogger(__name__)
 
+if _HAS_GENAI and settings.GOOGLE_API_KEY:
+    genai.configure(api_key=settings.GOOGLE_API_KEY)
 
-def build_llm_prompt(project_prompt: str, jurisdiction_prompt: str, extracted_text: str) -> str:
+
+class AIExtractionServiceError(Exception):
+    """Raised when AI extraction fails after all retries."""
+
+    pass
+
+
+EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "markdown_summary": {"type": "string"},
+        "extracted_data": {
+            "type": "object",
+            "properties": {
+                "key_value_pairs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"key": {"type": "string"}, "value": {"type": "string"}},
+                        "required": ["key", "value"],
+                    },
+                }
+            },
+            "required": ["key_value_pairs"],
+        },
+        "confidence_score": {"type": "number"},
+    },
+    "required": ["summary", "markdown_summary", "extracted_data", "confidence_score"],
+}
+
+
+class AIExtractionService:
     """
-    Build a comprehensive LLM prompt combining project context and content to analyze.
+    Service responsible for extracting structured data from raw text using Google's Gemini AI.
 
-    Args:
-        project_prompt: The main project instructions and goals
-        jurisdiction_prompt: Additional context specific to jurisdiction
-        extracted_text: The cleaned text content to analyze
-
-    Returns:
-        Formatted prompt string ready for LLM processing
+    This service utilizes Gemini's Native JSON mode to ensure deterministic and schema-compliant
+    output. It handles the extraction of key-value pairs, generation of summaries, and
+    creation of markdown-formatted analysis in a single API call.
     """
-    combined_prompt = f"{project_prompt}\n{jurisdiction_prompt}".strip()
 
-    return f"""
-You are an AI data extraction specialist that analyzes content and extracts structured information.
+    def __init__(self):
+        """
+        Initialize the AIExtractionService with the Gemini model configuration.
 
-### CONTEXT & INSTRUCTIONS
-{combined_prompt}
+        Raises:
+            ImportError: If the google-generativeai package is not installed.
+            ValueError: If the GOOGLE_API_KEY environment variable is not set.
+        """
+        if not _HAS_GENAI:
+            raise ImportError("`google-generativeai` package missing.")
 
-### TEXT TO ANALYZE
-{extracted_text}
+        if not settings.GOOGLE_API_KEY:
+            raise ValueError("GOOGLE_API_KEY is not set.")
 
-### OUTPUT REQUIREMENTS
-You MUST return valid JSON with the following structure:
+        self.model = genai.GenerativeModel(
+            model_name=settings.MODEL_NAME,
+            generation_config=GenerationConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+                response_schema=EXTRACTION_SCHEMA,
+            ),
+        )
 
-{{
-  "summary": "Brief overall summary (2-3 sentences)",
-  "markdown_summary": "Detailed markdown formatted analysis with headers, "
-                      "bullet points, and emphasis for frontend display",
-  "extracted_data": {{
-    "key_value_pairs": {{
-      "specific_field_1": "value_1",
-      "specific_field_2": "value_2",
-      "specific_field_3": "value_3"
-    }}
-  }},
-  "confidence_score": 0.85
-}}
+    async def run_llm_analysis(
+        self, cleaned_text: str, project_prompt: str, jurisdiction_prompt: str, max_retries: int = 2
+    ) -> Dict[str, Any]:
+        """
+        Executes the LLM analysis pipeline to extract structured data from the provided text.
 
-### EXAMPLES OF KEY-VALUE PAIRS:
+        Constructs a prompt based on the project and jurisdiction context, sends it to the
+        configured Gemini model, and parses the JSON response. It includes logic to transform
+        list-based key-value pairs into a dictionary and validates the result against the
+        ExtractionResult schema.
 
-**For Price Monitoring:**
-- "current_price": "650 NGN"
-- "previous_price": "600 NGN" 
-- "price_change_percentage": "8.3%"
-- "effective_date": "2024-01-15"
+        Args:
+            cleaned_text (str): The pre-processed text content to analyze.
+            project_prompt (str): The main goal or monitoring instruction.
+            jurisdiction_prompt (str): Context specific to the jurisdiction.
+            max_retries (int, optional): Max retries for failed API calls.
+                                         Defaults to 2.
 
-**For Policy Updates:**
-- "policy_name": "Environmental Compliance Act"
-- "compliance_deadline": "2024-06-30"
-- "penalty_amount": "5000000 NGN"
-- "affected_industries": "Manufacturing, Energy"
+        Returns:
+            Dict[str, Any]: A dictionary with extracted data, summaries,
+                            and confidence score, validated and formatted.
 
-**For Product Updates:**
-- "product_version": "2.1.0"
-- "release_date": "2024-01-20"
-- "new_features": "Dashboard analytics, Export functionality"
-- "system_requirements": "Python 3.8+"
+        Raises:
+            AIExtractionServiceError: If extraction fails after the specified number of retries.
+        """
+        prompt = f"""You are an Expert Regulatory Data Analyst.
+TASK: Extract structured information from the text below and generate summaries based on that data.
 
-**For Regulatory Changes:**
-- "regulation_name": "Data Protection Act"
-- "implementation_date": "2024-03-01"
-- "required_actions": "Data audit, Privacy policy update"
-- "applicable_to": "All businesses processing user data"
+PROJECT GOAL: {project_prompt}
+JURISDICTION CONTEXT: {jurisdiction_prompt}
 
-### CRITICAL RULES:
-1. **extracted_data.key_value_pairs** MUST contain precise key-value pairs from the text
-   - Keys should be specific, descriptive field names
-   - Values should be exact figures, dates, or specific terms found in the text
-   - Extract only information actually present in the text
+OUTPUT RULES (CRITICAL):
+1. Return ONLY valid JSON matching the schema.
+2. CONSISTENCY RULE: Use EXACT same field names/structure every time.
 
-2. **markdown_summary** must be properly formatted for frontend display:
-   - Use ## Headers for sections
-   - Use bullet points with - or *
-   - Use **bold** for important terms
-   - Use tables if relevant data comparisons exist
+DATA EXTRACTION RULES:
+- "extracted_data": Return a LIST of key-value objects 
+  (e.g. {{ "key": "current_price", "value": "600 NGN" }}).
+- Keys MUST be snake_case. Use null if information is missing.
 
-3. **confidence_score** must reflect how confident you are in the extraction (0.0-1.0)
+SUMMARY RULES (UI RENDER):
+- "summary": A concise 2-3 sentence executive summary 
+  answering the Project Goal based on extracted data.
+- "markdown_summary": A detailed analysis formatted for Frontend Display.
+    - Use ## Headers for sections.
+    - Use bullet points (-) for lists.
+    - Use **bold** for important figures (prices, dates).
+    - Use Markdown Tables if comparing data (e.g., Old vs New prices).
+    - MUST be based strictly on the 'extracted_data'.
 
-4. Return ONLY valid JSON, no other text or explanations.
-""".strip()
+--- SOURCE TEXT ---
+{cleaned_text[:1000000]} 
+"""
 
+        for attempt in range(max_retries + 1):
+            try:
+                response = await self.model.generate_content_async(prompt)
 
-async def run_llm_analysis(llm_input: str) -> Dict[str, Any]:
-    """
-    Execute LLM analysis with robust error handling and fallback mechanisms.
+                result_json = json.loads(response.text)
 
-    Args:
-        llm_input: The formatted prompt to send to the LLM
+                if (
+                    "extracted_data" in result_json
+                    and "key_value_pairs" in result_json["extracted_data"]
+                ):
+                    kv_list = result_json["extracted_data"]["key_value_pairs"]
+                    if isinstance(kv_list, list):
+                        result_json["extracted_data"]["key_value_pairs"] = {
+                            item.get("key"): item.get("value") for item in kv_list if "key" in item
+                        }
 
-    Returns:
-        Dictionary containing analysis results with summary, extracted data, and confidence score
-    """
-    await asyncio.sleep(0.5)
+                validated_result = ExtractionResult.model_validate(result_json)
 
-    headers = {
-        "Content-Type": "application/json",
-    }
+                result_dump = validated_result.model_dump()
+                if (
+                    "extracted_data" in result_dump
+                    and "key_value_pairs" in result_dump["extracted_data"]
+                ):
+                    kv_pairs = result_dump["extracted_data"]["key_value_pairs"]
+                    result_dump["extracted_data"]["key_value_pairs"] = dict(
+                        sorted(kv_pairs.items())
+                    )
 
-    if settings.LLM_PROVIDER == "gemini":
-        headers["Authorization"] = f"Bearer {settings.LLM_API_KEY}"
-        payload = {
-            "model": settings.LLM_MODEL,
-            "prompt": llm_input,
-            "temperature": settings.LLM_TEMPERATURE,
-        }
-    else:
-        payload = {
-            "model": settings.LLM_MODEL,
-            "prompt": llm_input,
-            "temperature": settings.LLM_TEMPERATURE,
-            "max_tokens": settings.LLM_MAX_TOKENS,
-        }
+                logger.info(
+                    f"Extraction successful (Confidence: {validated_result.confidence_score})"
+                )
+                return result_dump
 
-    logger.info("Sending request to LLM...")
+            except (json.JSONDecodeError, ValidationError) as e:
+                logger.warning(
+                    f"AI Extraction Failed (Attempt {attempt + 1}/{max_retries + 1}): {e}"
+                )
 
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(settings.LLM_API_URL, json=payload, headers=headers)
+                if attempt == max_retries:
+                    error_msg = f"Extraction failed after {max_retries} retries. Error: {str(e)}"
+                    logger.error(error_msg)
+                    raise AIExtractionServiceError(error_msg)
 
-        response.raise_for_status()
-        data = response.json()
-
-        if settings.LLM_PROVIDER == "gemini":
-            raw_text = data.get("text", "")
-        else:
-            raw_text = (
-                data.get("choices", [{}])[0].get("text", "")
-                if "choices" in data
-                else data.get("completion", "")
-            )
-
-        try:
-            llm_result = json.loads(raw_text)
-
-            if "extracted_data" not in llm_result:
-                llm_result["extracted_data"] = {}
-            if not isinstance(llm_result.get("extracted_data", {}).get("key_value_pairs"), dict):
-                llm_result["extracted_data"]["key_value_pairs"] = {}
-
-            required_fields = ["summary", "markdown_summary", "extracted_data", "confidence_score"]
-            for field in required_fields:
-                if field not in llm_result:
-                    if field == "markdown_summary":
-                        llm_result[field] = llm_result.get("summary", "No summary available")
-                    elif field == "confidence_score":
-                        llm_result[field] = 0.0
-                    elif field == "extracted_data":
-                        llm_result[field] = {"key_value_pairs": {}}
-
-            return llm_result
-
-        except json.JSONDecodeError as e:
-            logger.error(f"LLM returned invalid JSON: {e}. Raw response: {raw_text}")
-            return get_fallback_response("Invalid JSON response from LLM")
-
-    except httpx.TimeoutException:
-        logger.error("LLM request timed out after 60 seconds")
-        return get_fallback_response("LLM request timeout")
-    except httpx.HTTPStatusError as e:
-        logger.error(f"LLM API returned error status: {e.response.status_code}")
-        return get_fallback_response(f"LLM API error: {e.response.status_code}")
-    except Exception as exc:
-        logger.error(f"LLM request failed: {exc}", exc_info=True)
-        return get_fallback_response("LLM service unavailable")
-
-
-def get_fallback_response(reason: str = "Unknown error") -> Dict[str, Any]:
-    """
-    Generate a standardized fallback response when LLM processing fails.
-
-    Args:
-        reason: Description of why the LLM request failed
-
-    Returns:
-        Fallback response with error information and empty extracted data
-    """
-    return {
-        "summary": f"Analysis unavailable: {reason}",
-        "markdown_summary": f"## Analysis Unavailable\n\n"
-        f"Unable to process the content at this time. Reason: {reason}",
-        "extracted_data": {"key_value_pairs": {}},
-        "confidence_score": 0.0,
-    }
+            except Exception as e:
+                logger.error(f"Unexpected AI Error: {e}")
+                if attempt == max_retries:
+                    raise AIExtractionServiceError(f"System Error: {str(e)}")
