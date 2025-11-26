@@ -83,6 +83,10 @@ class Settings(BaseSettings):
         "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
     )
 
+    # Stripe
+    STRIPE_API_KEY: str = config("STRIPE_API_KEY", default="your-stripe-api-key")
+    STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="your-stripe-webhook-secret")
+
     model_config = SettingsConfigDict(extra="allow")
 
 

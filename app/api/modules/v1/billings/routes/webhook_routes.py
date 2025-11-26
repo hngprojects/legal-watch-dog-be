@@ -7,16 +7,17 @@ SignatureVerificationError = stripe_error.SignatureVerificationError
 from app.api.modules.v1.billings.service.webhook_service import handle_stripe_event
 import stripe
 import logging
+from app.api.core.config import settings
 
 logger = logging.getLogger("app")
 
 router = APIRouter(prefix="/webhook", tags=["Billing Webhooks"])
 
 # Replace with your Stripe secret key
-stripe.api_key = "your-stripe-secret-key"
+stripe.api_key = settings.STRIPE_API_KEY
 
 # Replace with your Stripe webhook secret
-STRIPE_WEBHOOK_SECRET = "your-webhook-secret"
+STRIPE_WEBHOOK_SECRET = settings.STRIPE_WEBHOOK_SECRET
 
 @router.post("/stripe")
 async def stripe_webhook(
