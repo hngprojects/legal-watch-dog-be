@@ -37,7 +37,7 @@ logger = logging.getLogger("app")
 @router.get(
     "/me",
     status_code=status.HTTP_200_OK,
-    responses=get_user_profile_responses,  # type: ignore
+    responses=get_user_profile_responses,
 )
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
@@ -85,14 +85,14 @@ async def get_current_user_profile(
         )
 
 
-get_current_user_profile._custom_errors = get_user_profile_custom_errors  # type: ignore
-get_current_user_profile._custom_success = get_user_profile_custom_success  # type: ignore
+get_current_user_profile._custom_errors = get_user_profile_custom_errors
+get_current_user_profile._custom_success = get_user_profile_custom_success
 
 
 @router.get(
     "/me/organizations",
     status_code=status.HTTP_200_OK,
-    responses=get_user_organizations_responses,  # type: ignore
+    responses=get_user_organizations_responses,
 )
 async def get_all_user_organizations(
     page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
@@ -147,8 +147,8 @@ async def get_all_user_organizations(
         )
 
 
-get_all_user_organizations._custom_errors = get_user_organizations_custom_errors  # type: ignore
-get_all_user_organizations._custom_success = get_user_organizations_custom_success  # type: ignore
+get_all_user_organizations._custom_errors = get_user_organizations_custom_errors
+get_all_user_organizations._custom_success = get_user_organizations_custom_success
 
 
 @router.get(
@@ -285,7 +285,7 @@ async def get_my_invitations(
     "/me/organizations/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
-    responses=get_organization_responses,  # type: ignore
+    responses=get_organization_responses,
 )
 async def get_organization_details(
     organization_id: uuid.UUID,
@@ -354,5 +354,5 @@ async def get_organization_details(
         )
 
 
-get_organization_details._custom_errors = get_organization_custom_errors  # type: ignore
-get_organization_details._custom_success = get_organization_custom_success  # type: ignore
+get_organization_details._custom_errors = get_organization_custom_errors
+get_organization_details._custom_success = get_organization_custom_success

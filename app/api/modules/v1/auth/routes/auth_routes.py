@@ -50,14 +50,14 @@ logger = logging.getLogger("app")
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=company_signup_responses,  # type: ignore
+    responses=company_signup_responses,
 )
 async def company_signup(
     payload: RegisterRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
-    token: Optional[str] = None,  # Added optional token parameter
+    token: Optional[str] = None,
 ):
     """
     Initiate company registration with email verification.
@@ -77,9 +77,7 @@ async def company_signup(
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_user(
-            payload, background_tasks, token
-        )  # Pass token to service
+        result = await service.register_user(payload, background_tasks, token)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -105,15 +103,15 @@ async def company_signup(
         )
 
 
-company_signup._custom_errors = company_signup_custom_errors  # type: ignore
-company_signup._custom_success = company_signup_custom_success  # type: ignore
+company_signup._custom_errors = company_signup_custom_errors
+company_signup._custom_success = company_signup_custom_success
 
 
 @router.post(
     "/otp/verification",
     response_model=VerifyOTPResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=verify_otp_responses,  # type: ignore
+    responses=verify_otp_responses,
 )
 async def verify_otp(
     payload: VerifyOTPRequest,
@@ -164,15 +162,15 @@ async def verify_otp(
         )
 
 
-verify_otp._custom_errors = verify_otp_custom_errors  # type: ignore
-verify_otp._custom_success = verify_otp_custom_success  # type: ignore
+verify_otp._custom_errors = verify_otp_custom_errors
+verify_otp._custom_success = verify_otp_custom_success
 
 
 @router.post(
     "/otp/requests",
     response_model=RegisterResponse,
     status_code=status.HTTP_200_OK,
-    responses=request_new_otp_responses,  # type: ignore
+    responses=request_new_otp_responses,
 )
 async def request_new_otp(
     payload: ResendOTPRequest,
@@ -233,14 +231,14 @@ async def request_new_otp(
         )
 
 
-request_new_otp._custom_errors = request_new_otp_custom_errors  # type: ignore
-request_new_otp._custom_success = request_new_otp_custom_success  # type: ignore
+request_new_otp._custom_errors = request_new_otp_custom_errors
+request_new_otp._custom_success = request_new_otp_custom_success
 
 
 @router.get(
     "/accept-invite/{token}",
-    status_code=status.HTTP_302_FOUND,  # Changed to 302 Found for redirection
-    response_model=None,  # Response model will be handled dynamically
+    status_code=status.HTTP_302_FOUND,
+    response_model=None,
 )
 async def accept_invitation(
     token: str,
