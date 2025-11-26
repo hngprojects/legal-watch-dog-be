@@ -87,7 +87,7 @@ class RegistrationService:
                 redis_client=self.redis_client,
                 email=payload.email,
                 registration_data=registration_data,
-                ttl_seconds=settings.REDIS_CACHE_REGISTER_TTL_SECONDS,
+                ttl_seconds=settings.REDIS_REGISTER_TTL,
             )
 
             await self._send_otp_email(payload.email, otp_code, background_tasks)
@@ -244,7 +244,7 @@ class RegistrationService:
                 redis_client=self.redis_client,
                 email=email,
                 registration_data=credentials,
-                ttl_seconds=settings.REDIS_CACHE_RESEND_TTL_SECONDS,
+                ttl_seconds=settings.REDIS_RESEND_TTL,
             )
 
             await self._send_otp_email(email, otp_code, background_tasks)
