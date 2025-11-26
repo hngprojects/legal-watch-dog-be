@@ -745,21 +745,18 @@ class OrgResourceGuard:
 
         db: AsyncSession = self.request.state.db
 
-        # Handle source_id: source -> jurisdiction -> project
         if source_id:
             source = await db.get(Source, source_id)
             if not source:
                 raise HTTPException(404, "Source not found")
             jurisdiction_id = source.jurisdiction_id
 
-        # Handle jurisdiction_id: jurisdiction -> project
         if jurisdiction_id:
             jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
             if not jurisdiction:
                 raise HTTPException(404, "Jurisdiction not found")
             project_id = jurisdiction.project_id
 
-        # Verify project belongs to user's organization
         if project_id:
             project = await db.get(Project, project_id)
             if not project:
