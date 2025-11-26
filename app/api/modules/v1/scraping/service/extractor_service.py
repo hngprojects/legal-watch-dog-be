@@ -23,6 +23,7 @@ from app.api.utils.cleaned_text import cleaned_html, normalize_text
 logger = logging.getLogger(__name__)
 EXTRACTOR_VERSION = "1.3.0"
 
+
 class TextExtractorService:
     """
     Service responsible for extracting cleaned text from HTML stored in MinIO
@@ -85,7 +86,8 @@ class TextExtractorService:
             html_object (str): Object key of the HTML file to process.
             dest_bucket (str): Bucket where cleaned text will be uploaded.
             source_id (UUID): Identifier for the content source.
-            revision_id (UUID, optional): Revision identifier. A new one is generated if not provided.
+            revision_id (UUID, optional): Revision identifier-
+              A new one is generated if not provided.
 
         Returns:
             dict: Structured response containing:

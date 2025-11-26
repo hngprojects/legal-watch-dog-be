@@ -69,10 +69,9 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
             try:
                 minio_client.make_bucket(bucket_name=bucket_name)
             except Exception as create_err:
-                if (
-                    "BucketAlreadyExists" not in str(create_err)
-                    and "BucketAlreadyOwnedByYou" not in str(create_err)
-                ):
+                if "BucketAlreadyExists" not in str(
+                    create_err
+                ) and "BucketAlreadyOwnedByYou" not in str(create_err):
                     raise create_err
 
         # Upload object
