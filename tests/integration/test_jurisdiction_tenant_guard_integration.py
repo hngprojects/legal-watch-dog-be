@@ -104,7 +104,6 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
             return _S(self._items)
 
     async def _fake_execute(stmt):
-
         items = [
             SimpleNamespace(
                 id=str(uuid4()),
