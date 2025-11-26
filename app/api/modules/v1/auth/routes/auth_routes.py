@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from redis.asyncio.client import Redis
@@ -28,6 +29,10 @@ from app.api.modules.v1.auth.schemas.verify_otp import (
     VerifyOTPResponse,
 )
 from app.api.modules.v1.auth.service.register_service import RegistrationService
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
+from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
+from app.api.modules.v1.users.service.role import RoleCRUD
+from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import (
     error_response,
     success_response,
@@ -224,3 +229,124 @@ async def request_new_otp(
 
 request_new_otp._custom_errors = request_new_otp_custom_errors  # type: ignore
 request_new_otp._custom_success = request_new_otp_custom_success  # type: ignore
+
+
+@router.get(
+    "/accept-invite/{token}",
+    status_code=status.HTTP_200_OK,
+    response_model=dict,
+)
+async def accept_invitation(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Accept an organization invitation.
+
+    This endpoint handles the invitation link sent to a user.
+    It validates the token, adds the user to the organization (if registered),
+    or redirects them to registration (if unregistered).
+
+    Args:
+        token: The unique invitation token.
+        db: Database session dependency.
+
+    Returns:
+        dict: Success message or a redirect (handled by frontend).
+
+    Raises:
+        HTTPException: 400, 404, 410, 500 for server errors.
+    """
+    try:
+        invitation = await InvitationCRUD.get_invitation_by_token(db, token)
+        if not invitation:
+            raise ValueError("Invitation not found or invalid.")
+
+        if invitation.status != "pending":
+            raise ValueError(f"Invitation is already {invitation.status}.")
+
+        if invitation.expires_at < datetime.now(timezone.utc):
+            await InvitationCRUD.update_invitation_status(db, invitation.id, "expired")
+            await db.commit()
+            raise ValueError("Invitation has expired.")
+
+        user = await UserCRUD.get_by_email(db, invitation.invited_email)
+
+        if user:
+            # User is already registered
+            # Check if user is already a member of the organization
+            existing_membership = await UserOrganizationCRUD.get_user_organization(
+                db, user.id, invitation.organization_id
+            )
+            if existing_membership:
+                await InvitationCRUD.update_invitation_status(db, invitation.id, "accepted")
+                await db.commit()
+                return success_response(
+                    status_code=status.HTTP_200_OK,
+                    message="You are already a member of this organization. Invitation accepted.",
+                    data={"organization_id": str(invitation.organization_id)},
+                )
+
+            # Add user to the organization
+            role_id = invitation.role_id
+            if not role_id:
+                # Get default member role if not specified in invitation
+                default_role = await RoleCRUD.get_default_user_role(db, invitation.organization_id)
+                role_id = default_role.id
+
+            await UserOrganizationCRUD.add_user_to_organization(
+                db=db,
+                user_id=user.id,
+                organization_id=invitation.organization_id,
+                role_id=role_id,
+                is_active=True,
+            )
+            await InvitationCRUD.update_invitation_status(db, invitation.id, "accepted")
+            await db.commit()
+
+            return success_response(
+                status_code=status.HTTP_200_OK,
+                message="Invitation accepted. You have been added to the organization.",
+                data={"organization_id": str(invitation.organization_id)},
+            )
+        else:
+            # User is not registered. Redirect to registration with token.
+            # Frontend should handle the redirect to a registration page,
+            # passing the token as a query parameter.
+            registration_url = f"{settings.DEV_URL}/register?token={token}"
+            # In a real scenario, you'd return a redirect response here.
+            # For FastAPI, this might involve a RedirectResponse from fastapi.responses
+            # For now, we'll just return a message indicating the redirect.
+            logger.info(f"Unregistered user. Redirecting to: {registration_url}")
+            return success_response(
+                status_code=status.HTTP_200_OK,
+                message="Please register to accept the invitation.",
+                data={"redirect_url": registration_url},
+            )
+
+    except ValueError as e:
+        logger.warning(f"Invitation acceptance failed for token={token}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "expired" in error_message.lower():
+            status_code = status.HTTP_410_GONE
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Unexpected error accepting invitation for token={token}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to accept invitation. Please try again later.",
+        )
