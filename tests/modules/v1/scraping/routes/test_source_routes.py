@@ -37,19 +37,19 @@ async def sample_jurisdiction_id(pg_async_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    # Create organization
+    
     organization = Organization(name="Test Organization")
     pg_async_session.add(organization)
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
 
-    # Create project
+    
     project = Project(org_id=organization.id, title="Test Project", description="Test description")
     pg_async_session.add(project)
     await pg_async_session.commit()
     await pg_async_session.refresh(project)
 
-    # Create jurisdiction
+    
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Jurisdiction",
@@ -65,7 +65,7 @@ async def sample_jurisdiction_id(pg_async_session):
 @pytest.fixture
 def auth_headers(sample_user):
     """Fixture for authentication headers."""
-    # Mock JWT token
+
     return {"Authorization": "Bearer mock_valid_token"}
 
 
@@ -75,7 +75,7 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
-    # Clear any dependency overrides after test completes
+  
     app.dependency_overrides.clear()
 
 
@@ -84,7 +84,7 @@ async def test_create_source_success(
     client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
 ):
     """Test successful source creation via API."""
-    # Arrange
+  
     payload = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "Test Ministry",
@@ -95,7 +95,7 @@ async def test_create_source_success(
         "scraping_rules": {"selector": ".content"},
     }
 
-    # Override dependencies
+    
     async def override_get_db():
         yield pg_async_session
 
@@ -105,14 +105,14 @@ async def test_create_source_success(
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
 
-    # Act
+    
     response = await client.post(
         "/api/v1/sources",
         json=payload,
         headers=auth_headers,
     )
 
-    # Assert
+    
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["status"] == "SUCCESS"
@@ -128,7 +128,7 @@ async def test_create_source_without_auth_details(
     client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
 ):
     """Test creating source without authentication details."""
-    # Arrange
+    
     payload = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "Public Website",
@@ -137,7 +137,7 @@ async def test_create_source_without_auth_details(
         "scrape_frequency": "HOURLY",
     }
 
-    # Override dependencies
+    
     async def override_get_db():
         yield pg_async_session
 
@@ -147,14 +147,14 @@ async def test_create_source_without_auth_details(
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
 
-    # Act
+    
     response = await client.post(
         "/api/v1/sources",
         json=payload,
         headers=auth_headers,
     )
 
-    # Assert
+    
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["data"]["source"]["has_auth"] is False
@@ -165,7 +165,7 @@ async def test_create_source_invalid_url(
     client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
 ):
     """Test that invalid URLs are rejected."""
-    # Arrange
+
     payload = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "Invalid Source",
@@ -174,7 +174,7 @@ async def test_create_source_invalid_url(
         "scrape_frequency": "DAILY",
     }
 
-    # Override dependencies
+    
     async def override_get_db():
         yield pg_async_session
 
@@ -184,34 +184,34 @@ async def test_create_source_invalid_url(
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
 
-    # Act
+
     response = await client.post(
         "/api/v1/sources",
         json=payload,
         headers=auth_headers,
     )
 
-    # Assert
+
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 @pytest.mark.asyncio
 async def test_create_source_unauthorized(client, pg_async_session, sample_jurisdiction_id):
     """Test that unauthenticated requests are rejected."""
-    # Arrange
+
     payload = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "Test Source",
         "url": "https://example.com",
     }
 
-    # Clear any dependency overrides to ensure auth is required
+    
     app.dependency_overrides.clear()
 
-    # Act
+    
     response = await client.post("/api/v1/sources", json=payload)
 
-    # Assert
+    
     assert response.status_code == status.HTTP_403_FORBIDDEN
     """Tests for GET /sources"""
 
@@ -220,7 +220,7 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
     ):
         """Test successful retrieval of sources list."""
-        # Arrange - Create test sources
+        
         source1 = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -242,7 +242,7 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
         pg_async_session.add(source2)
         await pg_async_session.commit()
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -252,13 +252,13 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.get(
             "/api/v1/sources",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "SUCCESS"
@@ -272,7 +272,7 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
     ):
         """Test get sources with jurisdiction filter."""
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -282,13 +282,13 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.get(
             f"/api/v1/sources?jurisdiction_id={sample_jurisdiction_id}&is_active=true",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert "sources" in data["data"]
@@ -299,7 +299,7 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
     ):
         """Test pagination parameters."""
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -309,13 +309,13 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+    
         response = await client.get(
             "/api/v1/sources?skip=0&limit=10",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_200_OK
 
 
@@ -327,7 +327,7 @@ class TestGetSourceEndpoint:
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
     ):
         """Test successful retrieval of a single source."""
-        # Arrange
+    
         source = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -340,7 +340,7 @@ class TestGetSourceEndpoint:
         pg_async_session.add(source)
         await pg_async_session.commit()
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -350,20 +350,20 @@ class TestGetSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.get(
             f"/api/v1/sources/{source.id}",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "SUCCESS"
         assert data["data"]["source"]["id"] == str(source.id)
         assert data["data"]["source"]["name"] == "Test Source"
         assert data["data"]["source"]["has_auth"] is True
-        # Ensure encrypted auth is NOT exposed
+        
         assert "auth_details_encrypted" not in data["data"]["source"]
 
     @pytest.mark.asyncio
@@ -371,7 +371,7 @@ class TestGetSourceEndpoint:
         """Test 404 when source doesn't exist."""
         non_existent_id = uuid.uuid4()
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -381,13 +381,13 @@ class TestGetSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.get(
             f"/api/v1/sources/{non_existent_id}",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -399,7 +399,7 @@ class TestUpdateSourceEndpoint:
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
     ):
         """Test successful source update."""
-        # Arrange
+        
         source = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -417,7 +417,7 @@ class TestUpdateSourceEndpoint:
             "is_active": False,
         }
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -427,14 +427,14 @@ class TestUpdateSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.put(
             f"/api/v1/sources/{source.id}",
             json=update_payload,
             headers=auth_headers,
         )
 
-        # Assert
+    
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "SUCCESS"
@@ -447,7 +447,7 @@ class TestUpdateSourceEndpoint:
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
     ):
         """Test partial update (only some fields)."""
-        # Arrange
+        
         source = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -461,7 +461,7 @@ class TestUpdateSourceEndpoint:
 
         update_payload = {"is_active": False}
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -471,17 +471,17 @@ class TestUpdateSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.put(
             f"/api/v1/sources/{source.id}",
             json=update_payload,
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        # Name should remain unchanged
+        
         assert data["data"]["source"]["name"] == "Original"
         assert data["data"]["source"]["is_active"] is False
 
@@ -493,7 +493,7 @@ class TestUpdateSourceEndpoint:
         non_existent_id = uuid.uuid4()
         update_payload = {"name": "New Name"}
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -503,14 +503,14 @@ class TestUpdateSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.put(
             f"/api/v1/sources/{non_existent_id}",
             json=update_payload,
             headers=auth_headers,
         )
 
-        # Assert
+
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -522,7 +522,7 @@ class TestDeleteSourceEndpoint:
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
     ):
         """Test successful source deletion."""
-        # Arrange
+    
         source = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -536,7 +536,7 @@ class TestDeleteSourceEndpoint:
 
         source_id = source.id
 
-        # Override dependencies
+    
         async def override_get_db():
             yield pg_async_session
 
@@ -546,17 +546,17 @@ class TestDeleteSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+        
         response = await client.delete(
             f"/api/v1/sources/{source_id}",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert response.content == b""
 
-        # Verify source is soft-deleted (default behavior)
+        
         deleted_source = await pg_async_session.get(Source, source_id)
         assert deleted_source is not None
         assert deleted_source.is_deleted is True
@@ -568,7 +568,7 @@ class TestDeleteSourceEndpoint:
         """Test deletion of non-existent source."""
         non_existent_id = uuid.uuid4()
 
-        # Override dependencies
+        
         async def override_get_db():
             yield pg_async_session
 
@@ -578,11 +578,11 @@ class TestDeleteSourceEndpoint:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_current_user] = override_get_current_user
 
-        # Act
+    
         response = await client.delete(
             f"/api/v1/sources/{non_existent_id}",
             headers=auth_headers,
         )
 
-        # Assert
+        
         assert response.status_code == status.HTTP_404_NOT_FOUND
