@@ -305,49 +305,35 @@ class UserCRUD:
     @staticmethod
     async def get_user_profile(db: AsyncSession, user_id: uuid.UUID) -> dict:
         """
-        Get complete user profile with all related information.
+        Fetches user, memberships, organizations, and roles
 
-        Retrieves comprehensive user information including:
-        - Basic user details
-        - All organization memberships
-        - Roles in each organization
-        - Account status and verification
-
-        Args:
-            db: Database session
-            user_id: UUID of the user
-
-        Returns:
-            dict: Dictionary containing complete user profile
-
-        Raises:
-            ValueError: If user not found
-            Exception: For unexpected errors
         """
-        from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
-        from app.api.modules.v1.organization.service.user_organization_service import (
-            UserOrganizationCRUD,
-        )
 
-        logger.info(f"Fetching complete profile for user_id={user_id}")
+        from app.api.modules.v1.organization.models.organization_model import Organization
+        from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
+        from app.api.modules.v1.users.models.roles_model import Role
+
+        logger.info(f"Fetching optimized profile for user_id={user_id}")
 
         try:
+            # Fetch user
             user = await UserCRUD.get_by_id(db, user_id)
             if not user:
                 raise ValueError("User not found")
 
-            memberships = await UserOrganizationCRUD.get_user_organizations(
-                db, user_id, active_only=False
+            # Fetch memberships + org + role in ONE query
+            stmt = (
+                select(UserOrganization, Organization, Role)
+                .join(Organization, Organization.id == UserOrganization.organization_id)
+                .join(Role, Role.id == UserOrganization.role_id, isouter=True)
+                .where(UserOrganization.user_id == user_id)
             )
 
+            result = await db.execute(stmt)
+            rows = result.all()
+
             organizations = []
-            for membership in memberships:
-                org = await OrganizationCRUD.get_by_id(db, membership.organization_id)
-                if not org:
-                    continue
-
-                role = await db.get(Role, membership.role_id)
-
+            for membership, org, role in rows:
                 organizations.append(
                     {
                         "organization_id": str(org.id),
@@ -361,10 +347,13 @@ class UserCRUD:
                             "permissions": role.permissions if role else {},
                         },
                         "joined_at": membership.created_at.isoformat(),
-                        "membership_updated_at": membership.updated_at.isoformat(),
+                        "membership_updated_at": membership.updated_at.isoformat()
+                        if membership.updated_at
+                        else None,
                     }
                 )
 
+            # Build final profile output
             profile = {
                 "user": {
                     "id": str(user.id),
@@ -391,17 +380,12 @@ class UserCRUD:
                 },
             }
 
-            logger.info(f"Successfully retrieved complete profile for user_id={user_id}")
+            logger.info(f"Successfully retrieved profile (optimized) for user_id={user_id}")
             return profile
 
-        except ValueError as e:
-            logger.warning(
-                f"Validation error fetching user profile for user_id={user_id}: {str(e)}"
-            )
-            raise
         except Exception as e:
             logger.error(
-                f"Unexpected error fetching user profile for user_id={user_id}: {str(e)}",
+                f"Error fetching optimized profile for user_id={user_id}: {str(e)}",
                 exc_info=True,
             )
             raise Exception("Failed to retrieve user profile")

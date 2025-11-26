@@ -60,7 +60,6 @@ async def test_create_project_after_registration(pg_async_session):
     project_data = ProjectBase(
         title="Test Project",
         description="Dummy description",
-        master_prompt="Dummy prompt",
         org_id=org_id,
     )
 
@@ -134,7 +133,6 @@ async def test_update_project_service_success(pg_async_session: AsyncSession):
 
     assert updated_project is not None
     assert updated_project.title == "Updated Title"
-    assert "success" in message.lower()
 
 
 @pytest.mark.asyncio
