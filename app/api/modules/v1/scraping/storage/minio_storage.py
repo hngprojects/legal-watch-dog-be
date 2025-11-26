@@ -120,4 +120,3 @@ def fetch_raw_content_from_minio(
     except Exception as e:
         logger.error(f"Failed to fetch object {object_name} from MinIO: {e}")
         return None
-
