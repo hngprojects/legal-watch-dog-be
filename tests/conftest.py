@@ -40,6 +40,8 @@ def setup_patches():
 # Now import the app modules, after patches are set up
 from app.api.core.config import settings  # noqa: E402
 
+# Import all models to ensure they are registered with SQLAlchemy before creating tables
+
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
