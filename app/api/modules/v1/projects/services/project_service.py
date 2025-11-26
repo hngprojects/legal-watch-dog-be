@@ -70,7 +70,6 @@ class ProjectService:
         project = Project(
             title=data.title,
             description=data.description,
-            master_prompt=data.master_prompt,
             org_id=organization_id,
         )
 
