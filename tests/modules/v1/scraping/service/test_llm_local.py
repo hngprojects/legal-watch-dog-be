@@ -159,3 +159,37 @@ async def test_llm_service_retry_logic():
 
     assert result["summary"] == "Success after retry"
     assert service.model.generate_content_async.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_llm_service_exponential_backoff():
+    """Test LLM service exponential backoff with jitter."""
+    service = AIExtractionService()
+    service.model = Mock()
+    
+    service.model.generate_content_async = AsyncMock(
+        side_effect=[
+            Exception("First failure"),
+            Exception("Second failure"),
+            Mock(
+                text=(
+                    "{\n"
+                    '    "summary": "Success after backoff",\n'
+                    '    "markdown_summary": "## Success",\n'
+                    '    "extracted_data": {"key_value_pairs": []},\n'
+                    '    "confidence_score": 0.8\n'
+                    "}"
+                )
+            ),
+        ]
+    )
+
+    result = await service.run_llm_analysis(
+        cleaned_text="Test content",
+        project_prompt="Test project",
+        jurisdiction_prompt="Test jurisdiction",
+        max_retries=2,
+    )
+
+    assert result["summary"] == "Success after backoff"
+    assert service.model.generate_content_async.call_count == 3
