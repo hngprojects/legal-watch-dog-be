@@ -3,7 +3,7 @@ import re
 
 from app.api.utils.email_verifier import BusinessEmailVerifier, EmailType
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 def is_company_email(email: str) -> bool:
