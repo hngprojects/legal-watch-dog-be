@@ -29,6 +29,11 @@ jobs:
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
 
+          # Application URLs
+          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
+          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+
+          # Database configuration
           DB_TYPE=${{ vars.DB_TYPE || 'postgresql' }}
           DB_HOST=${{ secrets.DB_HOST }}
           DB_PORT=${{ secrets.DB_PORT }}
@@ -37,6 +42,7 @@ jobs:
           DB_NAME=${{ secrets.DB_NAME }}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
 
+          # Email configuration
           MAIL_MAILER=${{ vars.MAIL_MAILER || 'smtp' }}
           SMTP_SERVER=${{ secrets.SMTP_SERVER }}
           SMTP_PORT=${{ secrets.SMTP_PORT }}
@@ -46,18 +52,21 @@ jobs:
           EMAIL=${{ secrets.EMAIL }}
           MAIL_FROM_NAME="LEGAL WATCH DOG"
 
-          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
-          DEV_URL="${{ vars.DEV_URL || 'http://localhost:8001' }}"
+          # Redis configuration
           REDIS_URL=${{ secrets.REDIS_URL }}
-          REDIS_CACHE_TTL_SECONDS=${{ secrets.REDIS_CACHE_TTL_SECONDS }}
+          REDIS_RESEND_TTL=${{ secrets.REDIS_RESEND_TTL || vars.REDIS_RESEND_TTL || '300' }}
+          REDIS_REGISTER_TTL=${{ secrets.REDIS_REGISTER_TTL || vars.REDIS_REGISTER_TTL || '600' }}
+
+          # Secuirity / Auth
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }}
           JWT_EXPIRY_HOURS=${{ secrets.JWT_EXPIRY_HOURS }}
           ACCESS_TOKEN_EXPIRATION=${{ secrets.ACCESS_TOKEN_EXPIRATION }}
+          ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
 
+          # Testing config
           ALLOW_TEST_EMAIL_PROVIDERS=${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}
           TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
-          ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
 
           # LLM (Gemini / AI Extraction)
           LLM_API_KEY=${{ secrets.LLM_API_KEY }}
