@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, Text, func
@@ -7,6 +7,7 @@ from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
+    from app.api.modules.v1.scraping.models.source_model import Source
 
 
 class Jurisdiction(SQLModel, table=True):
@@ -80,3 +81,4 @@ class Jurisdiction(SQLModel, table=True):
     is_deleted: bool = Field(default=False)
 
     project: "Project" = Relationship(back_populates="jurisdictions")
+    sources: List["Source"] = Relationship(back_populates="jurisdiction")
