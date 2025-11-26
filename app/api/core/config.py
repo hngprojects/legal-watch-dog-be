@@ -75,8 +75,8 @@ class Settings(BaseSettings):
     SCRAPE_MAX_DELAY: int = config("SCRAPE_MAX_DELAY", default=3600, cast=int)
     SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
     SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
-    # MinIO
 
+    # MinIO
     MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="minioadmin")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="minioadmin")
