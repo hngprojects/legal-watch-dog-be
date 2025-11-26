@@ -6,6 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
+    create_organization_custom_errors,
+    create_organization_custom_success,
+    create_organization_responses,
+    get_organization_custom_errors,
+    get_organization_custom_success,
+    get_organization_responses,
+    update_organization_custom_errors,
+    update_organization_custom_success,
+    update_organization_responses,
+)
 from app.api.modules.v1.organization.schemas.invitation_schema import (
     InvitationCreate,
     InvitationResponse,
@@ -14,10 +25,14 @@ from app.api.modules.v1.organization.schemas.organization_schema import (
     CreateOrganizationRequest,
     CreateOrganizationResponse,
     OrganizationDetailResponse,
+    UpdateMemberRoleRequest,
+    UpdateMemberStatusRequest,
     UpdateOrganizationRequest,
 )
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
+from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.users_model import User
+from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.utils.organization_validations import check_user_permission
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -30,6 +45,7 @@ logger = logging.getLogger(__name__)
     "",
     response_model=CreateOrganizationResponse,
     status_code=status.HTTP_201_CREATED,
+    responses=create_organization_responses,  # type: ignore
 )
 async def create_organization(
     payload: CreateOrganizationRequest,
@@ -92,10 +108,15 @@ async def create_organization(
         )
 
 
+create_organization._custom_errors = create_organization_custom_errors  # type: ignore
+create_organization._custom_success = create_organization_custom_success  # type: ignore
+
+
 @router.get(
     "/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
+    responses=get_organization_responses,  # type: ignore
 )
 async def get_organization_details(
     organization_id: uuid.UUID,
@@ -164,10 +185,15 @@ async def get_organization_details(
         )
 
 
+get_organization_details._custom_errors = get_organization_custom_errors  # type: ignore
+get_organization_details._custom_success = get_organization_custom_success  # type: ignore
+
+
 @router.patch(
     "/{organization_id}",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
+    responses=update_organization_responses,  # type: ignore
 )
 async def update_organization(
     organization_id: uuid.UUID,
@@ -245,6 +271,10 @@ async def update_organization(
         )
 
 
+update_organization._custom_errors = update_organization_custom_errors  # type: ignore
+update_organization._custom_success = update_organization_custom_success  # type: ignore
+
+
 @router.post(
     "/{organization_id}/invite-user",
     response_model=InvitationResponse,
@@ -282,18 +312,13 @@ async def invite_user(
     """
     try:
         service = OrganizationService(db)
-        has_permission = await check_user_permission(
-            db, current_user.id, organization_id, "invite_users"
-        )
-        if not has_permission:
-            raise ValueError("You do not have permission to invite users to this organization")
 
         result = await service.send_invitation(
             background_tasks=background_task,
             organization_id=organization_id,
             invited_email=payload.invited_email,
             inviter_id=current_user.id,
-            role_id=payload.role_id,
+            role_name=payload.role_name,
         )
 
         return success_response(
@@ -327,4 +352,189 @@ async def invite_user(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to send invitation. Please try again later.",
+        )
+
+
+@router.patch(
+    "/{organization_id}/members/{user_id}/status",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+)
+async def update_member_status(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: UpdateMemberStatusRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Activate or deactivate a member's status within an organization.
+
+    This endpoint allows an admin to change the active status of a member.
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' or 'deactivate_users' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member whose status is to be updated
+        payload: Request body containing the new `is_active` status
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: 400 for validation errors, 401 for unauthorized,
+                      403 for forbidden, 404 for not found, 500 for server errors
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to manage users in this organization")
+
+        if current_user.id == user_id:
+            raise ValueError("You cannot change your own membership status through this endpoint.")
+
+        await UserOrganizationCRUD.set_membership_status(
+            db=db,
+            user_id=user_id,
+            organization_id=organization_id,
+            is_active=payload.is_active,
+        )
+        await db.commit()
+
+        status_message = "activated" if payload.is_active else "deactivated"
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=f"{user_id} {status_message} successfully in org {organization_id}.",
+        )
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed update status for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error updating user_id={user_id} status in org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to update member status. Please try again later.",
+        )
+
+
+@router.patch(
+    "/{organization_id}/members/{user_id}/role",
+    response_model=dict,  # This will return a simple success message
+    status_code=status.HTTP_200_OK,
+)
+async def update_member_role(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: UpdateMemberRoleRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update a member's role within an organization.
+
+    This endpoint allows an admin to assign a new role to a member.
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'assign_roles' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member whose role is to be updated
+        payload: Request body containing the new `role_name`
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: 400 for validation errors, 401 for unauthorized,
+                      403 for forbidden, 404 for not found, 500 for server errors
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "assign_roles"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to assign roles in this organization")
+
+        if current_user.id == user_id:
+            raise ValueError("You cannot change your own role through this endpoint.")
+
+        role = await RoleCRUD.get_role_by_name_and_organization(
+            db, payload.role_name, organization_id
+        )
+        if not role:
+            raise ValueError(f"Role '{payload.role_name}' not found in this organization")
+
+        await UserOrganizationCRUD.update_user_role_in_organization(
+            db=db,
+            user_id=user_id,
+            organization_id=organization_id,
+            new_role_id=role.id,
+        )
+        await db.commit()
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=f"{user_id} role updated: {payload.role_name} in org {organization_id}.",
+        )
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed update role for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        elif "role not found" in error_message.lower():
+            status_code = status.HTTP_400_BAD_REQUEST
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error updating role for user_id={user_id} in org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to updaterole. Please try again later.",
         )

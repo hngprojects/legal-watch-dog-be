@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import BackgroundTasks
 from redis.asyncio.client import Redis
@@ -7,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.auth.schemas.register import RegisterRequest
+from app.api.modules.v1.organization.models.invitation_model import InvitationStatus
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
+from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.generate_otp import generate_code
 from app.api.utils.organization_validations import (
@@ -44,7 +49,10 @@ class RegistrationService:
         self.redis_client = redis_client
 
     async def register_user(
-        self, payload: RegisterRequest, background_tasks: BackgroundTasks
+        self,
+        payload: RegisterRequest,
+        background_tasks: BackgroundTasks,
+        token: Optional[str] = None,
     ) -> dict:
         """
         Handle the complete user registration process.
@@ -82,12 +90,14 @@ class RegistrationService:
                 "hashed_password": hashed_pw,
                 "otp_code": otp_code,
             }
+            if token:
+                registration_data["token"] = token
 
             await store_user_credentials(
                 redis_client=self.redis_client,
                 email=payload.email,
                 registration_data=registration_data,
-                ttl_seconds=settings.REDIS_CACHE_TTL_SECONDS,
+                ttl_seconds=settings.REDIS_REGISTER_TTL,
             )
 
             await self._send_otp_email(payload.email, otp_code, background_tasks)
@@ -150,6 +160,39 @@ class RegistrationService:
             )
             logger.info("Created user with id=%s", user.id)
 
+            if "token" in credentials:
+                token = credentials["token"]
+                invitation = await InvitationCRUD.get_invitation_by_token(self.db, token)
+
+                if not invitation:
+                    logger.warning(
+                        f"Token {token} not found during registration for user {user.id}"
+                    )
+                elif (
+                    invitation.status != InvitationStatus.PENDING
+                    or invitation.expires_at < datetime.now(timezone.utc)
+                ):
+                    logger.warning(
+                        f"Invitation {invitation.id} is not pending/has expired for user {user.id}"
+                    )
+                else:
+                    await UserOrganizationCRUD.add_user_to_organization(
+                        db=self.db,
+                        user_id=user.id,
+                        organization_id=invitation.organization_id,
+                        role_id=invitation.role_id,
+                        is_active=True,
+                    )
+                    await InvitationCRUD.update_invitation_status(
+                        self.db,
+                        invitation.id,
+                        InvitationStatus.ACCEPTED,
+                        accepted_at=datetime.now(timezone.utc),
+                    )
+                    logger.info(
+                        f"{user.id} added, org {invitation.organization_id}, invite {invitation.id}"
+                    )
+
             await delete_user_credentials(redis_client=self.redis_client, email=email)
             logger.info("Cleaned up pending registration for email=%s", email)
 
@@ -160,6 +203,7 @@ class RegistrationService:
             return {
                 "email": user.email,
                 "user_id": user.id,
+                "message": "Registration completed successfully.",
             }
 
         except ValueError as e:
@@ -244,7 +288,7 @@ class RegistrationService:
                 redis_client=self.redis_client,
                 email=email,
                 registration_data=credentials,
-                ttl_seconds=settings.REDIS_CACHE_TTL_SECONDS,
+                ttl_seconds=settings.REDIS_RESEND_TTL,
             )
 
             await self._send_otp_email(email, otp_code, background_tasks)

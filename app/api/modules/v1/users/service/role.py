@@ -66,6 +66,7 @@ class RoleCRUD:
             )
             raise Exception("Failed to create admin role")
 
+    @staticmethod
     async def get_default_user_role(
         db: AsyncSession,
         organization_id: uuid.UUID,
@@ -136,3 +137,21 @@ class RoleCRUD:
                 exc_info=True,
             )
             raise Exception("Failed to get or create user role")
+
+    @staticmethod
+    async def get_role_by_name_and_organization(
+        db: AsyncSession, role_name: str, organization_id: uuid.UUID
+    ) -> Optional[Role]:
+        """Get role by name and organization."""
+        try:
+            from sqlalchemy import select
+
+            result = await db.execute(
+                select(Role).where(Role.name == role_name, Role.organization_id == organization_id)
+            )
+            return result.scalar_one_or_none()
+        except Exception as e:
+            logger.error(
+                f"Error fetching role by name={role_name} for org={organization_id}: {str(e)}"
+            )
+            raise Exception("Failed to get role")

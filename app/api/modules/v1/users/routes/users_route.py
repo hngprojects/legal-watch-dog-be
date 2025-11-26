@@ -10,6 +10,14 @@ from app.api.modules.v1.organization.schemas.invitation_schema import Invitation
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
 from app.api.modules.v1.users.models.users_model import User
+from app.api.modules.v1.users.routes.docs.user_routes_docs import (
+    get_user_organizations_custom_errors,
+    get_user_organizations_custom_success,
+    get_user_organizations_responses,
+    get_user_profile_custom_errors,
+    get_user_profile_custom_success,
+    get_user_profile_responses,
+)
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -21,6 +29,7 @@ logger = logging.getLogger(__name__)
 @router.get(
     "/me",
     status_code=status.HTTP_200_OK,
+    responses=get_user_profile_responses,  # type: ignore
 )
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
@@ -68,9 +77,14 @@ async def get_current_user_profile(
         )
 
 
+get_current_user_profile._custom_errors = get_user_profile_custom_errors  # type: ignore
+get_current_user_profile._custom_success = get_user_profile_custom_success  # type: ignore
+
+
 @router.get(
     "/{user_id}/organisations",
     status_code=status.HTTP_200_OK,
+    responses=get_user_organizations_responses,  # type: ignore
 )
 async def get_user_organizations(
     user_id: uuid.UUID,
@@ -125,6 +139,10 @@ async def get_user_organizations(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve organizations",
         )
+
+
+get_user_organizations._custom_errors = get_user_organizations_custom_errors  # type: ignore
+get_user_organizations._custom_success = get_user_organizations_custom_success  # type: ignore
 
 
 @router.get(

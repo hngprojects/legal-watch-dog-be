@@ -8,7 +8,7 @@ from sqlmodel import select
 
 from app.api.modules.v1.organization.models.invitation_model import Invitation, InvitationStatus
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 class InvitationCRUD:
@@ -22,6 +22,7 @@ class InvitationCRUD:
         inviter_id: uuid.UUID,
         token: str,
         role_id: Optional[uuid.UUID] = None,
+        role_name: Optional[str] = None,
         status: InvitationStatus = InvitationStatus.PENDING,
     ) -> Invitation:
         """
@@ -34,6 +35,7 @@ class InvitationCRUD:
                 inviter_id=inviter_id,
                 token=token,
                 role_id=role_id,
+                role_name=role_name,
                 status=status,
             )
             db.add(invitation)
@@ -115,6 +117,13 @@ class InvitationCRUD:
         except Exception as e:
             logger.error("Failed to get pending invitations for email=%s: %s", email, str(e))
             raise Exception("Failed to get invitations")
+
+    @staticmethod
+    async def _is_invitation_expired(invitation: Invitation) -> bool:
+        """
+        Check if an invitation has expired.
+        """
+        return invitation.expires_at < datetime.now(timezone.utc)
 
     @staticmethod
     async def expire_invitation(db: AsyncSession, invitation_id: uuid.UUID) -> Invitation:
