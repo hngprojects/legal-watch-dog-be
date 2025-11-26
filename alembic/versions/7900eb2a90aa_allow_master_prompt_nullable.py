@@ -1,8 +1,8 @@
 """allow master prompt nullable
 
-Revision ID: 332d6612e358
-Revises: 8db953970cc0
-Create Date: 2025-11-26 10:32:15.796461
+Revision ID: 7900eb2a90aa
+Revises: 92b6d9686574
+Create Date: 2025-11-26 13:46:15.540005
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '332d6612e358'
-down_revision: Union[str, Sequence[str], None] = '8db953970cc0'
+revision: str = '7900eb2a90aa'
+down_revision: Union[str, Sequence[str], None] = '92b6d9686574'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
