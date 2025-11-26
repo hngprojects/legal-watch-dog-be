@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -93,6 +93,8 @@ get_current_user_profile._custom_success = get_user_profile_custom_success  # ty
     responses=get_user_organizations_responses,  # type: ignore
 )
 async def get_all_user_organizations(
+    page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
+    limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -122,6 +124,8 @@ async def get_all_user_organizations(
         service = OrganizationService(db)
         result = await service.get_user_organizations(
             user_id=user_id,
+            page=page,
+            limit=limit,
         )
 
         return success_response(

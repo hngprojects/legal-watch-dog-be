@@ -157,25 +157,45 @@ class ProjectService:
         project_id: UUID,
         organization_id: UUID,
         data: ProjectUpdate,
-    ) -> tuple[Optional[Project]]:
+    ) -> tuple[Optional[Project], str]:
         """
-        Update project with provided data.
+        Update project with provided data,  including soft delete/restore
 
         Args:
+            db: Database session
             project_id: Project UUID
             organization_id: Organization UUID
             data: Update data
         """
         logger.info(f"Updating project_id={project_id}")
 
-        project = await get_project_by_id(self.db, project_id, organization_id)
+        project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
         if not project:
             logger.warning(f"Project not found for update: project_id={project_id}")
             return None, "Project not found"
 
         update_data = data.model_dump(exclude_unset=True)
+        success_message = "Project updated successfully"
         changes_made = False
+
+        if "is_deleted" in update_data:
+            requested_state = update_data["is_deleted"]
+            current_state = project.is_deleted
+
+            if requested_state != current_state:
+                project.is_deleted = requested_state
+                project.deleted_at = datetime.now(timezone.utc) if requested_state else None
+                success_message = (
+                    "Project archived successfully"
+                    if requested_state
+                    else "Project restored successfully"
+                )
+                changes_made = True
+            else:
+                success_message = f"Project is already {'archived' if current_state else 'active'}"
+
+            del update_data["is_deleted"]
 
         for field, value in update_data.items():
             setattr(project, field, value)
@@ -190,7 +210,7 @@ class ProjectService:
 
         logger.info(f"Project updated successfully: project_id={project_id}")
 
-        return project
+        return project, success_message
 
     async def delete_project(self, project_id: UUID, organization_id: UUID) -> bool:
         """
@@ -218,39 +238,6 @@ class ProjectService:
         logger.warning(f"Project deleted permanently: project_id={project_id}")
 
         return True
-
-    async def soft_delete_project(
-        self, project_id: UUID, organization_id: UUID
-    ) -> Optional[Project]:
-        """
-        Soft delete project by marking it as deleted.
-
-        Args:
-            project_id: Project UUID
-            organization_id: Organization UUID
-
-        Returns:
-            Updated Project object if found, None otherwise
-        """
-        logger.info(f"Soft deleting project_id={project_id}")
-
-        project = await get_project_by_id(self.db, project_id, organization_id)
-
-        if not project:
-            logger.warning(f"Project not found for soft delete: project_id={project_id}")
-            return None
-
-        project.is_deleted = True
-        project.deleted_at = datetime.now(timezone.utc)
-        project.updated_at = datetime.now(timezone.utc)
-
-        self.db.add(project)
-        await self.db.commit()
-        await self.db.refresh(project)
-
-        logger.info(f"Project soft deleted successfully: project_id={project_id}")
-
-        return project
 
     async def get_users(self, project_id: UUID, organization_id: UUID) -> Optional[List[UUID]]:
         """

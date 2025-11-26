@@ -22,6 +22,7 @@ class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     master_prompt: Optional[str] = None
+    is_deleted: Optional[bool] = None
 
     @field_validator("master_prompt", mode="before")
     @classmethod
