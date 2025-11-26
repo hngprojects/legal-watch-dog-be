@@ -129,7 +129,7 @@ async def test_update_project_service_success(pg_async_session: AsyncSession):
     await pg_async_session.refresh(project)
 
     data = ProjectUpdate(title="Updated Title")
-    updated_project = await project_service.update_project(project.id, org.id, data)
+    updated_project, message = await project_service.update_project(project.id, org.id, data)
 
     assert updated_project is not None
     assert updated_project.title == "Updated Title"
