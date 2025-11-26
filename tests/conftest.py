@@ -206,7 +206,7 @@ async def pg_async_session(event_loop):
         await conn.execute(text("CREATE SCHEMA public"))
         # Grant permissions on the schema
         await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-        await conn.execute(text('GRANT ALL ON SCHEMA public TO "user"'))
+        await conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{settings.DB_USER}"'))
         # Then create all tables fresh
         await conn.run_sync(SQLModel.metadata.create_all)
         # Add missing columns that exist in model but not auto-created
