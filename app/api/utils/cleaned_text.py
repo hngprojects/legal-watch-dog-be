@@ -13,8 +13,23 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 def normalize_text(text: str) -> str:
+    """
+    Normalize a text string by collapsing and cleaning whitespace.
+
+    This function:
+    - Collapses multiple whitespace characters (spaces, tabs, newlines) into a single space.
+    - Replaces non-breaking spaces (\\xa0) with regular spaces.
+    - Strips leading and trailing whitespace.
+
+    Args:
+        text (str): The input text to normalize. Can be empty or None-like.
+
+    Returns:
+        str: A clean, whitespace-normalized string. Returns an empty
+        string if the input is falsy.
+    """
+
     if not text:
         return ""
     text = re.sub(r"\s+", " ", text)
@@ -23,6 +38,28 @@ def normalize_text(text: str) -> str:
 
 
 def cleaned_html(raw_bytes: bytes) -> str:
+    """
+    Clean raw HTML bytes and extract readable text content.
+
+    This function:
+    - Decodes raw HTML bytes (UTF-8 with fallback to Latin-1).
+    - Parses the HTML using BeautifulSoup.
+    - Removes junk elements such as:
+        * <script>, <style>, <meta>, <header>, <footer>, <nav>, forms, SVG, ads
+    - Removes HTML comments.
+    - Removes elements whose IDs or classes contain keywords like:
+      "cookie", "banner", "popup", "ads", "tracking", "newsletter", etc.
+    - Extracts only meaningful visible text.
+    - Normalizes whitespace using `normalize_text`.
+
+    Args:
+        raw_bytes (bytes): Raw HTML content to clean and extract text from.
+            Passing empty bytes returns an empty string.
+
+    Returns:
+        str: Cleaned, human-readable text extracted from the HTML. Returns an
+        empty string if BeautifulSoup is not installed or if processing fails.
+    """
     if not raw_bytes:
         return ""
 
@@ -33,6 +70,7 @@ def cleaned_html(raw_bytes: bytes) -> str:
         return ""
 
     try:
+        
         try:
             html_str = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
@@ -40,6 +78,7 @@ def cleaned_html(raw_bytes: bytes) -> str:
 
         soup = BeautifulSoup(html_str, "html.parser")
 
+        # Remove junk tags completely
         junk_tags = [
             "script",
             "style",
@@ -65,9 +104,11 @@ def cleaned_html(raw_bytes: bytes) -> str:
             for tag in soup.find_all(tag_name):
                 tag.decompose()
 
+        # Remove comments
         for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
             comment.extract()
 
+        # Remove elements with junk keywords in ID or class
         junk_keywords = [
             "cookie",
             "popup",
@@ -89,6 +130,7 @@ def cleaned_html(raw_bytes: bytes) -> str:
             if pattern.search(elem_id) or pattern.search(elem_class):
                 element.decompose()
 
+        # Extract readable text
         lines = [
             normalize_text(line)
             for line in soup.get_text(separator="\n").splitlines()
