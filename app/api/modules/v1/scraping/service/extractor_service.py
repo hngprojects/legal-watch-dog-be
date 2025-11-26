@@ -23,9 +23,30 @@ from app.api.utils.cleaned_text import cleaned_html, normalize_text
 logger = logging.getLogger(__name__)
 EXTRACTOR_VERSION = "1.3.0"
 
-
 class TextExtractorService:
+    """
+    Service responsible for extracting cleaned text from HTML stored in MinIO
+    and optionally uploading processed text back to MinIO.
+
+    This class handles:
+    - Fetching raw HTML content from MinIO.
+    - Cleaning, normalizing, and extracting readable text.
+    - Falling back to Readability extraction when needed.
+    - Uploading cleaned text into a destination bucket.
+    """
+
     async def extract_from_minio(self, bucket: str, object_name: str) -> str:
+        """
+        Fetch and extract clean text from an HTML file stored in MinIO.
+
+        Args:
+            bucket (str): The name of the MinIO bucket containing the raw HTML.
+            object_name (str): The object key identifying the HTML file.
+
+        Returns:
+            str: Cleaned and normalized text extracted from the HTML.
+                 Returns an empty string if extraction fails or content is too small.
+        """
         html_bytes = await run_in_threadpool(fetch_raw_content_from_minio, object_name, bucket)
 
         if not html_bytes or len(html_bytes.strip()) < 20:
@@ -55,6 +76,25 @@ class TextExtractorService:
         source_id: UUID,
         revision_id: UUID = None,
     ) -> dict:
+        """
+        Extract text from an HTML object in MinIO and upload the cleaned result
+        to another MinIO bucket.
+
+        Args:
+            src_bucket (str): Bucket containing the raw HTML file.
+            html_object (str): Object key of the HTML file to process.
+            dest_bucket (str): Bucket where cleaned text will be uploaded.
+            source_id (UUID): Identifier for the content source.
+            revision_id (UUID, optional): Revision identifier. A new one is generated if not provided.
+
+        Returns:
+            dict: Structured response containing:
+                - success (bool): Whether extraction and upload were successful.
+                - message (str): Human-readable status message.
+                - status_code (int): HTTP-like status value.
+                - data (dict): Metadata including revision ID, source ID, object key,
+                               preview of extracted text, and total character count.
+        """
         revision_id = revision_id or uuid4()
         minio_object_key = self._generate_minio_key(source_id, revision_id)
 
@@ -95,5 +135,15 @@ class TextExtractorService:
         }
 
     def _generate_minio_key(self, source_id: UUID, revision_id: UUID) -> str:
+        """
+        Generate a unique MinIO object key for storing cleaned text.
+
+        Args:
+            source_id (UUID): The ID of the content source.
+            revision_id (UUID): The unique revision identifier.
+
+        Returns:
+            str: The generated MinIO object key, including timestamp and revision ID.
+        """
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         return f"clean/{source_id}/{timestamp}_{revision_id}.txt"

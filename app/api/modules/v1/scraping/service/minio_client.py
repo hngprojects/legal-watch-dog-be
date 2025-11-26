@@ -35,18 +35,19 @@ else:
 
 def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> str:
     """
-    Uploads raw byte data (HTML/PDF) to the specified MinIO bucket.
+    Upload raw byte content to the specified MinIO bucket.
 
     Args:
-        file_data (bytes): The raw content to upload.
-        bucket_name (str): The target bucket (e.g., 'raw-content').
-        object_name (str): The unique key (e.g., 'project_id/source_id/timestamp.html').
+        file_data (bytes): The binary content to upload (HTML, PDF, text, etc.).
+        bucket_name (str): The destination MinIO bucket name.
+        object_name (str): The object key under which the file will be stored.
 
     Returns:
-        str: The object_name (key) if successful.
+        str: The object_name (key) upon successful upload.
 
     Raises:
-        Exception: If upload fails, triggering the Retry/DLQ logic in the caller.
+        Exception: If MinIO is not installed, client initialization failed,
+                   or if the upload process encounters an error.
     """
     if not _HAS_MINIO:
         raise Exception(
@@ -57,6 +58,7 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
         raise Exception("MinIO client is not initialized. Check configuration.")
 
     try:
+        # Ensure bucket exists or create it
         try:
             if not minio_client.bucket_exists(bucket_name=bucket_name):
                 logger.info(f"Bucket '{bucket_name}' does not exist. Creating it...")
@@ -67,13 +69,14 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
             try:
                 minio_client.make_bucket(bucket_name=bucket_name)
             except Exception as create_err:
-                if "BucketAlreadyExists" not in str(
-                    create_err
-                ) and "BucketAlreadyOwnedByYou" not in str(create_err):
+                if (
+                    "BucketAlreadyExists" not in str(create_err)
+                    and "BucketAlreadyOwnedByYou" not in str(create_err)
+                ):
                     raise create_err
 
+        # Upload object
         data_stream = io.BytesIO(file_data)
-
         minio_client.put_object(
             bucket_name=bucket_name,
             object_name=object_name,
@@ -97,9 +100,17 @@ def fetch_raw_content_from_minio(
     object_name: str, bucket_name: str = "raw-content"
 ) -> Optional[bytes]:
     """
-    Retrieves raw content from MinIO. Used for debugging or 'View Source' features.
-    """
+    Retrieve raw byte content from a MinIO bucket.
 
+    Args:
+        object_name (str): The key identifying the object to retrieve.
+        bucket_name (str, optional): The bucket to fetch from. Defaults to "raw-content".
+
+    Returns:
+        Optional[bytes]:
+            - The raw file contents as bytes if the object is found and read successfully.
+            - None if the object does not exist, MinIO is unavailable, or an error occurs.
+    """
     if not minio_client:
         return None
 
