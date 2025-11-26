@@ -1,3 +1,11 @@
+"""
+Mock ExtractorService Tests
+
+This module contains unit tests for the TextExtractorService class, which is responsible for
+extracting text from raw content (HTML, etc.), cleaning it, and managing MinIO uploads.
+It mocks the MinIO interactions to avoid external dependencies during testing.
+"""
+
 from unittest.mock import patch
 from uuid import uuid4
 
