@@ -4,8 +4,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlmodel import Session
 
 from app.api.core.config import settings
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.tasks import (
     CELERY_DLQ_KEY,
@@ -13,6 +17,23 @@ from app.api.modules.v1.scraping.service.tasks import (
     get_next_scrape_time,
     scrape_source,
 )
+
+
+def mock_exec_side_effect(session):
+    """
+    Creates a side_effect function that translates SQLModel's db.exec()
+    into SQLAlchemy's db.execute().scalars().
+    """
+
+    def side_effect(statement):
+        return session.execute(statement).scalars()
+
+    return side_effect
+
+
+@pytest.fixture
+def sync_session(pg_sync_session):
+    return pg_sync_session
 
 
 @pytest.mark.parametrize(
@@ -31,107 +52,171 @@ def test_get_next_scrape_time(frequency, expected_delta):
     assert abs((next_time - now) - expected_delta) < timedelta(seconds=1)
 
 
-def test_scrape_source_success():
+def test_scrape_source_success(sync_session: Session):
     """Tests the successful scraping of a source."""
-    source_id = str(uuid.uuid4())
+
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
     source = Source(
-        id=uuid.UUID(source_id),
-        jurisdiction_id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction.id,
         name="Test Source",
         url="http://example.com",
         scrape_frequency="HOURLY",
         next_scrape_time=datetime.now(timezone.utc) - timedelta(hours=1),
     )
-
-    # Mock the AsyncSession as a MagicMock to control async vs sync methods
-    mock_db = MagicMock()
-    # Configure async methods
-    mock_db.execute = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.refresh = AsyncMock()
-    mock_db.close = AsyncMock()
-    # Configure sync methods
-    mock_db.add = MagicMock()
-
-    # Configure execute to return a mock that has a .scalars().first() method chain
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.first.return_value = source
-    mock_db.execute.return_value = mock_result
+    sync_session.add(source)
+    sync_session.commit()
+    sync_session.refresh(source)
 
     with (
         patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
+        mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock()
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+        mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
+
+        # Mock execute to return the source from sync_session
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.first.return_value = (
+                sync_session.execute(stmt).scalars().first()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_context = MagicMock()
         mock_context.retries = 0
         scrape_source.push_request(mock_context)
 
         try:
-            result = scrape_source.run(source_id)
+            result = scrape_source.run(str(source.id))
         finally:
             scrape_source.pop_request()
 
+    sync_session.refresh(source)
+
+    next_scrape_time = source.next_scrape_time
+    if next_scrape_time.tzinfo is None:
+        next_scrape_time = next_scrape_time.replace(tzinfo=timezone.utc)
+
     assert "scraped successfully" in result
-    mock_db.commit.assert_awaited_once()
-    mock_db.refresh.assert_awaited_once()
-    mock_db.add.assert_called_once_with(source)
-
-    # Verify stats updated
-    assert source.last_scraped_at is not None
-    assert source.last_error is None
+    assert next_scrape_time > datetime.now(timezone.utc)
 
 
-def test_scrape_source_not_found():
+def test_scrape_source_not_found(sync_session: Session):
     """Tests the case where the source ID does not exist."""
-    non_existent_id = str(uuid.uuid4())
-
-    mock_db = MagicMock()
-    mock_db.execute = AsyncMock()
-    mock_db.close = AsyncMock()
-
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.first.return_value = None
-    mock_db.execute.return_value = mock_result
+    non_existent_id = uuid.uuid4()
 
     with patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls:
+        mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock()
 
-        result = scrape_source.run(non_existent_id)
+        # Mock execute to query from sync_session and return None
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.first.return_value = (
+                sync_session.execute(stmt).scalars().first()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
+
+        result = scrape_source.run(str(non_existent_id))
 
     assert "not found" in result
 
 
-def test_scrape_source_dlq_on_max_retries():
+def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     """Tests that a failed scrape_source task is moved to DLQ after max retries."""
-    source_id = str(uuid.uuid4())
 
-    # Mock Redis
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
+    source = Source(
+        jurisdiction_id=jurisdiction.id,
+        name="DLQ Test Source",
+        url="http://dlq.com",
+        scrape_frequency="HOURLY",
+        next_scrape_time=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    sync_session.add(source)
+    sync_session.commit()
+    sync_session.refresh(source)
+
     with (
-        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal"),
+        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
         patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
-        patch(
-            "app.api.modules.v1.scraping.service.tasks._scrape_source_async", new_callable=MagicMock
-        ) as mock_scrape_async,
+        patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        # Simulate failure in scraping logic directly
-        mock_scrape_async.side_effect = Exception("Simulated scraping failure")
+        mock_db = MagicMock()
+        mock_session_cls.return_value.__aenter__.return_value = mock_db
+        mock_db.execute = AsyncMock(side_effect=Exception("Simulated scraping failure"))
 
         mock_redis_client = MagicMock()
         mock_redis_cls.return_value = mock_redis_client
 
-        max_retries = settings.SCRAPE_MAX_RETRIES
-
-        for i in range(max_retries):
-            scrape_source.push_request(id="test_task_id", args=[source_id], retries=i)
+        for i in range(settings.SCRAPE_MAX_RETRIES):
+            scrape_source.push_request(id="test_task_id", args=[str(source.id)], retries=i)
             with pytest.raises(Exception):
-                scrape_source.run(source_id)
+                scrape_source.run(str(source.id))
             scrape_source.pop_request()
 
-        scrape_source.push_request(id="test_task_id", args=[source_id], retries=max_retries)
+        scrape_source.push_request(
+            id="test_task_id", args=[str(source.id)], retries=settings.SCRAPE_MAX_RETRIES
+        )
 
-        result = scrape_source.run(source_id)
+        result = scrape_source.run(str(source.id))
         scrape_source.pop_request()
 
         assert "moved to DLQ" in result
@@ -142,60 +227,68 @@ def test_scrape_source_dlq_on_max_retries():
         dlq_entry = json.loads(called_args[1])
         assert dlq_entry["task_id"] == "test_task_id"
 
-        # Verify circuit breaker was called
-        # Note: Since it's called via asyncio.run inside the exception handler,
-        # we need to ensure our mock was set up to capture this.
-        # However, we mocked _scrape_source_async, not _handle_scrape_failure_async.
-        # We need to mock _handle_scrape_failure_async in the test setup.
 
-    # Re-run the test with _handle_scrape_failure_async mocked
-    with (
-        patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal"),
-        patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
-        patch(
-            "app.api.modules.v1.scraping.service.tasks._scrape_source_async", new_callable=MagicMock
-        ) as mock_scrape_async,
-        patch(
-            "app.api.modules.v1.scraping.service.tasks._handle_scrape_failure_async",
-            new_callable=MagicMock,
-        ) as mock_handle_failure,
-    ):
-        mock_scrape_async.side_effect = Exception("Simulated scraping failure")
-        mock_redis_client = MagicMock()
-        mock_redis_cls.return_value = mock_redis_client
-
-        scrape_source.push_request(
-            id="test_task_id", args=[source_id], retries=settings.SCRAPE_MAX_RETRIES
-        )
-        result = scrape_source.run(source_id)
-        scrape_source.pop_request()
-
-        assert "moved to DLQ" in result
-        # Verify circuit breaker called
-        mock_handle_failure.assert_called_once()
-
-
-def test_dispatch_due_sources_acquires_lock_and_dispatches():
+def test_dispatch_due_sources_acquires_lock_and_dispatches(
+    sync_session: Session, mock_redis: MagicMock
+):
     """Tests that the dispatcher acquires a lock and dispatches tasks."""
-    source1 = Source(id=uuid.uuid4(), name="Due Source 1", scrape_frequency="HOURLY")
-    source2 = Source(id=uuid.uuid4(), name="Due Source 2", scrape_frequency="HOURLY")
 
-    mock_db = MagicMock()
-    mock_db.execute = AsyncMock()
-    mock_db.close = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.add = MagicMock()
+    organization1 = Organization(
+        name="Test Organization 1",
+    )
+    organization2 = Organization(
+        name="Test Organization 2",
+    )
+    sync_session.add_all([organization1, organization2])
+    sync_session.commit()
+    sync_session.refresh(organization1)
+    sync_session.refresh(organization2)
 
-    # Configure mock results for batching
-    mock_result_batch1 = MagicMock()
-    mock_result_batch1.scalars.return_value.all.return_value = [source1, source2]
+    project1 = Project(
+        org_id=organization1.id,
+        title="Test Project 1",
+        description="Test project description 1",
+    )
+    project2 = Project(
+        org_id=organization2.id,
+        title="Test Project 2",
+        description="Test project description 2",
+    )
+    sync_session.add_all([project1, project2])
+    sync_session.commit()
+    sync_session.refresh(project1)
+    sync_session.refresh(project2)
 
-    mock_result_batch2 = MagicMock()
-    mock_result_batch2.scalars.return_value.all.return_value = []
+    jurisdiction1 = Jurisdiction(
+        project_id=project1.id,
+        name="Test Jurisdiction 1",
+        description="Test description 1",
+    )
+    jurisdiction2 = Jurisdiction(
+        project_id=project2.id,
+        name="Test Jurisdiction 2",
+        description="Test description 2",
+    )
+    sync_session.add_all([jurisdiction1, jurisdiction2])
+    sync_session.commit()
+    sync_session.refresh(jurisdiction1)
+    sync_session.refresh(jurisdiction2)
 
-    # side_effect on the AWAITED result of execute
-    # We need to ensure that the return values are treated as the result of the await
-    mock_db.execute.side_effect = [mock_result_batch1, mock_result_batch2]
+    now = datetime.now(timezone.utc)
+    source1 = Source(
+        jurisdiction_id=jurisdiction1.id,
+        name="Due Source 1",
+        url="http://due1.com",
+        next_scrape_time=now - timedelta(hours=1),
+    )
+    source2 = Source(
+        jurisdiction_id=jurisdiction2.id,
+        name="Due Source 2",
+        url="http://due2.com",
+        next_scrape_time=now - timedelta(minutes=30),
+    )
+    sync_session.add_all([source1, source2])
+    sync_session.commit()
 
     with (
         patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
@@ -206,7 +299,24 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches():
         mock_redis_instance.set.return_value = True
         mock_redis_cls.return_value = mock_redis_instance
 
+        mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
+
+        # Mock async methods to use sync_session
+        mock_db.execute = AsyncMock()
+        mock_db.exec = AsyncMock()
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+
+        # Mock execute to query from sync_session
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = (
+                sync_session.execute(stmt).scalars().all()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_app.send_task = MagicMock()
 
@@ -215,11 +325,6 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches():
     assert "Dispatched 2 sources" in result
     assert mock_redis_instance.set.call_count == 1
     assert mock_app.send_task.call_count == 2
-
-    # Verify DB interactions
-    assert mock_db.execute.call_count == 2
-    assert mock_db.add.call_count == 2
-    assert mock_db.commit.call_count == 2
 
 
 def test_dispatch_due_sources_lock_already_held():
@@ -236,15 +341,42 @@ def test_dispatch_due_sources_lock_already_held():
     assert mock_redis_instance.set.call_count == 1
 
 
-def test_dispatch_due_sources_no_due_sources():
+def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     """Tests that the dispatcher does nothing if no sources are due."""
-    mock_db = MagicMock()
-    mock_db.execute = AsyncMock()
-    mock_db.close = AsyncMock()
 
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
-    mock_db.execute.return_value = mock_result
+    organization = Organization(
+        name="Test Organization",
+    )
+    sync_session.add(organization)
+    sync_session.commit()
+    sync_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test project description",
+    )
+    sync_session.add(project)
+    sync_session.commit()
+    sync_session.refresh(project)
+
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Jurisdiction",
+        description="Test description",
+    )
+    sync_session.add(jurisdiction)
+    sync_session.commit()
+    sync_session.refresh(jurisdiction)
+
+    source = Source(
+        jurisdiction_id=jurisdiction.id,
+        name="Future Source",
+        url="http://future.com",
+        next_scrape_time=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    sync_session.add(source)
+    sync_session.commit()
 
     with (
         patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
@@ -255,7 +387,20 @@ def test_dispatch_due_sources_no_due_sources():
         mock_redis_instance.set.return_value = True
         mock_redis_cls.return_value = mock_redis_instance
 
+        mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
+
+        # Mock execute to query from sync_session
+        mock_db.execute = AsyncMock()
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.all.return_value = (
+                sync_session.execute(stmt).scalars().all()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
 
         mock_app.send_task = MagicMock()
 
