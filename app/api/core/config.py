@@ -69,7 +69,12 @@ class Settings(BaseSettings):
     ALLOW_TEST_EMAIL_PROVIDERS: bool = config("ALLOW_TEST_EMAIL_PROVIDERS", default=True, cast=bool)
     TEST_EMAIL_PROVIDERS: str = config("TEST_EMAIL_PROVIDERS", default="gmail.com")
 
-    # MinIO
+    # Scraping
+    SCRAPE_MAX_RETRIES: int = config("SCRAPE_MAX_RETRIES", default=5, cast=int)
+    SCRAPE_BASE_DELAY: int = config("SCRAPE_BASE_DELAY", default=60, cast=int)
+    SCRAPE_MAX_DELAY: int = config("SCRAPE_MAX_DELAY", default=3600, cast=int)
+    SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
+    SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
 
     MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9001")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="lwd")

@@ -28,7 +28,7 @@ class Project(SQLModel, table=True):
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     master_prompt: Optional[str] = Field(
         default=None,
-        sa_column=Column(Text),
+        sa_column=Column(Text, nullable=True),
         description="High-level AI prompt for the entire project",
     )
     is_deleted: bool = Field(default=False)
