@@ -38,6 +38,14 @@ class InvitationCRUD:
                 role_name=role_name,
                 status=status,
             )
+
+            logger.info(
+            "Created invitation: id=%s, org_id=%s, invited_email=%s, token=%s",
+            invitation.id,
+            invitation.organization_id,
+            invitation.invited_email,
+            token, 
+        )
             db.add(invitation)
             await db.flush()
             await db.refresh(invitation)

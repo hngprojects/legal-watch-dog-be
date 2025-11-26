@@ -384,7 +384,19 @@ class OrganizationService:
                 role_name=role_name,
             )
 
+            logger.info(
+                "INVITATION TOKEN GENERATED - Token: %s, Email: %s, Org: %s",
+                token,
+                invited_email,
+                organization_id
+            )
+
             invitation_link = f"{settings.APP_URL}/auth/accept-invite/{token}"
+
+            logger.info(
+            "TESTING - Invitation link: %s",
+            invitation_link
+        )
 
             context = {
                 "organization_name": organization.name,
