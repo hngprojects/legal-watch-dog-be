@@ -22,7 +22,6 @@ class LogoutResponse(BaseModel):
     """Logout response schema."""
 
     message: str
-    success: bool
 
 
 class RefreshTokenResponse(BaseModel):

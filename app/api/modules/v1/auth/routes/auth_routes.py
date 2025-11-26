@@ -7,6 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.core.config import settings
 from app.api.core.dependencies.registeration_redis import get_redis
 from app.api.db.database import get_db
+from app.api.modules.v1.auth.routes.docs.auth_routes_docs import (
+    company_signup_custom_errors,
+    company_signup_custom_success,
+    company_signup_responses,
+    request_new_otp_custom_errors,
+    request_new_otp_custom_success,
+    request_new_otp_responses,
+    verify_otp_custom_errors,
+    verify_otp_custom_success,
+    verify_otp_responses,
+)
 from app.api.modules.v1.auth.schemas.register import (
     RegisterRequest,
     RegisterResponse,
@@ -31,6 +42,7 @@ logger = logging.getLogger(__name__)
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
+    responses=company_signup_responses,  # type: ignore
 )
 async def company_signup(
     payload: RegisterRequest,
@@ -39,27 +51,24 @@ async def company_signup(
     redis_client: Redis = Depends(get_redis),
 ):
     """
-    Company sign-up endpoint.
+    Initiate company registration with email verification.
 
-    Initiates the company registration process by validating the email,
-    generating an OTP, and sending verification email. The actual organization
-    and user creation happens after OTP verification.
+    Creates a pending registration, generates an OTP, and sends it to the provided
+    email address. Actual organization and user creation occurs after OTP verification.
 
     Args:
-        payload: Registration request with email, password, name, industry
-        background_tasks: FastAPI background tasks for async operations
-        db: Database session dependency
-        redis_client: Redis client dependency
+        payload (RegisterRequest): Registration details including name, email, and password.
+        background_tasks (BackgroundTasks): FastAPI background tasks instance for async operations.
+        db (AsyncSession, optional): Async SQLAlchemy session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP management.
+        Defaults to Depends(get_redis).
 
     Returns:
-        RegisterResponse: Success response with registration details
-
-    Raises:
-        HTTPException: 400 for validation errors, 500 for server errors
+        dict: Standardized success or error response with status, message, and data/error details.
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_company(payload, background_tasks)
+        result = await service.register_user(payload, background_tasks)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -80,14 +89,20 @@ async def company_signup(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Registration failed. Please try again later.",
         )
 
 
+company_signup._custom_errors = company_signup_custom_errors  # type: ignore
+company_signup._custom_success = company_signup_custom_success  # type: ignore
+
+
 @router.post(
-    "/verify-otp",
+    "/otp/verification",
     response_model=VerifyOTPResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
+    responses=verify_otp_responses,  # type: ignore
 )
 async def verify_otp(
     payload: VerifyOTPRequest,
@@ -97,19 +112,17 @@ async def verify_otp(
     """
     Verify OTP and complete company registration.
 
-    Validates the OTP code sent to the user's email and completes the
-    registration by creating the organization, admin role, and admin user.
+    Validates the one-time password sent to the user's email and completes the
+    registration process by creating the organization, admin role, and admin user account.
 
     Args:
-        payload: OTP verification request with email and code
-        db: Database session dependency
-        redis_client: Redis client dependency
+        payload (VerifyOTPRequest): Object containing email and OTP code.
+        db (AsyncSession, optional): Async database session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP validation
+        Defaults to Depends(get_redis).
 
     Returns:
-        VerifyOTPResponse: Success response with organization and user details
-
-    Raises:
-        HTTPException: 400 for invalid OTP, 500 for server errors
+        dict: Standardized success or error response indicating OTP verification status.
     """
     try:
         service = RegistrationService(db, redis_client)
@@ -135,39 +148,42 @@ async def verify_otp(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="OTP verification failed. Please try again later.",
         )
 
 
+verify_otp._custom_errors = verify_otp_custom_errors  # type: ignore
+verify_otp._custom_success = verify_otp_custom_success  # type: ignore
+
+
 @router.post(
-    "/resend-otp",
+    "/otp/requests",
     response_model=RegisterResponse,
     status_code=status.HTTP_200_OK,
+    responses=request_new_otp_responses,  # type: ignore
 )
-async def resend_otp(
+async def request_new_otp(
     payload: ResendOTPRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
 ):
     """
-    Resend registration OTP for a pending signup.
+    Resend OTP for pending registration.
 
-    Handles resending an OTP to an email that has already started
-    registration but has not yet completed verification.
+    Generates and sends a new OTP code to an email address with a pending registration
+    that has not yet completed verification. The previous OTP is invalidated.
 
     Args:
-        payload: Request body containing the email address to resend OTP to.
-        background_tasks: FastAPI background task handler for sending email asynchronously.
-        db: Database session dependency.
-        redis_client: Redis client dependency used to look up pending registrations.
+        payload (ResendOTPRequest): Object containing the email to resend OTP for.
+        background_tasks (BackgroundTasks): FastAPI background tasks instance for async operations.
+        db (AsyncSession, optional): Async database session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP management.
+        Defaults to Depends(get_redis).
 
     Returns:
-        RegisterResponse: Success response including the registered email address.
-
-    Raises:
-        HTTPException: 400 if validation fails (no pending registration, already registered),
-                       500 for unexpected server errors.
+        dict: Standardized success or error response containing OTP resend status.
     """
     try:
         service = RegistrationService(db, redis_client)
@@ -176,7 +192,7 @@ async def resend_otp(
             background_tasks=background_tasks,
         )
 
-        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes = settings.REDIS_RESEND_TTL / 60
         minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
         unit = "minute" if minutes_display == 1 else "minutes"
         return success_response(
@@ -201,5 +217,10 @@ async def resend_otp(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Failed to resend OTP. Please try again later.",
         )
+
+
+request_new_otp._custom_errors = request_new_otp_custom_errors  # type: ignore
+request_new_otp._custom_success = request_new_otp_custom_success  # type: ignore
