@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.modules.v1.auth.routes.auth_routes import router as register_router
 from app.api.modules.v1.auth.routes.login_route import router as auth_router
+from app.api.modules.v1.auth.routes.oauth_microsoft import router as oauth_microsoft_router
 from app.api.modules.v1.auth.routes.reset_password import (
     router as password_reset_router,
 )
@@ -21,6 +22,7 @@ router.include_router(register_router)
 router.include_router(organization_router)
 router.include_router(users_router)
 router.include_router(auth_router)
+router.include_router(oauth_microsoft_router)
 router.include_router(password_reset_router)
 router.include_router(scraping_router)
 router.include_router(project_router)
