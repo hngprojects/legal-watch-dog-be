@@ -684,46 +684,6 @@ class JurisdictionService:
             await db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def get_jurisdiction_tree(self, db: AsyncSession, jurisdiction_id: UUID):
-        """
-        Docstring for get_jurisdiction_tree (nested jurisdiction)
-
-        :param self: Description
-        :param db: Description
-        :type db: AsyncSession
-        :param jurisdiction_id: Description
-        :type jurisdiction_id: UUID
-        """
-        try:
-            stmt = (
-                select(Jurisdiction)
-                .where(Jurisdiction.id == jurisdiction_id)
-                .options(
-                    selectinload(Jurisdiction.children)  # type: ignore
-                )
-            )
-            result = await db.execute(stmt)
-            parent = result.scalars().first()
-
-            if not parent:
-                return None
-
-            if getattr(parent, "is_deleted", False):
-                try:
-                    await db.refresh(parent)
-                except Exception:
-                    pass
-
-            if getattr(parent, "is_deleted", False):
-                return None
-
-            await filter_archived_recursive(parent, db)
-
-            return self._serialize_jurisdiction(parent)
-
-        except SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 class OrgResourceGuard:
     """
