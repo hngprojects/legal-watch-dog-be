@@ -20,6 +20,9 @@ from app.api.modules.v1.scraping.schemas.ai_analysis import ExtractionResult
 
 logger = logging.getLogger(__name__)
 
+# Constants
+_MAX_PROMPT_TEXT_CHARS = 1_000_000
+
 if _HAS_GENAI and settings.GEMINI_API_KEY:
     genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -138,7 +141,7 @@ SUMMARY RULES (UI RENDER):
     - MUST be based strictly on the 'extracted_data'.
 
 --- SOURCE TEXT ---
-{cleaned_text[:1000000]} 
+{cleaned_text[:_MAX_PROMPT_TEXT_CHARS]} 
 """
 
         for attempt in range(max_retries + 1):
@@ -181,10 +184,10 @@ SUMMARY RULES (UI RENDER):
 
                 if attempt < max_retries:
                     base_delay = 1.0
-                    exponential_delay = base_delay * (2**attempt)
+                    exponential_delay = base_delay * (2 ** attempt)
                     jitter = random.uniform(0, exponential_delay * 0.5)
                     total_delay = exponential_delay + jitter
-
+                    
                     logger.info(f"Retrying in {total_delay:.2f}s (attempt {attempt + 1})")
                     await asyncio.sleep(total_delay)
                 else:
@@ -196,10 +199,10 @@ SUMMARY RULES (UI RENDER):
                 logger.error(f"Unexpected AI Error: {e}")
                 if attempt < max_retries:
                     base_delay = 1.0
-                    exponential_delay = base_delay * (2**attempt)
+                    exponential_delay = base_delay * (2 ** attempt)
                     jitter = random.uniform(0, exponential_delay * 0.5)
                     total_delay = exponential_delay + jitter
-
+                    
                     logger.info(f"Retrying in {total_delay:.2f}s (attempt {attempt + 1})")
                     await asyncio.sleep(total_delay)
                 else:
