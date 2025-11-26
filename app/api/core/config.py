@@ -85,6 +85,30 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="allow")
 
+    # Stripe API keys and product price IDs for billing
+    STRIPE_SECRET_KEY: str = config("STRIPE_SECRET_KEY", default="sk_test_...")
+    STRIPE_PUBLISHABLE_KEY: str = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_...")
+    STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="whsec_...")
+    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="prod_monthly_id")
+    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="prod_yearly_id")
+
+    
+    # Billing Configuration
+    TRIAL_DURATION_DAYS: int = 14
+    BILLING_GRACE_PERIOD_DAYS: int = 3
+    
+
+    # Frontend URL (for Stripe redirects)
+    @property
+    def FRONTEND_URL(self) -> str:
+        return os.getenv("FRONTEND_URL") or (self.DEV_URL if self.DEBUG else self.APP_URL)
+
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="allow",
+    )
 
 settings = Settings()
 
@@ -93,7 +117,8 @@ settings = Settings()
 def get_cipher_suite():
     return Fernet(settings.ENCRYPTION_KEY)
 
-
 # For backward compatibility, provide cipher_suite as a module-level variable
 # This will be initialized on first access
 cipher_suite = None
+ 
+    
