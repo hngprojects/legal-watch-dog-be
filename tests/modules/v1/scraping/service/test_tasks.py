@@ -54,7 +54,7 @@ def test_get_next_scrape_time(frequency, expected_delta):
 
 def test_scrape_source_success(sync_session: Session):
     """Tests the successful scraping of a source."""
-    
+
     organization = Organization(
         name="Test Organization",
     )
@@ -62,7 +62,6 @@ def test_scrape_source_success(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(organization)
 
-  
     project = Project(
         org_id=organization.id,
         title="Test Project",
@@ -72,7 +71,6 @@ def test_scrape_source_success(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(project)
 
-    
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Jurisdiction",
@@ -139,7 +137,7 @@ def test_scrape_source_not_found(sync_session: Session):
 
 def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     """Tests that a failed scrape_source task is moved to DLQ after max retries."""
-    
+
     organization = Organization(
         name="Test Organization",
     )
@@ -147,7 +145,6 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(organization)
 
-   
     project = Project(
         org_id=organization.id,
         title="Test Project",
@@ -157,7 +154,6 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(project)
 
- 
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Jurisdiction",
@@ -216,7 +212,7 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session: Session, mock_redis: MagicMock
 ):
     """Tests that the dispatcher acquires a lock and dispatches tasks."""
-   
+
     organization1 = Organization(
         name="Test Organization 1",
     )
@@ -228,7 +224,6 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
     sync_session.refresh(organization1)
     sync_session.refresh(organization2)
 
-  
     project1 = Project(
         org_id=organization1.id,
         title="Test Project 1",
@@ -286,14 +281,12 @@ def test_dispatch_due_sources_acquires_lock_and_dispatches(
         mock_redis_instance.set.return_value = True
         mock_redis_from_url.return_value = mock_redis_instance
 
-        
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__.return_value = mock_db
         mock_db.exec.side_effect = mock_exec_side_effect(sync_session)
 
         mock_app.send_task = MagicMock()
 
-       
         result = dispatch_due_sources.run()
 
     assert "Dispatched 2 sources" in result
@@ -319,7 +312,7 @@ def test_dispatch_due_sources_lock_already_held():
 
 def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     """Tests that the dispatcher does nothing if no sources are due."""
-  
+
     organization = Organization(
         name="Test Organization",
     )
@@ -327,7 +320,6 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(organization)
 
-   
     project = Project(
         org_id=organization.id,
         title="Test Project",
@@ -337,7 +329,6 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
     sync_session.commit()
     sync_session.refresh(project)
 
-    
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Jurisdiction",
