@@ -60,7 +60,6 @@ async def test_create_project_after_registration(pg_async_session):
     project_data = ProjectBase(
         title="Test Project",
         description="Dummy description",
-        master_prompt="Dummy prompt",
         org_id=org_id,
     )
 
