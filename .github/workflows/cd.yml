@@ -1,10 +1,11 @@
-name: Backend CD - Deployment (Prod Environments)
+name: Backend CD - Deployment (Dynamic Environments)
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - staging
 
 jobs:
   deploy_production:
@@ -17,10 +18,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate prod environment file
+      - name: Generate production environment file
         run: |
           cat <<'EOF' > .env.prod
-          DEBUG=True
+          DEBUG=False
           APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || '8001' }}
           APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
           APP_VERSION=${{ vars.APP_VERSION || '1.0.0' }}
@@ -35,7 +36,7 @@ jobs:
           DB_PASS=${{ secrets.DB_PASS }}
           DB_NAME=${{ secrets.DB_NAME }}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
-          
+
           MAIL_MAILER=${{ vars.MAIL_MAILER || 'smtp' }}
           SMTP_SERVER=${{ secrets.SMTP_SERVER }}
           SMTP_PORT=${{ secrets.SMTP_PORT }}
@@ -44,7 +45,7 @@ jobs:
           MAIL_ENCRYPTION=${{ secrets.MAIL_ENCRYPTION }}
           EMAIL=${{ secrets.EMAIL }}
           MAIL_FROM_NAME="LEGAL WATCH DOG"
-          
+
           APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:8001' }}"
           REDIS_URL=${{ secrets.REDIS_URL }}
@@ -53,13 +54,11 @@ jobs:
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }}
           JWT_EXPIRY_HOURS=${{ secrets.JWT_EXPIRY_HOURS }}
           ACCESS_TOKEN_EXPIRATION=${{ secrets.ACCESS_TOKEN_EXPIRATION }}
-          
+
           ALLOW_TEST_EMAIL_PROVIDERS=${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}
           TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
           ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
-
           EOF
-
 
       - name: Set up SSH, copy env_file and Deploy
         env:
@@ -71,11 +70,11 @@ jobs:
           echo "copying files to server..."
 
           sshpass -p "$SERVER_PASS" scp -o StrictHostKeyChecking=no \
-            .env.stage \
+            .env.prod \
             $SERVER_USER@$SERVER_IP:/tmp/backend_env
 
           echo "access gained"
-          echo "deploying to prod server..."
+          echo "deploying to production server..."
 
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
@@ -84,6 +83,151 @@ jobs:
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
             BRANCH="main"
             ENVIRONMENT="production"
+
+            if [ ! -d "$REMOTE_DIR" ]; then
+              mkdir -p $(dirname "$REMOTE_DIR")
+              git clone -b "$BRANCH" "$REPO_URL" "$REMOTE_DIR"
+            fi
+
+            cd "$REMOTE_DIR"
+
+            git checkout "$BRANCH"
+
+            git fetch origin "$BRANCH"
+            git reset --hard origin/"$BRANCH"
+
+            mv /tmp/backend_env .env.prod || true
+
+            if ! command -v uv &> /dev/null; then
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+
+            set -a
+            source .env.prod
+            set +a
+
+            uv sync
+            uv run alembic upgrade head
+
+            PM2_APP_NAME="legal-watchdog-be-$ENVIRONMENT"
+
+            if ! command -v pm2 &> /dev/null; then
+              npm install -g pm2
+            fi
+
+            pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1 && pm2 delete "$PM2_APP_NAME" || true
+            pm2 start ecosystem.config.js --name "$PM2_APP_NAME" --update-env
+            pm2 save
+
+            pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
+
+            echo "${ENVIRONMENT} deployment complete!"
+          EOF
+
+      - name: Mark Deployment Result
+        if: failure()
+        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
+
+  deploy_staging:
+    name: CD - Backend Deploy (Staging)
+    runs-on: [self-hosted]
+    if: github.ref == 'refs/heads/staging'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate staging environment file
+        run: |
+          cat <<'EOF' > .env.stage
+          # Application configuration
+          DEBUG=True
+          APP_PORT=${{ secrets.APP_PORT || vars.APP_PORT || '7001' }}
+          APP_NAME="${{ vars.APP_NAME || 'LEGAL WATCH DOG' }}"
+          APP_VERSION=${{ vars.APP_VERSION || '1.0.0' }}
+          ENVIRONMENT=staging
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
+
+          # Application URLs
+          APP_URL="${{ vars.APP_URL || 'https://staging.minamoto.emerj.net' }}"
+          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+
+          # Database configuration
+          DB_TYPE=${{ vars.DB_TYPE || 'postgresql' }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASS=${{ secrets.DB_PASS }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+
+          # Email configuration
+          MAIL_MAILER=${{ vars.MAIL_MAILER || 'smtp' }}
+          SMTP_SERVER=${{ secrets.SMTP_SERVER }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_ENCRYPTION=${{ secrets.MAIL_ENCRYPTION }}
+          EMAIL=${{ secrets.EMAIL }}
+          MAIL_FROM_NAME="LEGAL WATCH DOG"
+
+          # Redis configuration
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          REDIS_RESEND_TTL=${{ secrets.REDIS_RESEND_TTL || vars.REDIS_RESEND_TTL || '300' }}
+          REDIS_REGISTER_TTL=${{ secrets.REDIS_REGISTER_TTL || vars.REDIS_REGISTER_TTL || '600' }}
+
+          # Secuirity / Auth
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }}
+          JWT_EXPIRY_HOURS=${{ secrets.JWT_EXPIRY_HOURS }}
+          ACCESS_TOKEN_EXPIRATION=${{ secrets.ACCESS_TOKEN_EXPIRATION }}
+          ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
+
+          # Testing config
+          ALLOW_TEST_EMAIL_PROVIDERS=${{ vars.ALLOW_TEST_EMAIL_PROVIDERS || 'true' }}
+          TEST_EMAIL_PROVIDERS="${{ vars.TEST_EMAIL_PROVIDERS || 'gmail.com' }}"
+
+          # LLM (Gemini / AI Extraction)
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          LLM_MODEL=${{ vars.LLM_MODEL || 'gemini-2.0-flash' }}
+          LLM_API_URL=${{ vars.LLM_API_URL || 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent' }}
+          LLM_PROVIDER=${{ vars.LLM_PROVIDER || 'gemini' }}
+
+          # Optional LLM Settings
+          LLM_TEMPERATURE=${{ vars.LLM_TEMPERATURE || '0.1' }}
+          LLM_MAX_TOKENS=${{ vars.LLM_MAX_TOKENS || '1000' }}
+
+          # Gemini API Key (explicit)
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+          EOF
+
+      - name: Set up SSH, copy env_file and Deploy
+        env:
+          SERVER_PASS: ${{ secrets.STAGING_PASS }}
+          SERVER_USER: ${{ secrets.STAGING_USER }}
+          SERVER_IP: ${{ secrets.STAGING_IP }}
+        run: |
+          echo "access gained"
+          echo "copying files to server..."
+
+          sshpass -p "$SERVER_PASS" scp -o StrictHostKeyChecking=no \
+            .env.stage \
+            $SERVER_USER@$SERVER_IP:/tmp/backend_env
+
+          echo "access gained"
+          echo "deploying to staging server..."
+
+          sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
+
+            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-staging"
+            REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
+            BRANCH="staging"
+            ENVIRONMENT="staging"
 
             if [ ! -d "$REMOTE_DIR" ]; then
               mkdir -p $(dirname "$REMOTE_DIR")
@@ -96,7 +240,7 @@ jobs:
             git reset --hard origin/"$BRANCH"
 
             mv /tmp/backend_env .env.stage || true
-          
+
             if ! command -v uv &> /dev/null; then
               curl -LsSf https://astral.sh/uv/install.sh | sh
               export PATH="$HOME/.local/bin:$PATH"
@@ -115,17 +259,20 @@ jobs:
             if ! command -v pm2 &> /dev/null; then
               npm install -g pm2
             fi
-          
+
             pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1 && pm2 delete "$PM2_APP_NAME" || true
             pm2 start ecosystem.config.js --name "$PM2_APP_NAME" --update-env
 
             pm2 save
-          
+
             pm2 startup systemd -u $(whoami) --hp $(echo $HOME) || true
 
             echo "${ENVIRONMENT} deployment complete!"
           EOF
 
+      - name: Mark Deployment Result
+        if: failure()
+        run: echo "DEPLOY_FAILED=true" >> $GITHUB_ENV
 
   # -------------------------
   # 3. Slack Notification
@@ -135,6 +282,7 @@ jobs:
     runs-on: [self-hosted]
     needs:
       - deploy_production
+      - deploy_staging
     if: always()
 
     steps:
@@ -159,20 +307,34 @@ jobs:
       - name: Set deployment status
         id: status
         run: |
-          PROD_RESULT="${{ needs.deploy_production.result }}"
-          
-          if [ "$PROD_RESULT" == "success" ]; then
+          PRODUCTION_RESULT="${{ needs.deploy_production.result }}"
+          STAGING_RESULT="${{ needs.deploy_staging.result }}"
+
+          # Determine which deployment ran based on branch
+          if [ "$PRODUCTION_RESULT" == "success" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
-            echo "status_text=✅ Backend API deployed successfully!" >> $GITHUB_OUTPUT
+            echo "status_text=✅ Production Backend API deployed successfully!" >> $GITHUB_OUTPUT
             echo "status_emoji=:white_check_mark:" >> $GITHUB_OUTPUT
-          elif [ "$PROD_RESULT" == "skipped" ]; then
+          elif [ "$STAGING_RESULT" == "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "status_text=✅ Staging Backend API deployed successfully!" >> $GITHUB_OUTPUT
+            echo "status_emoji=:white_check_mark:" >> $GITHUB_OUTPUT
+          elif [ "$PRODUCTION_RESULT" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "status_text=❌ Production Backend API deployment failed!" >> $GITHUB_OUTPUT
+            echo "status_emoji=:x:" >> $GITHUB_OUTPUT
+          elif [ "$STAGING_RESULT" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "status_text=❌ Staging Backend API deployment failed!" >> $GITHUB_OUTPUT
+            echo "status_emoji=:x:" >> $GITHUB_OUTPUT
+          elif [ "$PRODUCTION_RESULT" == "skipped" ] && [ "$STAGING_RESULT" == "skipped" ]; then
             echo "status=skipped" >> $GITHUB_OUTPUT
             echo "status_text=⏭️ Deployment skipped" >> $GITHUB_OUTPUT
             echo "status_emoji=:fast_forward:" >> $GITHUB_OUTPUT
           else
-            echo "status=failure" >> $GITHUB_OUTPUT
-            echo "status_text=❌ Backend API deployment failed!" >> $GITHUB_OUTPUT
-            echo "status_emoji=:x:" >> $GITHUB_OUTPUT
+            echo "status=unknown" >> $GITHUB_OUTPUT
+            echo "status_text=⚠️ Deployment status unknown" >> $GITHUB_OUTPUT
+            echo "status_emoji=:warning:" >> $GITHUB_OUTPUT
           fi
 
       - name: Send Slack notification
@@ -181,22 +343,17 @@ jobs:
           status: ${{ steps.status.outputs.status }}
           text: |
             ${{ steps.status.outputs.status_text }}
-            
+
             *Environment:* ${{ steps.env_info.outputs.env_emoji }} ${{ steps.env_info.outputs.env_name }}
             *Branch:* `${{ github.ref_name }}`
             *Triggered by:* ${{ github.actor }}
             *Commit:* ${{ github.event.head_commit.message }}
-            ${{
-              needs.deploy_production.result == 'success' 
-              && '✅ Prod Environment: Deployed successfully'
-              || needs.deploy_production.result == 'skipped' 
-              && '⏭️ Prod Environment: Skipped (not prod branch)'
-              || needs.deploy_production.result == 'failure' 
-              && '❌ Prod Environment: Deployment failed'
-              || ''
-            }}
+
+            *Deployment Results:*
+            ${{ needs.deploy_production.result == 'success' && '✅ Production: Deployed successfully' || needs.deploy_production.result == 'skipped' && '⏭️ Production: Skipped (not main branch)' || needs.deploy_production.result == 'failure' && '❌ Production: Deployment failed' || '' }}
+            ${{ needs.deploy_staging.result == 'success' && '✅ Staging: Deployed successfully' || needs.deploy_staging.result == 'skipped' && '⏭️ Staging: Skipped (not staging branch)' || needs.deploy_staging.result == 'failure' && '❌ Staging: Deployment failed' || '' }}
           author_name: Backend CI/CD Pipeline
-          author_icon: ':gear:'
+          author_icon: ":gear:"
           fields: |
             [
               {
