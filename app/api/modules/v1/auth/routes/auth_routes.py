@@ -192,7 +192,7 @@ async def request_new_otp(
             background_tasks=background_tasks,
         )
 
-        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes = settings.REDIS_RESEND_TTL / 60
         minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
         unit = "minute" if minutes_display == 1 else "minutes"
         return success_response(
