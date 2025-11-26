@@ -8,6 +8,7 @@ from sqlmodel import select
 
 from app.api.core.dependencies.redis_service import is_token_denylisted
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.jwt import decode_token
@@ -253,12 +254,22 @@ class TenantGuard:
             return await get_all_jurisdictions()
     """
 
-    def __init__(self, current_user: User = Depends(get_current_user)):
-        if not current_user.organization_id:
-            raise HTTPException(status_code=403, detail="User does not belong to an organization")
+    def __init__(
+        self, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+    ):
+        self.db = db
+        self.user = current_user
 
-        self.current_user = current_user
-        self.org_id = current_user.organization_id
+    async def get_membership(self, organization_id: str):
+        result = await self.db.execute(
+            select(UserOrganization)
+            .where(UserOrganization.user_id == self.user.id)
+            .where(UserOrganization.organization_id == organization_id)
+        )
+        membership = result.scalars().first()
+        if not membership:
+            raise HTTPException(status_code=403, detail="User not a member of this organization")
+        return membership
 
     def verify(self, resource_org_id):
         """

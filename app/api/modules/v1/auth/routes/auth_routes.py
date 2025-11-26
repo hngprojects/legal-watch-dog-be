@@ -68,7 +68,7 @@ async def company_signup(
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_company(payload, background_tasks)
+        result = await service.register_user(payload, background_tasks)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
