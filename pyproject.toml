@@ -61,7 +61,8 @@ dependencies = [
     "pdfplumber>=0.11.8",
     "playwright>=1.56.0",
 
-    "uvicorn[standard]>=0.38.0"
+    "uvicorn[standard]>=0.38.0",
+    "stripe>=14.0.1"
 ]
 
 
