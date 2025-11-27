@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}New Contact Form Submission - Legal Watchdog{% endblock %}
+
+{% block preheader %}{{ full_name }} sent a message through the contact form.{% endblock %}
+
+{% block header_image_alt %}Contact form submission{% endblock %}
+
+{% block main_heading %}New Contact Form Submission{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      New Message Received
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      You have received a new contact form submission from <strong>{{ full_name }}</strong>.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 30px;">
+    <table style="width: 100%; border-collapse: collapse; background-color: #F9F8F7; border-radius: 8px; padding: 20px;">
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Full Name
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69;">
+            {{ full_name }}
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Email Address
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69;">
+            <a href="mailto:{{ email }}" style="color: #C14E32; text-decoration: none;">{{ email }}</a>
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Phone Number
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69;">
+            {{ phone_number }}
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Message
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69; white-space: pre-wrap;">
+            {{ message }}
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Submitted At
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69;">
+            {{ submitted_at }}
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Please respond to this inquiry as soon as possible.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td>
+    <a href="mailto:{{ email }}" style="display: inline-block; padding: 12px 24px; background-color: #C14E32; color: #FFFFFF; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+      Reply to {{ full_name }}
+    </a>
+  </td>
+</tr>
+{% endblock %}
