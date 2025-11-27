@@ -71,7 +71,9 @@ class OrganizationService:
             if not user.is_verified:
                 raise ValueError("User email must be verified before creating an organization")
 
-            existing_org = await OrganizationCRUD.get_by_name(self.db, name)
+            existing_org = await OrganizationCRUD.get_user_org_by_name(
+                db=self.db, user_id=user_id, name=name
+            )
             if existing_org:
                 raise ValueError("Organization with this name already exists")
 
@@ -262,9 +264,11 @@ class OrganizationService:
                 raise ValueError("You do not have permission to update this organization")
 
             if name and name != organization.name:
-                existing_org = await OrganizationCRUD.get_by_name(self.db, name)
+                existing_org = await OrganizationCRUD.get_user_org_by_name(
+                    db=self.db, user_id=requesting_user_id, name=name
+                )
                 if existing_org and existing_org.id != organization_id:
-                    raise ValueError("Organization with this name already exists")
+                    raise ValueError("You already have an organization with this name")
 
             updated_organization = await OrganizationCRUD.update(
                 db=self.db,
