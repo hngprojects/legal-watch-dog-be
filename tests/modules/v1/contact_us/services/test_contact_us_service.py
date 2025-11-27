@@ -9,7 +9,9 @@ from app.api.modules.v1.contact_us.service.contact_us import ContactUsService
 
 @pytest.mark.asyncio
 async def test_submit_contact_form_success():
-    service = ContactUsService()
+    mock_db = AsyncMock()
+
+    service = ContactUsService(db=mock_db)
     background = BackgroundTasks()
 
     payload = ContactUsRequest(
@@ -28,13 +30,16 @@ async def test_submit_contact_form_success():
             await task()
 
         assert result == {"email": "john@gmail.com"}
-
         assert mock_send.await_count == 2
+
+        mock_db.add.assert_called()
+        mock_db.commit.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_submit_contact_form_error_handling():
-    service = ContactUsService()
+    mock_db = AsyncMock()
+    service = ContactUsService(db=mock_db)
     background = BackgroundTasks()
 
     payload = ContactUsRequest(
@@ -59,5 +64,7 @@ async def test_submit_contact_form_error_handling():
                 pass
 
         assert result == {"email": "jane@gmail.com"}
-
         assert mock_send.await_count == 2
+
+        mock_db.add.assert_called()
+        mock_db.commit.assert_awaited()
