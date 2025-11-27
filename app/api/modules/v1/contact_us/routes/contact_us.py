@@ -25,6 +25,7 @@ logger = logging.getLogger("app")
 
 MAX_CONTACT_ATTEMPTS = 3
 RATE_LIMIT_WINDOW_SECONDS = 3600
+IP_RATE_LIMIT_MULTIPLIER = 2
 
 
 @router.post(
@@ -79,7 +80,7 @@ async def contact_us(
         if ip_address:
             ip_allowed = await check_rate_limit(
                 f"contact:ip:{ip_address}",
-                max_attempts=MAX_CONTACT_ATTEMPTS * 2,
+                max_attempts=MAX_CONTACT_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
                 window_seconds=RATE_LIMIT_WINDOW_SECONDS,
             )
 
