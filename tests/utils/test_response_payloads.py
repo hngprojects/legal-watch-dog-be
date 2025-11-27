@@ -13,7 +13,7 @@ def test_success_response_with_data():
     resp = response_payloads.success_response(200, "OK", {"id": 1})
     assert resp.status_code == 200
     body = _get_json(resp)
-    assert body["status"] == "success"
+    assert body["status"] == "SUCCESS"
     assert body["status_code"] == 200
     assert body["message"] == "OK"
     assert body["data"] == {"id": 1}
@@ -29,15 +29,19 @@ def test_auth_response_merges_data_and_token():
     resp = response_payloads.auth_response(201, "Logged in", "token123", {"user": {"id": 1}})
     assert resp.status_code == 201
     body = _get_json(resp)
-    assert body["status"] == "success"
+    assert body["status"] == "SUCCESS"
     assert body["data"]["access_token"] == "token123"
     assert body["data"]["user"] == {"id": 1}
 
 
-def test_fail_response():
-    resp = response_payloads.fail_response(400, "Bad Request", {"errors": ["x"]})
+def test_error_response():
+    resp = response_payloads.error_response(
+        status_code=400, message="Bad Request", errors={"errors": ["x"]}
+    )
     assert resp.status_code == 400
     body = _get_json(resp)
-    assert body["status"] == "failure"
+
+    assert body["error"] == "ERROR"
     assert body["message"] == "Bad Request"
-    assert body["data"] == {"errors": ["x"]}
+    assert body["status_code"] == 400
+    assert body["errors"] == {"errors": ["x"]}

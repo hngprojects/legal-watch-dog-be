@@ -1,10 +1,26 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from app.api.core.config import BASE_DIR, settings
+from app.api.db.database import Base
+from app.api.modules.v1.auth.models.otp_model import OTP
+from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
+from app.api.modules.v1.billing.models.payment_method import PaymentMethod
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.users.models.roles_model import Role
+from app.api.modules.v1.users.models.users_model import User
+from app.api.modules.v1.scraping.models.source_model import Source, SourceType
+from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
+from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 
+<<<<<<< HEAD
 from app.api.core.config import settings, BASE_DIR
 from app.api.db.database import Base
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
@@ -14,6 +30,8 @@ from app.api.modules.v1.organization.models.organization_model import Organizati
 from app.api.modules.v1.users.models import User
 from app.api.modules.v1.users.models import Role
 
+=======
+>>>>>>> fix/billing-model-cleanup
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,7 +45,14 @@ if config.config_file_name is not None:
 # Override sqlalchemy.url with the URL from your application settings
 # This ensures migrations use the same database as your application
 if settings.DB_TYPE == "postgresql":
+<<<<<<< HEAD
     db_url = f"postgresql://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+=======
+    db_url = (
+        f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
+        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    )
+>>>>>>> fix/billing-model-cleanup
 elif hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
     db_url = settings.DATABASE_URL
 else:

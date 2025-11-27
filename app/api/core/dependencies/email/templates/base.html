@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{% block title %}Legal Watchdog{% endblock %}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, sans-serif !important;}
+  </style>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', Arial, sans-serif;
+      background-color: #F8F5F1;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    table {
+      border-spacing: 0;
+      border-collapse: collapse;
+    }
+    img {
+      border: 0;
+      display: block;
+      outline: none;
+      text-decoration: none;
+    }
+    a {
+      text-decoration: none;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .header-img {
+        width: 80% !important;
+        max-width: 445px !important;
+        height: auto !important;
+      }
+      .main-heading {
+        font-size: 28px !important;
+        line-height: 36px !important;
+      }
+      .content-padding {
+        padding: 0 20px !important;
+      }
+      .social-icon {
+        padding: 0 8px !important;
+      }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8F5F1;">
+  <!-- Preheader Text -->
+  <div style="display: none; font-size: 1px; color: #F8F5F1; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden;">
+    {% block preheader %}{% endblock %}
+  </div>
+  <!-- Main Container -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8F5F1;">
+    <tr>
+      <td style="padding: 40px 16px;">
+        <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" align="center" style="max-width: 600px; width: 100%;">
+          <!-- Header Image -->
+          {% block header %}
+          <tr>
+            <td style="padding-bottom: 40px; text-align: center;">
+              <img src="{% block header_image_url %}{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/header_img.png{% endblock %}" 
+                   alt="{% block header_image_alt %}Legal Watchdog{% endblock %}" 
+                   class="header-img" width="445" height="368" 
+                   style="width: 100%; max-width: 445px; height: auto; border-radius: 8px; margin: 0 auto;">
+            </td>
+          </tr>
+          {% endblock %}
+          
+          <!-- Main Heading -->
+          <tr>
+            <td style="padding: 0 20px 32px; text-align: center;">
+              <h1 class="main-heading" style="margin: 0; font-size: 36px; font-weight: 700; color: #121110; line-height: 44px;">
+                {% block main_heading %}{% endblock %}
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content Body -->
+          <tr>
+            <td class="content-padding" style="padding: 0 40px 40px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                {% block content_body %}{% endblock %}
+              </table>
+            </td>
+          </tr>
+          
+          <!-- CTA Button -->
+          {% block cta_section %}
+          {% if cta_url and cta_text %}
+          <tr>
+            <td style="padding-bottom: 60px; text-align: center;">
+              <a href="{{ cta_url }}" target="_blank" rel="noopener noreferrer" 
+                 style="display: inline-block; padding: 14px 32px; background-color: #401903; color: #FFFFFF; font-size: 16px; font-weight: 600; border-radius: 8px; text-decoration: none; line-height: 24px;">
+                {{ cta_text }}
+              </a>
+            </td>
+          </tr>
+          {% endif %}
+          {% endblock %}
+          
+          <!-- Footer Brand Section -->
+          {% block footer_brand %}
+          <tr>
+            <td style="padding-bottom: 60px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding: 0 40px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #2A0D00; border-radius: 16px; max-width: 520px; margin: 0 auto;">
+                      <tr>
+                        <td style="padding: 40px; text-align: center;">
+                          <!-- Logo and Brand Name -->
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-bottom: 20px;">
+                            <tr>
+                              <td style="padding-right: 8px;">
+                                <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/Frame.png" 
+                                     alt="Legal WatchDog Logo" width="40" height="40" style="display: block;">
+                              </td>
+                              <td>
+                                <h2 style="margin: 0; font-size: 24px; font-weight: 700; color: #FFFFFF; line-height: 40px;">
+                                  WatchDog
+                                </h2>
+                              </td>
+                            </tr>
+                          </table>
+                          <!-- Tagline -->
+                          <p style="margin: 0; font-size: 14px; color: #FFFFFF; line-height: 22px; padding: 0 40px;">
+                            LegalWatchDog helps us track cross-border regulation updates in hours, not weeks
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endblock %}
+          
+          <!-- Social Icons -->
+          {% block social_icons %}
+          <tr>
+            <td style="padding-bottom: 30px; text-align: center;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                <tr>
+                  <td class="social-icon" style="padding: 0 10px;">
+                    <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+                      <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/Facebook.png" alt="Facebook" width="11" height="19" style="display: block;">
+                    </a>
+                  </td>
+                  <td class="social-icon" style="padding: 0 10px;">
+                    <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">
+                      <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/Twitter.png" alt="Twitter" width="18" height="15" style="display: block;">
+                    </a>
+                  </td>
+                  <td class="social-icon" style="padding: 0 10px;">
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                      <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/Instagram.png" alt="Instagram" width="19" height="19" style="display: block;">
+                    </a>
+                  </td>
+                  <td class="social-icon" style="padding: 0 10px;">
+                    <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
+                      <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/linkdin.png" alt="LinkedIn" width="19" height="18" style="display: block;">
+                    </a>
+                  </td>
+                  <td class="social-icon" style="padding: 0 10px;">
+                    <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
+                      <img src="{{ base_url | default('https://minamoto.emerj.net') }}/api/static/email/template-icons/YouTube.png" alt="YouTube" width="20" height="14" style="display: block;">
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endblock %}
+          
+          <!-- Copyright -->
+          <tr>
+            <td style="text-align: center;">
+              <p style="margin: 0; font-size: 16px; color: #6C5B52; line-height: 24px;">
+                Copyright © 2025 LegalWatchDog | All Rights Reserved
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

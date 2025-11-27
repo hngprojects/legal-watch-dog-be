@@ -1,6 +1,7 @@
-from typing import Optional, Dict, Any
-from fastapi.responses import JSONResponse
+from typing import Dict, List, Optional
+
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 
 def success_response(status_code: int, message: str, data: Optional[dict] = None):
@@ -14,17 +15,25 @@ def success_response(status_code: int, message: str, data: Optional[dict] = None
 
     Returns:
         JSONResponse: Contains:
+<<<<<<< HEAD
             - status: "success"
+=======
+            - status: "SUCCESS"
+>>>>>>> fix/billing-model-cleanup
             - status_code: same as HTTP status code
             - message: same message passed
             - data: payload object (never null)
     """
 
     response_data = {
-        "status": "success",
+        "status": "SUCCESS",
         "status_code": status_code,
         "message": message,
+<<<<<<< HEAD
         "data": data or {}
+=======
+        "data": data or {},
+>>>>>>> fix/billing-model-cleanup
     }
 
     return JSONResponse(
@@ -49,13 +58,17 @@ def auth_response(status_code: int, message: str, access_token: str, data: Optio
     """
 
     response_data = {
-        "status": "success",
+        "status": "SUCCESS",
         "status_code": status_code,
         "message": message,
+<<<<<<< HEAD
         "data": {
             "access_token": access_token,
             **(data or {})
         }
+=======
+        "data": {"access_token": access_token, **(data or {})},
+>>>>>>> fix/billing-model-cleanup
     }
 
     return JSONResponse(
@@ -64,11 +77,22 @@ def auth_response(status_code: int, message: str, access_token: str, data: Optio
     )
 
 
+<<<<<<< HEAD
 def fail_response(status_code: int, message: str, data: Optional[dict] = None):
+=======
+def error_response(
+    *,
+    status_code: int,
+    message: str,
+    error: str = "ERROR",
+    errors: Optional[Dict[str, List[str]]] = None,
+) -> JSONResponse:
+>>>>>>> fix/billing-model-cleanup
     """
     Create a standardized JSON response for failed requests.
 
     Args:
+<<<<<<< HEAD
         status_code (int): HTTP status code (e.g. 400, 404, 500).
         message (str): Human-readable description of the error.
         data (Optional[dict]): Optional details about the failure.
@@ -79,12 +103,36 @@ def fail_response(status_code: int, message: str, data: Optional[dict] = None):
             - status_code: error HTTP code
             - message: description of failure
             - data: extra error details (always a dict)
+=======
+        status_code (int): HTTP status code representing the error (e.g. 400, 401, 404, 422).
+        message (str): High-level human-readable error description.
+        error (str): Machine-readable error code (e.g. "VALIDATION_ERROR", "BAD_REQUEST").
+            Defaults to "ERROR".
+        errors (Optional[Dict[str, List[str]]]): Optional field-level validation errors
+            in the form:
+                {
+                    "field_name": ["error message 1", "error message 2"],
+                    ...
+                }
+
+    Returns:
+        JSONResponse: Standard error structure:
+            {
+                "error": "<ERROR_CODE>",
+                "message": "<message>",
+                "status_code": <status_code>,
+                "errors": {
+                    "field": ["error1", "error2"],
+                    ...
+                }
+            }
+>>>>>>> fix/billing-model-cleanup
     """
 
     response_data = {
-        "status": "failure",
-        "status_code": status_code,
+        "error": error,
         "message": message,
+<<<<<<< HEAD
         "data": data or {}
     }
 
@@ -92,3 +140,10 @@ def fail_response(status_code: int, message: str, data: Optional[dict] = None):
         status_code=status_code,
         content=jsonable_encoder(response_data)
     )
+=======
+        "status_code": status_code,
+        "errors": errors or {},
+    }
+
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+>>>>>>> fix/billing-model-cleanup

@@ -1,53 +1,53 @@
-import aiosmtplib
-from email.mime.text import MIMEText
+import logging
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any, Dict
+
+import aiosmtplib
+
 from app.api.core.config import settings
 
-async def send_email(context: dict):       
-    sender_email = settings.MAIL_USERNAME
-    sender_display_email = settings.EMAIL
-    receiver_email = context.get('organization_email')
-    password = settings.MAIL_PASSWORD
-    port = settings.SMTP_PORT
-    smtp_server = settings.SMTP_SERVER
+logger = logging.getLogger("app")
 
-    org_name = context.get('organization_name')
-    
-    text_content = f"""Good day {org_name} team,
 
-Thanks for joining the Legal Watchdog Waitlist! We're thrilled to have you on board.
-"""
-    
-    text_content += f"\nWe've registered {org_name} and we'll keep you updated on our launch.\n"
-    
-    text_content += """
-You're now part of an exclusive group that will get:
-- Early access when we launch
-- Special founder pricing
-- Priority support
+async def send_email(
+    template_name: str, subject: str, recipient: str, context: Dict[str, Any]
+) -> bool:
+    from main import email_templates
 
-We'll notify you as soon as we're ready to go live!
+    try:
+        sender_email = settings.MAIL_USERNAME
+        sender_display_email = settings.EMAIL
+        password = settings.MAIL_PASSWORD
+        port = settings.SMTP_PORT
+        smtp_server = settings.SMTP_SERVER
 
-Best regards,
-The Legal Watchdog Team
+        if not recipient or recipient == "None":
+            logger.error(f"Invalid recipient email: {recipient}")
+            return False
 
----
-© 2025 Legal Watchdog. All rights reserved.
-You're receiving this because you signed up for our waitlist.
-"""
+        template = email_templates.get_template(template_name)
+        html_content = template.render(**context)
 
-    msg = MIMEMultipart()
-    msg['Subject'] = "You're on the Waitlist for Legal Watchdog!"
-    msg['From'] = sender_display_email
-    msg['To'] = receiver_email
-    msg.attach(MIMEText(text_content, 'plain'))
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = sender_display_email
+        msg["To"] = recipient
 
-    # Use aiosmtplib for true async email sending
-    await aiosmtplib.send(
-        msg,
-        hostname=smtp_server,
-        port=port,
-        username=sender_email,
-        password=password,
-        start_tls=True
-    )
+        msg.attach(MIMEText(html_content, "html"))
+
+        await aiosmtplib.send(
+            msg,
+            hostname=smtp_server,
+            port=port,
+            username=sender_email,
+            password=password,
+            start_tls=True,
+        )
+
+        logger.info(f"Email sent successfully to {recipient}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send email to {recipient}: {str(e)}", exc_info=True)
+        return False

@@ -1,13 +1,9 @@
 from pathlib import Path
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    create_async_engine,
-    async_sessionmaker,
-)
 
 from app.api.core.config import settings
-
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -27,10 +23,7 @@ def get_db_url(test_mode: bool = False) -> str:
         db_file = "test.db" if test_mode else "db.sqlite3"
         return f"sqlite+aiosqlite:///{BASE_DIR}/{db_file}"
 
-    return (
-        f"postgresql+asyncpg://{DB_USER}:{DB_PASS}"
-        f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    )
+    return f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
 DATABASE_URL = get_db_url()
@@ -50,6 +43,10 @@ AsyncSessionLocal = async_sessionmaker(
 
 Base = SQLModel
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> fix/billing-model-cleanup
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
@@ -59,4 +56,8 @@ async def get_db():
             await session.rollback()
             raise
         finally:
+<<<<<<< HEAD
             await session.close()
+=======
+            await session.close()
+>>>>>>> fix/billing-model-cleanup

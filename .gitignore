@@ -18,15 +18,18 @@ build/
 *.swo
 *.DS_Store
 __pypackages__/
+<<<<<<< HEAD
 uv.lock
 requirements.txt
+=======
+
+>>>>>>> fix/billing-model-cleanup
 # Virtual environments
 .venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+
 .env
 
 # VSCode
@@ -82,5 +85,21 @@ alembic/versions/*.pyc
 # Poetry/UV
 pyproject.toml.lock
 poetry.lock
-uv.lock
 __pypackages__/
+
+# Ruff cache
+.ruff_cache/
+
+dump.rdb
+# Environment files
+.env.dev
+.env.prod
+.env.stage
+ecosystem.config.js
+start_app.sh
+
+
+# Celery Beat Scheduler files
+celerybeat-schedule.*
+
+
