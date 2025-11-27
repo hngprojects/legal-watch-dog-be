@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.api.core.security import encrypt_auth_details
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
@@ -389,16 +389,16 @@ class SourceService:
             .limit(limit)
         )
 
-        result = await db.exec(query)
-        revisions = result.all()
+        result = await db.execute(query)
+        revisions = result.scalars().all()
 
         # Get total count for pagination metadata
-        count_query = select(DataRevision).where(DataRevision.source_id == source_id)
-        count_result = await db.exec(count_query)
-        total = len(count_result.all())
+        count_query = select(func.count()).where(DataRevision.source_id == source_id)
+        count_result = await db.execute(count_query)
+        total = count_result.scalar_one()
 
         logger.info(f"Retrieved {len(revisions)} revisions for source {source_id} (total: {total})")
-        return list(revisions), total
+        return revisions, total
 
     def _to_read_schema(self, source: Source) -> SourceRead:
         """
