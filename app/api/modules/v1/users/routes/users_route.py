@@ -279,7 +279,7 @@ async def get_user_organization_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve organization details. Please try again later.",
         )
-    
+
 
 @router.get(
     "/me/organizations/{organization_id}",
