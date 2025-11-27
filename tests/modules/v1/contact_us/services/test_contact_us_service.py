@@ -16,7 +16,7 @@ async def test_submit_contact_form_success():
 
     payload = ContactUsRequest(
         full_name="John Doe",
-        phone_number="+1234567890123",
+        phone_number="+447911123456",
         email="john@gmail.com",
         message="Hello, I need assistance.",
     )
@@ -44,7 +44,7 @@ async def test_submit_contact_form_error_handling():
 
     payload = ContactUsRequest(
         full_name="Jane Doe",
-        phone_number="1234567890123",
+        phone_number="+447911123456",
         email="jane@gmail.com",
         message="Test message",
     )

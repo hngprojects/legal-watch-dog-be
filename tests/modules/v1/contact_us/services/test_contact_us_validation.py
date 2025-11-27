@@ -31,18 +31,18 @@ def test_invalid_email_not_company():
     ContactUsRequest(**data)
 
 
-def test_phone_must_be_digits():
+def test_phone_invalid_format():
     data = {
         "full_name": "John Doe",
         "phone_number": "123-45x-789",
-        "email": "valid@gamil.com",
+        "email": "valid@company.com",
         "message": "This is a valid message.",
     }
 
     with pytest.raises(ValidationError) as exc:
         ContactUsRequest(**data)
 
-    assert "digits" in str(exc.value)
+    assert "Invalid phone number" in str(exc.value)
 
 
 def test_phone_must_be_10_digits():
