@@ -1,12 +1,26 @@
 import logging
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
 from app.api.core.dependencies.registeration_redis import get_redis
 from app.api.db.database import get_db
+from app.api.modules.v1.auth.routes.docs.auth_routes_docs import (
+    company_signup_custom_errors,
+    company_signup_custom_success,
+    company_signup_responses,
+    request_new_otp_custom_errors,
+    request_new_otp_custom_success,
+    request_new_otp_responses,
+    verify_otp_custom_errors,
+    verify_otp_custom_success,
+    verify_otp_responses,
+)
 from app.api.modules.v1.auth.schemas.register import (
     RegisterRequest,
     RegisterResponse,
@@ -17,6 +31,11 @@ from app.api.modules.v1.auth.schemas.verify_otp import (
     VerifyOTPResponse,
 )
 from app.api.modules.v1.auth.service.register_service import RegistrationService
+from app.api.modules.v1.organization.models.invitation_model import InvitationStatus
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
+from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
+from app.api.modules.v1.users.service.role import RoleCRUD
+from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import (
     error_response,
     success_response,
@@ -24,42 +43,41 @@ from app.api.utils.response_payloads import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
 @router.post(
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
+    responses=company_signup_responses,
 )
 async def company_signup(
     payload: RegisterRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
+    token: Optional[str] = None,
 ):
     """
-    Company sign-up endpoint.
+    Initiate company registration with email verification.
 
-    Initiates the company registration process by validating the email,
-    generating an OTP, and sending verification email. The actual organization
-    and user creation happens after OTP verification.
+    Creates a pending registration, generates an OTP, and sends it to the provided
+    email address. Actual organization and user creation occurs after OTP verification.
 
     Args:
-        payload: Registration request with email, password, name, industry
-        background_tasks: FastAPI background tasks for async operations
-        db: Database session dependency
-        redis_client: Redis client dependency
+        payload (RegisterRequest): Registration details including name, email, and password.
+        background_tasks (BackgroundTasks): FastAPI background tasks instance for async operations.
+        db (AsyncSession, optional): Async SQLAlchemy session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP management.
+        Defaults to Depends(get_redis).
 
     Returns:
-        RegisterResponse: Success response with registration details
-
-    Raises:
-        HTTPException: 400 for validation errors, 500 for server errors
+        dict: Standardized success or error response with status, message, and data/error details.
     """
     try:
         service = RegistrationService(db, redis_client)
-        result = await service.register_company(payload, background_tasks)
+        result = await service.register_user(payload, background_tasks, token)
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -80,14 +98,20 @@ async def company_signup(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Registration failed. Please try again later.",
         )
 
 
+company_signup._custom_errors = company_signup_custom_errors
+company_signup._custom_success = company_signup_custom_success
+
+
 @router.post(
-    "/verify-otp",
+    "/otp/verification",
     response_model=VerifyOTPResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
+    responses=verify_otp_responses,
 )
 async def verify_otp(
     payload: VerifyOTPRequest,
@@ -97,19 +121,17 @@ async def verify_otp(
     """
     Verify OTP and complete company registration.
 
-    Validates the OTP code sent to the user's email and completes the
-    registration by creating the organization, admin role, and admin user.
+    Validates the one-time password sent to the user's email and completes the
+    registration process by creating the organization, admin role, and admin user account.
 
     Args:
-        payload: OTP verification request with email and code
-        db: Database session dependency
-        redis_client: Redis client dependency
+        payload (VerifyOTPRequest): Object containing email and OTP code.
+        db (AsyncSession, optional): Async database session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP validation
+        Defaults to Depends(get_redis).
 
     Returns:
-        VerifyOTPResponse: Success response with organization and user details
-
-    Raises:
-        HTTPException: 400 for invalid OTP, 500 for server errors
+        dict: Standardized success or error response indicating OTP verification status.
     """
     try:
         service = RegistrationService(db, redis_client)
@@ -135,39 +157,42 @@ async def verify_otp(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="OTP verification failed. Please try again later.",
         )
 
 
+verify_otp._custom_errors = verify_otp_custom_errors
+verify_otp._custom_success = verify_otp_custom_success
+
+
 @router.post(
-    "/resend-otp",
+    "/otp/requests",
     response_model=RegisterResponse,
     status_code=status.HTTP_200_OK,
+    responses=request_new_otp_responses,
 )
-async def resend_otp(
+async def request_new_otp(
     payload: ResendOTPRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
 ):
     """
-    Resend registration OTP for a pending signup.
+    Resend OTP for pending registration.
 
-    Handles resending an OTP to an email that has already started
-    registration but has not yet completed verification.
+    Generates and sends a new OTP code to an email address with a pending registration
+    that has not yet completed verification. The previous OTP is invalidated.
 
     Args:
-        payload: Request body containing the email address to resend OTP to.
-        background_tasks: FastAPI background task handler for sending email asynchronously.
-        db: Database session dependency.
-        redis_client: Redis client dependency used to look up pending registrations.
+        payload (ResendOTPRequest): Object containing the email to resend OTP for.
+        background_tasks (BackgroundTasks): FastAPI background tasks instance for async operations.
+        db (AsyncSession, optional): Async database session. Defaults to Depends(get_db).
+        redis_client (Redis, optional): Redis client for OTP management.
+        Defaults to Depends(get_redis).
 
     Returns:
-        RegisterResponse: Success response including the registered email address.
-
-    Raises:
-        HTTPException: 400 if validation fails (no pending registration, already registered),
-                       500 for unexpected server errors.
+        dict: Standardized success or error response containing OTP resend status.
     """
     try:
         service = RegistrationService(db, redis_client)
@@ -176,7 +201,7 @@ async def resend_otp(
             background_tasks=background_tasks,
         )
 
-        minutes = settings.REDIS_CACHE_TTL_SECONDS / 60
+        minutes = settings.REDIS_RESEND_TTL / 60
         minutes_display = int(minutes) if minutes.is_integer() else round(minutes, 2)
         unit = "minute" if minutes_display == 1 else "minutes"
         return success_response(
@@ -201,5 +226,123 @@ async def resend_otp(
         )
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
             message="Failed to resend OTP. Please try again later.",
+        )
+
+
+request_new_otp._custom_errors = request_new_otp_custom_errors
+request_new_otp._custom_success = request_new_otp_custom_success
+
+
+@router.get(
+    "/accept-invite/{token}",
+    status_code=status.HTTP_302_FOUND,
+    response_model=None,
+)
+async def accept_invitation(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Accept an organization invitation.
+
+    This endpoint handles the invitation link sent to a user.
+    It validates the token, adds the user to the organization (if registered),
+    or redirects them to registration (if unregistered).
+
+    Args:
+        token: The unique invitation token.
+        db: Database session dependency.
+
+    Returns:
+        dict: Success message or a redirect (handled by frontend).
+
+    Raises:
+        HTTPException: 400, 404, 410, 500 for server errors.
+    """
+    try:
+        invitation = await InvitationCRUD.get_invitation_by_token(db, token)
+        if not invitation:
+            raise ValueError("Invitation not found or invalid.")
+
+        if invitation.status != InvitationStatus.PENDING:
+            raise ValueError(f"Invitation is already {invitation.status}.")
+
+        if invitation.expires_at < datetime.now(timezone.utc):
+            await InvitationCRUD.update_invitation_status(
+                db, invitation.id, InvitationStatus.EXPIRED
+            )
+            await db.commit()
+            raise ValueError("Invitation has expired.")
+
+        user = await UserCRUD.get_by_email(db, invitation.invited_email)
+
+        if user:
+            existing_membership = await UserOrganizationCRUD.get_user_organization(
+                db, user.id, invitation.organization_id
+            )
+            if existing_membership:
+                await InvitationCRUD.update_invitation_status(
+                    db, invitation.id, InvitationStatus.ACCEPTED
+                )
+                await db.commit()
+                return success_response(
+                    status_code=status.HTTP_200_OK,
+                    message="You are already a member of this organization. Invitation accepted.",
+                    data={"organization_id": str(invitation.organization_id)},
+                )
+
+            role_id = invitation.role_id
+            if not role_id:
+                default_role = await RoleCRUD.get_default_user_role(db, invitation.organization_id)
+                role_id = default_role.id
+
+            await UserOrganizationCRUD.add_user_to_organization(
+                db=db,
+                user_id=user.id,
+                organization_id=invitation.organization_id,
+                role_id=role_id,
+                is_active=True,
+            )
+            await InvitationCRUD.update_invitation_status(
+                db, invitation.id, InvitationStatus.ACCEPTED
+            )
+            await db.commit()
+
+            return success_response(
+                status_code=status.HTTP_200_OK,
+                message="Invitation accepted. You have been added to the organization.",
+                data={"organization_id": str(invitation.organization_id)},
+            )
+        else:
+            registration_url = f"{settings.APP_URL}/signup?token={token}"
+            logger.info(f"Unregistered user. Redirecting to: {registration_url}")
+            return RedirectResponse(url=registration_url, status_code=status.HTTP_302_FOUND)
+
+    except ValueError as e:
+        logger.warning(f"Invitation acceptance failed for token={token}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "expired" in error_message.lower():
+            status_code = status.HTTP_410_GONE
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Unexpected error accepting invitation for token={token}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to accept invitation. Please try again later.",
         )

@@ -1,10 +1,10 @@
 """Schemas For Jurisdiction Request and Responses"""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class JurisdictionCreateSchema(BaseModel):
@@ -35,7 +35,12 @@ class JurisdictionResponseSchema(BaseModel):
     deleted_at: Optional[datetime] = None
     is_deleted: bool = False
 
+    children: Optional[List["JurisdictionResponseSchema"]] = None
+
     model_config = ConfigDict(from_attributes=True)
+
+
+JurisdictionResponseSchema.model_rebuild()
 
 
 class JurisdictionUpdateSchema(BaseModel):
@@ -46,7 +51,13 @@ class JurisdictionUpdateSchema(BaseModel):
     description: Optional[str] = None
     prompt: Optional[str] = None
     scrape_output: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = None
     is_deleted: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("parent_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v

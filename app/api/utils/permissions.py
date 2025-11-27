@@ -62,6 +62,27 @@ class Permission(str, Enum):
     # API Access
     MANAGE_API_KEYS = "manage_api_keys"
 
+    @classmethod
+    def validate_permissions(cls, permissions: dict) -> bool:
+        """Validate that all permission keys are valid enum values."""
+        valid_permissions = {perm.value for perm in cls}
+        return all(perm in valid_permissions for perm in permissions.keys())
+
+    @classmethod
+    def get_all_permission_values(cls) -> list:
+        """Get all available permission values as strings."""
+        return [perm.value for perm in cls]
+
+
+USER_PERMISSIONS = {
+    Permission.VIEW_PROJECTS.value: True,
+    Permission.VIEW_JURISDICTIONS.value: True,
+    Permission.VIEW_SOURCES.value: True,
+    Permission.VIEW_TICKETS.value: True,
+    Permission.CREATE_TICKETS.value: True,
+    Permission.EDIT_TICKETS.value: True,  # Their own tickets
+    Permission.VIEW_REVISIONS.value: True,
+}
 
 # Predefined role permission sets
 ADMIN_PERMISSIONS = {
@@ -127,29 +148,28 @@ MANAGER_PERMISSIONS = {
     Permission.EXPORT_DATA.value: True,
 }
 
-EDITOR_PERMISSIONS = {
-    # Can create and edit content, limited deletion
-    Permission.VIEW_ROLES.value: True,
-    Permission.VIEW_PROJECTS.value: True,
-    Permission.CREATE_JURISDICTIONS.value: True,
-    Permission.EDIT_JURISDICTIONS.value: True,
-    Permission.VIEW_JURISDICTIONS.value: True,
-    Permission.CREATE_SOURCES.value: True,
-    Permission.EDIT_SOURCES.value: True,
-    Permission.VIEW_SOURCES.value: True,
-    Permission.CREATE_TICKETS.value: True,
-    Permission.EDIT_TICKETS.value: True,
-    Permission.VIEW_TICKETS.value: True,
-    Permission.INVITE_PARTICIPANTS.value: True,
-    Permission.VIEW_REVISIONS.value: True,
-}
 
-VIEWER_PERMISSIONS = {
-    # Read-only access
-    Permission.VIEW_ROLES.value: True,
-    Permission.VIEW_PROJECTS.value: True,
-    Permission.VIEW_JURISDICTIONS.value: True,
-    Permission.VIEW_SOURCES.value: True,
-    Permission.VIEW_TICKETS.value: True,
-    Permission.VIEW_REVISIONS.value: True,
-}
+class RoleTemplates:
+    TEMPLATES = {
+        "admin": ADMIN_PERMISSIONS,
+        "manager": MANAGER_PERMISSIONS,
+        "user": USER_PERMISSIONS,
+    }
+
+    @classmethod
+    def get_template(cls, template_name: str) -> dict:
+        return cls.TEMPLATES.get(template_name, {}).copy()
+
+    @classmethod
+    def get_available_templates(cls) -> list:
+        return list(cls.TEMPLATES.keys())
+
+
+class PermissionChecker:
+    @staticmethod
+    def has_permission(user_permissions: dict, permission: Permission) -> bool:
+        return user_permissions.get(permission.value, False)
+
+    @staticmethod
+    def has_any_permission(user_permissions: dict, permissions: list) -> bool:
+        return any(user_permissions.get(perm.value, False) for perm in permissions)

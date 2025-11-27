@@ -6,9 +6,10 @@ from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.organization.models.invitation_model import Invitation
+    from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.users.models.roles_model import Role
-    from app.api.modules.v1.users.models.users_model import User
 
 
 class Organization(SQLModel, table=True):
@@ -40,6 +41,11 @@ class Organization(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    users: list["User"] = Relationship(back_populates="organization")
+    user_memberships: list["UserOrganization"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     roles: list["Role"] = Relationship(back_populates="organization")
     projects: list["Project"] = Relationship(back_populates="organization")
+    invitations: list["Invitation"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

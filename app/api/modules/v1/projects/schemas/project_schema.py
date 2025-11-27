@@ -2,12 +2,17 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.modules.v1.users.schemas.user_schema import UserResponse
 
 
 class ProjectBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255, description="Project title")
+    description: Optional[str] = Field(None, description="Project description")
+
+
+class ProjectUpdateBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Project title")
     description: Optional[str] = Field(None, description="Project description")
     master_prompt: Optional[str] = Field(None, description="High-level AI prompt for the project")
@@ -17,13 +22,21 @@ class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     master_prompt: Optional[str] = None
+    is_deleted: Optional[bool] = None
+
+    @field_validator("master_prompt", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 class ProjectUserAssignment(BaseModel):
     user_ids: List[UUID] = Field(..., description="List of user IDs to assign to project")
 
 
-class ProjectResponse(ProjectBase):
+class ProjectResponse(ProjectUpdateBase):
     id: UUID
     org_id: UUID
     created_at: datetime

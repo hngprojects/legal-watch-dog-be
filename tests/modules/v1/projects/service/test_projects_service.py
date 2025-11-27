@@ -10,13 +10,7 @@ from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectBase,
     ProjectUpdate,
 )
-from app.api.modules.v1.projects.services.project_service import (
-    create_project_service,
-    get_project_service,
-    hard_delete_project_service,
-    list_projects_service,
-    update_project_service,
-)
+from app.api.modules.v1.projects.services.project_service import ProjectService
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 
@@ -24,7 +18,7 @@ from app.api.modules.v1.users.models.users_model import User
 @pytest.mark.asyncio
 async def test_create_project_after_registration(pg_async_session):
     """Test project creation after registering user and organization."""
-
+    project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     org = Organization(
         id=org_id,
@@ -66,12 +60,10 @@ async def test_create_project_after_registration(pg_async_session):
     project_data = ProjectBase(
         title="Test Project",
         description="Dummy description",
-        master_prompt="Dummy prompt",
         org_id=org_id,
     )
 
-    project = await create_project_service(
-        db=pg_async_session,
+    project = await project_service.create_project(
         data=project_data,
         organization_id=org_id,
         user_id=user_id,
@@ -85,11 +77,12 @@ async def test_create_project_after_registration(pg_async_session):
 @pytest.mark.asyncio
 async def test_list_projects_service(pg_async_session: AsyncSession):
     """Test listing projects with pagination."""
+    project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     page = 1
     limit = 10
 
-    result = await list_projects_service(pg_async_session, org_id, page=page, limit=limit)
+    result = await project_service.list_projects(org_id, page=page, limit=limit)
 
     assert "data" in result
     assert "total" in result
@@ -100,30 +93,54 @@ async def test_list_projects_service(pg_async_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_get_project_service_found_and_not_found(pg_async_session: AsyncSession):
     """Test getting a project by id."""
+    project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
 
-    project = await get_project_service(pg_async_session, project_id, org_id)
+    project = await project_service.get_project_by_id(project_id, org_id)
 
     assert project is None or isinstance(project, Project)
 
 
 @pytest.mark.asyncio
-async def test_update_project_service(pg_async_session: AsyncSession):
+async def test_update_project_service_not_found(pg_async_session: AsyncSession):
     """Test updating a project."""
+    project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
     data = ProjectUpdate(title="Updated Title")
 
-    project = await update_project_service(pg_async_session, project_id, org_id, data)
-    assert project is None or project.title == "Updated Title"
+    project, message = await project_service.update_project(project_id, org_id, data)
+    assert project is None
+    assert "not found" in message.lower()
+
+
+@pytest.mark.asyncio
+async def test_update_project_service_success(pg_async_session: AsyncSession):
+    """Test successfully updating an existing project."""
+    project_service = ProjectService(pg_async_session)
+    org = Organization(name="Test Org")
+    pg_async_session.add(org)
+    await pg_async_session.flush()
+
+    project = Project(title="Original Title", org_id=org.id)
+    pg_async_session.add(project)
+    await pg_async_session.flush()
+    await pg_async_session.refresh(project)
+
+    data = ProjectUpdate(title="Updated Title")
+    updated_project, message = await project_service.update_project(project.id, org.id, data)
+
+    assert updated_project is not None
+    assert updated_project.title == "Updated Title"
 
 
 @pytest.mark.asyncio
 async def test_delete_project_service(pg_async_session: AsyncSession):
     """Test deleting a project."""
+    project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
 
-    result = await hard_delete_project_service(pg_async_session, project_id, org_id)
+    result = await project_service.delete_project(project_id, org_id)
     assert result in [True, False]
