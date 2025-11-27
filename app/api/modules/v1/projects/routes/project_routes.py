@@ -30,10 +30,7 @@ from app.api.utils.response_payloads import (
     success_response,
 )
 
-router = APIRouter(
-    prefix="/organizations/{organization_id}/projects",
-    tags=["Projects"]
-)
+router = APIRouter(prefix="/organizations/{organization_id}/projects", tags=["Projects"])
 logger = logging.getLogger("app")
 
 
@@ -185,7 +182,7 @@ async def get_project(
             - data (ProjectResponse): Complete project details.
 
     Raises:
-        HTTPException: 
+        HTTPException:
             - 401 Unauthorized if authentication fails
             - 404 Not Found if project doesn't exist or is inaccessible
             - 500 Internal Server Error if retrieval fails
