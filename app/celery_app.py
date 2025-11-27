@@ -16,13 +16,11 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute="*"),
         "args": (),
     },
-
     # Expire trials - runs every hour
     "expire-trials": {
         "task": "billing.tasks.expire_trials",
         "schedule": crontab(minute=0),
     },
-
     # Send trial reminders - runs daily at 9 AM
     "send-trial-reminders": {
         "task": "billing.tasks.send_trial_reminders",

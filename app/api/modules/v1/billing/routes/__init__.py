@@ -1,9 +1,15 @@
-from app.api.modules.v1.billing.routes.admin import router as admin_router
-from app.api.modules.v1.billing.routes.billing import router as billing_router
-from app.api.modules.v1.billing.routes.invoices import router as invoices_router
+from fastapi import APIRouter
+
+from app.api.modules.v1.billing.routes.billing_routes import router as billing
+from app.api.modules.v1.billing.routes.webhook_route import router as webhook
+
+billing_router = APIRouter()
+
+billing_router.include_router(billing)
+billing_router.include_router(webhook)
+
 
 __all__ = [
     "billing_router",
-    "invoices_router",
-    "admin_router",
+    "webhook_router",
 ]

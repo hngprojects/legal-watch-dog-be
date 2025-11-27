@@ -59,9 +59,7 @@ class Subscription(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
 
-    current_period_end: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False)
-    )
+    current_period_end: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     cancel_at_period_end: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
 

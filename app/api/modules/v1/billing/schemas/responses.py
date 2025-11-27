@@ -8,8 +8,9 @@ from pydantic import BaseModel, ConfigDict
 
 class PaymentMethodResponse(BaseModel):
     """Payment method information"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     stripe_pm_id: str
     brand: str
@@ -22,8 +23,9 @@ class PaymentMethodResponse(BaseModel):
 
 class SubscriptionResponse(BaseModel):
     """Current subscription information"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     stripe_subscription_id: str
     plan: Literal["monthly", "yearly"]
@@ -38,8 +40,9 @@ class SubscriptionResponse(BaseModel):
 
 class InvoiceResponse(BaseModel):
     """Invoice information"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     stripe_invoice_id: str
     amount: Decimal
@@ -54,6 +57,7 @@ class InvoiceResponse(BaseModel):
 
 class NextInvoiceResponse(BaseModel):
     """Upcoming invoice preview"""
+
     amount_due: int  # in cents
     currency: str
     billing_date: datetime
@@ -62,29 +66,30 @@ class NextInvoiceResponse(BaseModel):
 
 class BillingSummaryResponse(BaseModel):
     """Complete billing account summary"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     # Core billing info
     billing_account_id: UUID
     organization_id: UUID
     stripe_customer_id: Optional[str] = None
     status: Literal["trialing", "active", "past_due", "blocked", "canceled"]
-    
+
     # Trial information
     trial_ends_at: Optional[datetime] = None
     trial_days_remaining: int = 0
     is_trial_expired: bool = False
-    
+
     # Subscription information
     has_active_subscription: bool = False
     current_subscription: Optional[SubscriptionResponse] = None
     current_period_end: Optional[datetime] = None
-    
+
     # Financial information
     next_invoice: Optional[NextInvoiceResponse] = None
     payment_methods: List[PaymentMethodResponse] = []
     recent_invoices: List[InvoiceResponse] = []
-    
+
     # Timestamps
     created_at: datetime
     blocked_at: Optional[datetime] = None
@@ -92,17 +97,20 @@ class BillingSummaryResponse(BaseModel):
 
 class CheckoutSessionResponse(BaseModel):
     """Stripe Checkout session response"""
+
     checkout_url: str
     session_id: str
 
 
 class PortalSessionResponse(BaseModel):
     """Stripe Customer Portal session response"""
+
     portal_url: str
 
 
 class BillingMetricsResponse(BaseModel):
     """Admin billing metrics"""
+
     total_accounts: int
     active_subscriptions: int
     trial_accounts: int
@@ -116,6 +124,7 @@ class BillingMetricsResponse(BaseModel):
 
 class StandardResponse(BaseModel):
     """Standard API response wrapper"""
+
     success: bool
     data: Optional[dict] = None
     message: Optional[str] = None

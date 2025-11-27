@@ -103,18 +103,20 @@ class BillingAccount(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
-     # Tell SQLAlchemy which FK to use for this relationship
 
     payment_methods: List["PaymentMethod"] = Relationship(
-    back_populates="billing_account",
-    sa_relationship_kwargs={"foreign_keys": "[PaymentMethod.billing_account_id]"}
+        back_populates="billing_account",
+        sa_relationship_kwargs={
+            "foreign_keys": "[PaymentMethod.billing_account_id]",
+            "cascade": "all, delete-orphan",
+        },
     )
 
     invoices: List["InvoiceHistory"] = Relationship(
-        back_populates="billing_account"
+        back_populates="billing_account",
     )
 
     subscriptions: List["Subscription"] = Relationship(
-    back_populates="billing_account",
-    sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="billing_account",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
