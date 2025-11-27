@@ -478,7 +478,7 @@ async def update_source_patch(
     )
 
 
-@router.post("/{source_id}/scrape", status_code=status.HTTP_200_OK)
+@router.post("/{source_id}/scrapes", status_code=status.HTTP_200_OK)
 async def manual_scrape_trigger(
     source_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

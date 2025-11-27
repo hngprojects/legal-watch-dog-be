@@ -30,7 +30,10 @@ from app.api.utils.response_payloads import (
     success_response,
 )
 
-router = APIRouter(prefix="/projects", tags=["Projects"])
+router = APIRouter(
+    prefix="/organizations/{organization_id}/projects",
+    tags=["Projects"]
+)
 logger = logging.getLogger("app")
 
 
@@ -53,29 +56,19 @@ async def create_project(
     is initialized with the provided title, description, and optional master prompt.
 
     Args:
-        payload (ProjectBase):
-            The project data containing:
-            - **title**: Project title (required, 1-255 characters)
-            - **description**: Project description (optional)
-            - **master_prompt**: High-level AI prompt for the project (optional)
-        current_user (User):
-            The authenticated user making the request, automatically injected via
-            dependency injection. The user's organization ID is used to associate
-            the project.
-        db (AsyncSession):
-            The database session for executing queries, automatically managed via
-            dependency injection.
+        payload (ProjectBase): Project data containing:
+            - title (str): Project title (required, 1-255 characters)
+            - description (Optional[str]): Project description
+            - master_prompt (Optional[str]): High-level AI prompt
+        organization_id (UUID): The organization under which the project is created.
+        current_user (User): The authenticated user creating the project.
+        db (AsyncSession): Database session for executing queries.
 
     Returns:
-        JSONResponse: A standardized success response containing:
-            - `status`: "success"
-            - `message`: "Project created successfully"
-            - `data`: Serialized ProjectResponse object with project details
+        JSONResponse: Standardized success response containing project details.
 
     Raises:
-        HTTPException:
-            - 401 Unauthorized: If user authentication fails
-            - 500 Internal Server Error: If project creation fails due to database errors
+        HTTPException: If authentication fails (401) or database operation fails (500)
     """
     logger.info(f"Creating project for user_id={current_user.id}")
 
@@ -115,32 +108,25 @@ async def list_projects_in_organization(
     """
     List all projects belonging to the authenticated user's organization.
 
-    This endpoint retrieves a paginated list of projects with optional search
-    filtering. Only non-archived projects are returned, and results are sorted
-    by creation date in descending order.
+    Retrieves a paginated list of projects with optional search filtering. Only
+    non-archived projects are returned, sorted by creation date descending.
 
     Args:
-        q (Optional[str]):
-            Search query to filter projects by title (case-insensitive substring match)
-        page (int):
-            Page number for pagination (default: 1, minimum: 1)
-        limit (int):
-            Number of items per page (default: 20, range: 1-100)
-        current_user (User):
-            The authenticated user, used to determine the organization scope
-        db (AsyncSession):
-            Database session for query execution
+        organization_id (UUID): The organization to retrieve projects from.
+        q (Optional[str]): Search query to filter projects by title.
+        page (int): Page number for pagination (default: 1).
+        limit (int): Number of items per page (default: 20, max: 100).
+        current_user (User): The authenticated user performing the request.
+        db (AsyncSession): Database session for query execution.
 
     Returns:
-        JSONResponse: A success response containing:
-            - `status`: "success"
-            - `message`: "Projects retrieved successfully"
-            - `data`: ProjectListResponse with projects and pagination metadata
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): "Projects retrieved successfully"
+            - data (ProjectListResponse): Projects list with pagination metadata.
 
     Raises:
-        HTTPException:
-            - 401 Unauthorized: If user authentication fails
-            - 500 Internal Server Error: If project retrieval fails
+        HTTPException: If authentication fails (401) or database retrieval fails (500)
     """
     logger.info(f"Listing projects for user_id={current_user.id}")
 
@@ -184,31 +170,25 @@ async def get_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-     Get detailed information about a specific project.
-
-    This endpoint retrieves comprehensive details for a single project,
-    including its title, description, master prompt, and metadata. The project
-    must belong to the user's organization and must not be archived.
+    Retrieve detailed information about a specific project.
 
     Args:
-        project_id (UUID):
-            The unique identifier of the project to retrieve
-        current_user (User):
-            The authenticated user for organization access verification
-        db (AsyncSession):
-            Database session for query execution
+        project_id (UUID): The unique identifier of the project to retrieve.
+        organization_id (UUID): The organization ID for access verification.
+        current_user (User): The authenticated user performing the request.
+        db (AsyncSession): Database session for query execution.
 
     Returns:
-        JSONResponse: A success response containing:
-            - `status`: "success"
-            - `message`: "Project retrieved successfully"
-            - `data`: ProjectResponse with complete project details
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): "Project retrieved successfully"
+            - data (ProjectResponse): Complete project details.
 
     Raises:
-        HTTPException:
-            - 401 Unauthorized: If user authentication fails
-            - 404 Not Found: If the project doesn't exist or isn't accessible
-            - 500 Internal Server Error: If project retrieval fails
+        HTTPException: 
+            - 401 Unauthorized if authentication fails
+            - 404 Not Found if project doesn't exist or is inaccessible
+            - 500 Internal Server Error if retrieval fails
     """
     logger.info(f"Getting project_id={project_id} for user_id={current_user.id}")
 
@@ -253,37 +233,32 @@ async def update_project(
     """
     Update project information with partial updates.
 
-    This endpoint supports partial updates to project fields and provides
-    archive/restore functionality. Only the fields provided in the request
-    will be modified. Archive operations are reversible through restoration.
+    Supports partial updates to project fields and archive/restore functionality.
+    Only the fields provided in the request are modified.
 
     Args:
-        project_id (UUID):
-            The unique identifier of the project to update
-        payload (ProjectUpdate):
-            The update data containing any combination of:
-            - **title**: Updated project title (optional, 1-255 characters)
-            - **description**: Updated project description (optional)
-            - **master_prompt**: Updated master prompt (optional)
-            - **is_deleted**: Boolean to archive (true) or restore (false) the project
-        current_user (User):
-            The authenticated user for organization access verification
-        db (AsyncSession):
-            Database session for query execution
+        project_id (UUID): Unique identifier of the project to update.
+        organization_id (UUID): Organization ID for access verification.
+        payload (ProjectUpdate): Fields to update:
+            - title (Optional[str]): Project title
+            - description (Optional[str]): Project description
+            - master_prompt (Optional[str]): Master prompt
+            - is_deleted (Optional[bool]): Archive (true) or restore (false)
+        current_user (User): The authenticated user performing the update.
+        db (AsyncSession): Database session for query execution.
 
     Returns:
-        JSONResponse: A success response containing:
-            - `status`: "success"
-            - `message`: Dynamic message describing the operation outcome
-            - `data`: Updated ProjectResponse object
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): Dynamic operation message
+            - data (ProjectResponse): Updated project details.
 
     Raises:
         HTTPException:
-            - 401 Unauthorized: If user authentication fails
-            - 404 Not Found: If the project doesn't exist or isn't accessible
-            - 500 Internal Server Error: If project update fails
+            - 401 Unauthorized if authentication fails
+            - 404 Not Found if project doesn't exist
+            - 500 Internal Server Error if update fails
     """
-
     logger.info(f"Updating project_id={project_id} for user_id={current_user.id}")
 
     try:
@@ -326,29 +301,23 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
 ):
     """
-     Permanently delete a project from the database.
-
-    This endpoint performs irreversible deletion of a project and all its
-    associated data. This operation cannot be undone and should be used
-    with extreme caution. Typically requires administrative privileges.
+    Permanently delete a project from the database.
 
     Args:
-        project_id (UUID):
-            The unique identifier of the project to delete permanently
-        current_user (User):
-            The authenticated user for organization access verification
-        db (AsyncSession):
-            Database session for query execution
+        project_id (UUID): Unique identifier of the project to delete.
+        organization_id (UUID): Organization ID for access verification.
+        current_user (User): The authenticated user performing the deletion.
+        db (AsyncSession): Database session for query execution.
 
     Returns:
-        Response: HTTP 204 No Content on successful deletion
+        Response: HTTP 204 No Content on successful deletion.
 
     Raises:
         HTTPException:
-            - 401 Unauthorized: If user authentication fails
-            - 403 Forbidden: If user lacks permission for permanent deletion
-            - 404 Not Found: If the project doesn't exist or isn't accessible
-            - 500 Internal Server Error: If project deletion fails
+            - 401 Unauthorized if authentication fails
+            - 403 Forbidden if user lacks permission
+            - 404 Not Found if project doesn't exist
+            - 500 Internal Server Error if deletion fails
     """
     logger.info(f"Permanently deleting project_id={project_id}")
 

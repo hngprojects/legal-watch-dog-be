@@ -196,7 +196,7 @@ update_organization._custom_success = update_organization_custom_success
 
 
 @router.post(
-    "/{organization_id}/invite-user",
+    "/{organization_id}/invitations",
     response_model=InvitationResponse,
     status_code=status.HTTP_201_CREATED,
 )
