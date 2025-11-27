@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
-<<<<<<< HEAD
+
 router = APIRouter(prefix="/v1")
 router.include_router(waitlist_router)
-=======
+
 from app.api.modules.v1.auth.routes.auth_routes import router as register_router
 from app.api.modules.v1.auth.routes.login_route import router as auth_router
 from app.api.modules.v1.auth.routes.reset_password import (
@@ -35,4 +35,3 @@ router.include_router(juridiction_router)
 router.include_router(billing_webhook_router)
 router.include_router(billing_router)
 router.include_router(data_revision_search_router)
->>>>>>> fix/billing-model-cleanup
