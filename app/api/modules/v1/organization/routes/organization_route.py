@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -10,6 +10,9 @@ from app.api.modules.v1.organization.routes.docs.organization_route_docs import 
     create_organization_custom_errors,
     create_organization_custom_success,
     create_organization_responses,
+    delete_organization_custom_errors,
+    delete_organization_custom_success,
+    delete_organization_responses,
     update_organization_custom_errors,
     update_organization_custom_success,
     update_organization_responses,
@@ -543,63 +546,7 @@ async def get_all_users_in_organization(
 @router.delete(
     "/{organization_id}",
     status_code=status.HTTP_200_OK,
-    responses={
-        200: {
-            "description": "Organization deleted successfully",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "SUCCESS",
-                        "status_code": 200,
-                        "message": "Organization 'Acme Corp' deleted successfully",
-                        "data": {
-                            "organization_id": "123e4567-e89b-12d3-a456-426614174000",
-                            "organization_name": "Acme Corp",
-                        },
-                    }
-                }
-            },
-        },
-        400: {
-            "description": "Bad Request - Cannot delete organization",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "error": "ERROR",
-                        "message": "Cannot delete organization with active members",
-                        "status_code": 400,
-                        "errors": {},
-                    }
-                }
-            },
-        },
-        403: {
-            "description": "Forbidden - Admin access required",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "error": "FORBIDDEN",
-                        "message": "Only organization admins can delete organizations",
-                        "status_code": 403,
-                        "errors": {},
-                    }
-                }
-            },
-        },
-        404: {
-            "description": "Not Found - Organization not found",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "error": "NOT_FOUND",
-                        "message": "Organization not found",
-                        "status_code": 404,
-                        "errors": {},
-                    }
-                }
-            },
-        },
-    },
+    responses=delete_organization_responses,
 )
 async def delete_organization(
     organization_id: uuid.UUID,
@@ -631,15 +578,13 @@ async def delete_organization(
     """
     try:
         service = OrganizationService(db)
-        result = await service.delete_organization(
+
+        await service.delete_organization(
             organization_id=organization_id,
             requesting_user_id=current_user.id,
         )
 
-        return success_response(
-            status_code=status.HTTP_204_NO_CONTENT,
-            message=f"Organization '{result['organization_name']}' deleted successfully",
-        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except ValueError as e:
         logger.warning(f"Organization deletion failed for org_id={organization_id}: {str(e)}")
@@ -666,3 +611,7 @@ async def delete_organization(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete organization. Please try again later.",
         )
+
+
+delete_organization._custom_errors = delete_organization_custom_errors
+delete_organization._custom_success = delete_organization_custom_success
