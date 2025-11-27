@@ -14,7 +14,7 @@ from app.api.modules.v1.projects.models.project_model import Project
 
 
 @pytest.mark.asyncio
-async def test_create_first_jurisdiction_sets_parent(test_session):
+async def test_create_first_jurisdiction_sets_parent(pg_async_session):
     """
     Test creating the first jurisdiction for a project.
 
@@ -24,51 +24,51 @@ async def test_create_first_jurisdiction_sets_parent(test_session):
     svc = JurisdictionService()
 
     org = Organization(name="Test Org")
-    test_session.add(org)
-    await test_session.commit()
-    await test_session.refresh(org)
+    pg_async_session.add(org)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(org)
 
     project = Project(org_id=org.id, title="P1")
-    test_session.add(project)
-    await test_session.commit()
-    await test_session.refresh(project)
+    pg_async_session.add(project)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(project)
 
     jur = Jurisdiction(project_id=project.id, name="J-First", description="d1")
-    created = await svc.create(test_session, jur)
+    created = await svc.create(pg_async_session, jur)
 
     assert created is not None
     assert created.id is not None
 
 
 @pytest.mark.asyncio
-async def test_get_by_name_and_delete_and_read(test_session):
+async def test_get_by_name_and_delete_and_read(pg_async_session):
     """
     Test full lifecycle of a jurisdiction: create, retrieve by name, read all, and delete.
     """
     svc = JurisdictionService()
 
     org = Organization(name="Test Org 3")
-    test_session.add(org)
-    await test_session.commit()
-    await test_session.refresh(org)
+    pg_async_session.add(org)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(org)
 
     project = Project(org_id=org.id, title="P3")
-    test_session.add(project)
-    await test_session.commit()
-    await test_session.refresh(project)
+    pg_async_session.add(project)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(project)
 
     jur = Jurisdiction(project_id=project.id, name="FindMe", description="d")
-    created = await svc.create(test_session, jur)
+    created = await svc.create(pg_async_session, jur)
 
-    found = await svc.get_jurisdiction_by_name(test_session, "FindMe")
+    found = await svc.get_jurisdiction_by_name(pg_async_session, "FindMe")
     found_obj = found if hasattr(found, "id") else found[0]
     assert found_obj.id == created.id
 
-    all_j = await svc.read(test_session)
+    all_j = await svc.read(pg_async_session)
     ids = [item.id if hasattr(item, "id") else item[0].id for item in all_j]
     assert created.id in ids
 
-    deleted = await svc.delete(test_session, created)
+    deleted = await svc.delete(pg_async_session, created)
     assert deleted is True
 
 
@@ -156,7 +156,9 @@ def test_org_guard_blocks_cross_org_access():
     fake_project = SimpleNamespace(id=uuid4(), org_id=uuid4())  # different org
 
     app, client = _build_app_and_client(fake_user=fake_user, fake_project=fake_project)
-    resp = client.get(f"/api/v1/jurisdictions/project/{fake_project.id}")
+    resp = client.get(
+        f"/api/v1/organizations/{fake_project.org_id}/jurisdictions/project/{fake_project.id}"
+    )
 
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Cross-organization access denied"
@@ -171,6 +173,8 @@ def test_org_guard_allows_same_org_access():
     fake_project = SimpleNamespace(id=uuid4(), org_id=org_id)
 
     app, client = _build_app_and_client(fake_user=fake_user, fake_project=fake_project)
-    resp = client.get(f"/api/v1/jurisdictions/project/{fake_project.id}")
+    resp = client.get(
+        f"/api/v1/organizations/{fake_project.org_id}/jurisdictions/project/{fake_project.id}"
+    )
 
     assert resp.status_code != 403
