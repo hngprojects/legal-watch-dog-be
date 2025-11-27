@@ -239,6 +239,26 @@ get_all_contacts_responses = {
             }
         },
     },
+    403: {
+        "description": "Forbidden - Admin Access Required",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "forbidden": {
+                        "summary": "Unauthorized Access - Admin Email Invalid",
+                        "value": {
+                            "status": "ERROR",
+                            "status_code": 403,
+                            "message": "You are not authorized to access this resource.",
+                            "errors": {
+                                "admin_email": "Provided admin email does not match system admin."
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
     500: {
         "description": "Internal Server Error",
         "content": {

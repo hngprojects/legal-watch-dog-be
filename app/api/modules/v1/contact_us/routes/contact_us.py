@@ -12,6 +12,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.dependencies.admin_check_email import verify_admin_email
 from app.api.core.dependencies.redis_service import check_rate_limit
 from app.api.db.database import get_db
 from app.api.modules.v1.contact_us.routes.docs.contact_route import (
@@ -150,6 +151,7 @@ async def get_all_contact_submissions(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
     email: Optional[str] = Query(None, description="Filter by email address"),
+    admin_email: str = Depends(verify_admin_email),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -158,17 +160,28 @@ async def get_all_contact_submissions(
     Retrieves a paginated list of all contact form submissions.
     Optionally filter by email address.
 
-    Args:
-        page (int): Page number (default: 1)
-        page_size (int): Number of items per page (default: 10, max: 100)
-        email (str, optional): Filter by email address
-        db (AsyncSession): Database session
+    **Args:**
 
-    Returns:
-        dict: Paginated list of contact submissions with metadata
+        - page (int)
+          Page number (default: 1)
 
-    Raises:
-        HTTPException: 500 if database operation fails
+        - page_size (int)
+          Number of items per page (default: 10, max: 100)
+
+        - email (str, optional)
+          Filter by email address
+
+        - admin_email (required)
+          Email used to verify that you are authorized (admin-only)
+
+        - db (AsyncSession)
+          Database session
+
+    **Returns:**
+        Paginated list of contact submissions with metadata.
+
+    **Raises:**
+        500: Database operation failed.
     """
     try:
         service = ContactUsService(db)
