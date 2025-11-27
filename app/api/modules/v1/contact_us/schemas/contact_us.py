@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import List
+from uuid import UUID
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.api.utils.validators import is_company_email
@@ -41,6 +45,30 @@ class ContactUsRequest(BaseModel):
         return v.strip()
 
 
+class ContactUsDetail(BaseModel):
+    """Schema for individual contact submission details"""
+
+    id: UUID
+    full_name: str
+    email: str
+    phone_number: str
+    message: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ContactUsResponse(BaseModel):
     message: str
     email: EmailStr
+
+
+class ContactUsListResponse(BaseModel):
+    """Response schema for GET all contacts"""
+
+    contacts: List[ContactUsDetail]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
