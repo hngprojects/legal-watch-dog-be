@@ -655,7 +655,8 @@ class TestGetRevisionsEndpoint:
         assert data["status"] == "SUCCESS"
         assert data["message"] == "Revisions retrieved successfully"
         assert len(data["data"]["revisions"]) == 5
-        assert data["data"]["total"] == 5
+        assert data["data"]["pagination"]["total"] == 5
+        assert data["data"]["pagination"]["page"] == 1
 
     @pytest.mark.asyncio
     async def test_get_revisions_ordering(
@@ -804,9 +805,17 @@ class TestGetRevisionsEndpoint:
             headers=auth_headers,
         )
 
-        revision = response.json()["data"]["revisions"][0]
+        data = response.json()["data"]
+        revision = data["revisions"][0]
         assert "id" in revision
         assert "source_id" in revision
+
+        # Verify pagination structure
+        assert "pagination" in data
+        assert "total" in data["pagination"]
+        assert "page" in data["pagination"]
+        assert "limit" in data["pagination"]
+        assert "total_pages" in data["pagination"]
         assert "extracted_data" in revision
         assert isinstance(revision["extracted_data"], dict)
 
