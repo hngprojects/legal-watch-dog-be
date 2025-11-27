@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import HTTPError, Response
 
+from app.api.core.config import settings
 from app.api.modules.v1.auth.schemas.oauth_microsoft import MicrosoftUserInfo
 from app.api.modules.v1.auth.service.oauth_microsoft import MicrosoftOAuthService
 from app.api.modules.v1.users.models.users_model import User
@@ -45,8 +46,8 @@ async def test_generate_authorization_url(microsoft_service, mock_redis):
 
     mock_redis.setex.assert_called_once()
     call_args = mock_redis.setex.call_args
-    assert call_args[0][0] == f"oauth_state:{state}"
-    assert call_args[0][1] == 600
+    assert call_args[0][0] == f"microsoft_oauth_state:{state}"
+    assert call_args[0][1] == settings.MICROSOFT_OAUTH_STATE_TTL
     assert call_args[0][2] == "pending"
 
     assert "https://login.microsoftonline.com/" in auth_url
@@ -65,7 +66,7 @@ async def test_validate_state_success(microsoft_service, mock_redis):
     result = await microsoft_service.validate_state(test_state)
 
     assert result is True
-    mock_redis.get.assert_called_once_with(f"oauth_state:{test_state}")
+    mock_redis.get.assert_called_once_with(f"microsoft_oauth_state:{test_state}")
 
 
 @pytest.mark.asyncio
@@ -77,7 +78,7 @@ async def test_validate_state_failure(microsoft_service, mock_redis):
     result = await microsoft_service.validate_state(test_state)
 
     assert result is False
-    mock_redis.get.assert_called_once_with(f"oauth_state:{test_state}")
+    mock_redis.get.assert_called_once_with(f"microsoft_oauth_state:{test_state}")
 
 
 @pytest.mark.asyncio
@@ -98,7 +99,7 @@ async def test_exchange_code_for_token_success(microsoft_service, mock_redis, mo
 
     assert result == mock_token_response
     assert "access_token" in result
-    mock_redis.delete.assert_called_once_with(f"oauth_state:{test_state}")
+    mock_redis.delete.assert_called_once_with(f"microsoft_oauth_state:{test_state}")
     mock_msal_app.acquire_token_by_authorization_code.assert_called_once()
 
 
@@ -119,7 +120,7 @@ async def test_exchange_code_for_token_error(microsoft_service, mock_redis, mock
 
     assert "Failed to exchange code" in str(exc_info.value)
     assert "invalid or expired" in str(exc_info.value)
-    mock_redis.delete.assert_called_once_with(f"oauth_state:{test_state}")
+    mock_redis.delete.assert_called_once_with(f"microsoft_oauth_state:{test_state}")
 
 
 @pytest.mark.asyncio
@@ -348,11 +349,7 @@ async def test_complete_oauth_flow_success(
                 return_value=mock_response
             )
 
-            with patch(
-                "app.api.modules.v1.auth.service.oauth_microsoft.get_redis_client",
-                return_value=mock_redis,
-            ):
-                result = await service.complete_oauth_flow(test_code, test_state)
+            result = await service.complete_oauth_flow(test_code, test_state)
 
     assert "access_token" in result
     assert "refresh_token" in result
@@ -441,11 +438,7 @@ async def test_complete_oauth_flow_existing_user(
                 return_value=mock_response
             )
 
-            with patch(
-                "app.api.modules.v1.auth.service.oauth_microsoft.get_redis_client",
-                return_value=mock_redis,
-            ):
-                result = await service.complete_oauth_flow(test_code, test_state)
+            result = await service.complete_oauth_flow(test_code, test_state)
 
     assert result["email"] == "existing.flow@example.com"
     assert result["is_new_user"] is False
