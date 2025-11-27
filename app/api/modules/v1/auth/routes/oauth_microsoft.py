@@ -23,7 +23,7 @@ from app.api.modules.v1.auth.schemas.oauth_microsoft import (
 from app.api.modules.v1.auth.service.oauth_microsoft import MicrosoftOAuthService
 from app.api.utils.response_payloads import error_response
 
-router = APIRouter(prefix="/auth/microsoft", tags=["Social Auth"])
+router = APIRouter(prefix="/oauth/microsoft", tags=["Social Auth"])
 
 logger = logging.getLogger("app")
 
