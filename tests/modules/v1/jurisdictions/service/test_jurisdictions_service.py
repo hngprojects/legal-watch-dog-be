@@ -156,7 +156,9 @@ def test_org_guard_blocks_cross_org_access():
     fake_project = SimpleNamespace(id=uuid4(), org_id=uuid4())  # different org
 
     app, client = _build_app_and_client(fake_user=fake_user, fake_project=fake_project)
-    resp = client.get(f"/api/v1/jurisdictions/project/{fake_project.id}")
+    resp = client.get(
+        f"/api/v1/organizations/{fake_project.org_id}/jurisdictions/project/{fake_project.id}"
+    )
 
     assert resp.status_code == 403
     assert resp.json()["detail"] == "Cross-organization access denied"
@@ -171,6 +173,8 @@ def test_org_guard_allows_same_org_access():
     fake_project = SimpleNamespace(id=uuid4(), org_id=org_id)
 
     app, client = _build_app_and_client(fake_user=fake_user, fake_project=fake_project)
-    resp = client.get(f"/api/v1/jurisdictions/project/{fake_project.id}")
+    resp = client.get(
+        f"/api/v1/organizations/{fake_project.org_id}/jurisdictions/project/{fake_project.id}"
+    )
 
     assert resp.status_code != 403
