@@ -90,32 +90,57 @@ class Settings(BaseSettings):
         "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
     )
 
-    model_config = SettingsConfigDict(extra="allow")
-
-    # Stripe API keys and product price IDs for billing
+    # Stripe configuration
     STRIPE_SECRET_KEY: str = config("STRIPE_SECRET_KEY", default="sk_test_...")
     STRIPE_PUBLISHABLE_KEY: str = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_...")
     STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="whsec_...")
-    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="prod_monthly_id")
-    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="prod_yearly_id")
+    STRIPE_API_TIMEOUT: int = config("STRIPE_API_TIMEOUT", default=30, cast=int)
+    STRIPE_RETRY_COUNT: int = config("STRIPE_RETRY_COUNT", default=3, cast=int)
+    STRIPE_RETRY_BACKOFF: float = config("STRIPE_RETRY_BACKOFF", default=0.5, cast=float)
 
-    
-    # Billing Configuration
-    TRIAL_DURATION_DAYS: int = 14
-    BILLING_GRACE_PERIOD_DAYS: int = 3
-    
+    STRIPE_MONTHLY_PRODUCT_ID: str = config("STRIPE_MONTHLY_PRODUCT_ID", default="prod_monthly_123")
+    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="price_monthly_id")
+    STRIPE_YEARLY_PRODUCT_ID: str = config("STRIPE_YEARLY_PRODUCT_ID", default="prod_yearly_123")
+    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="price_yearly_id")
+    STRIPE_ONE_OFF_YEAR_PROD_ID: str = config(
+        "STRIPE_ONE_OFF_YEAR_PROD_ID", default="prod_oneoff_year_123"
+    )
+    STRIPE_ONE_OFF_YEAR_PRICE_ID: str = config(
+        "STRIPE_ONE_OFF_YEAR_PRICE_ID", default="price_oneoff_year_id"
+    )
+    STRIPE_ONE_OFF_MONTH_PROD_ID: str = config(
+        "STRIPE_ONE_OFF_MONTH_PROD_ID", default="prod_oneoff_month_123"
+    )
+    STRIPE_ONE_OFF_MONTH_PRICE_ID: str = config(
+        "STRIPE_ONE_OFF_MONTH_PRICE_ID", default="price_oneoff_month_id"
+    )
+    STRIPE_INVOICE_DURATION_DAYS: int = config("STRIPE_INVOICE_DURATION_DAYS", default=3, cast=int)
+    STRIPE_CHECKOUT_SUCCESS_PATH: str = config(
+        "STRIPE_CHECKOUT_SUCCESS_PATH", default="/billing/success"
+    )
+    STRIPE_CHECKOUT_CANCEL_PATH: str = config(
+        "STRIPE_CHECKOUT_CANCEL_PATH", default="/billing/cancel"
+    )
 
     # Frontend URL (for Stripe redirects)
     @property
     def FRONTEND_URL(self) -> str:
         return os.getenv("FRONTEND_URL") or (self.DEV_URL if self.DEBUG else self.APP_URL)
 
+    @property
+    def STRIPE_CHECKOUT_SUCCESS_URL(self) -> str:
+        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_SUCCESS_PATH}"
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        case_sensitive=True,
-        extra="allow",
-    )
+    @property
+    def STRIPE_CHECKOUT_CANCEL_URL(self) -> str:
+        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_CANCEL_PATH}"
+
+    # Billing Configuration
+    TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
+    BILLING_GRACE_PERIOD_DAYS: int = 3
+
+    model_config = SettingsConfigDict(extra="allow")
+
 
 settings = Settings()
 
@@ -124,8 +149,7 @@ settings = Settings()
 def get_cipher_suite():
     return Fernet(settings.ENCRYPTION_KEY)
 
+
 # For backward compatibility, provide cipher_suite as a module-level variable
 # This will be initialized on first access
 cipher_suite = None
- 
-    

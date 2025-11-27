@@ -24,7 +24,6 @@ __all__ = [
     "SubscriptionUpdateRequest",
     "SubscriptionCancelRequest",
     "AttachPaymentMethodRequest",
-    
     # Responses
     "PaymentMethodResponse",
     "SubscriptionResponse",
