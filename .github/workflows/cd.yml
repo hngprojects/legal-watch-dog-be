@@ -81,13 +81,29 @@ jobs:
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
+          # MinIO
+          MINIO_ENDPOINT=${{ vars.MINIO_ENDPOINT || 'localhost:9000' }}
+          MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY || 'minioadmin' }}
+          MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY || 'minioadmin' }}
+          MINIO_SECURE=${{ vars.MINIO_SECURE || 'False' }}
+
+          # Scraping
+          SCRAPE_MAX_RETRIES=${{ vars.SCRAPE_MAX_RETRIES || '5' }}
+          SCRAPE_BASE_DELAY=${{ vars.SCRAPE_BASE_DELAY || '60' }}
+          SCRAPE_MAX_DELAY=${{ vars.SCRAPE_MAX_DELAY || '3600' }}
+          SCRAPE_DISPATCH_LOCK_TIMEOUT=${{ vars.SCRAPE_DISPATCH_LOCK_TIMEOUT || '60' }}
+          SCRAPE_BATCH_SIZE=${{ vars.SCRAPE_BATCH_SIZE || '1000' }}
+
+          # Invitation expiration
+          INVITATION_TOKEN_EXPIRE_MINUTES=${{ vars.INVITATION_TOKEN_EXPIRE_MINUTES || '1440' }}
+
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
         env:
-          SERVER_PASS: ${{ secrets.PROD_PASS }}
-          SERVER_USER: ${{ secrets.PROD_USER }}
-          SERVER_IP: ${{ secrets.PROD_IP }}
+          SERVER_PASS: ${{ secrets.SERVER_PASS }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
           echo "access gained"
           echo "copying files to server..."
@@ -225,6 +241,22 @@ jobs:
 
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+          # MinIO
+          MINIO_ENDPOINT=${{ vars.MINIO_ENDPOINT || 'localhost:9000' }}
+          MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY || 'minioadmin' }}
+          MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY || 'minioadmin' }}
+          MINIO_SECURE=${{ vars.MINIO_SECURE || 'False' }}
+
+          # Scraping
+          SCRAPE_MAX_RETRIES=${{ vars.SCRAPE_MAX_RETRIES || '5' }}
+          SCRAPE_BASE_DELAY=${{ vars.SCRAPE_BASE_DELAY || '60' }}
+          SCRAPE_MAX_DELAY=${{ vars.SCRAPE_MAX_DELAY || '3600' }}
+          SCRAPE_DISPATCH_LOCK_TIMEOUT=${{ vars.SCRAPE_DISPATCH_LOCK_TIMEOUT || '60' }}
+          SCRAPE_BATCH_SIZE=${{ vars.SCRAPE_BATCH_SIZE || '1000' }}
+
+          # Invitation expiration
+          INVITATION_TOKEN_EXPIRE_MINUTES=${{ vars.INVITATION_TOKEN_EXPIRE_MINUTES || '1440' }}
 
           EOF
 
