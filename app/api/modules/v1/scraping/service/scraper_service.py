@@ -7,16 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import desc, select
 
+# Core Dependency (Required for decryption)
 from app.api.core.security import decrypt_auth_details
+
+# Model Imports
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
+
+# Service Imports
 from app.api.modules.v1.scraping.service.cloudscrapper_service import HTTPClientService
 from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
-
-# Service Imports
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
 
@@ -42,6 +45,7 @@ class ScraperService:
         """
         logger.info(f"Starting pipeline for Source ID: {source_id}")
 
+        # 1. Fetch Source & Load Relationships
         query = (
             select(Source)
             .where(Source.id == source_id)
@@ -56,6 +60,7 @@ class ScraperService:
         jurisdiction = source.jurisdiction
         project = jurisdiction.project
 
+        # 2. Handle Auth Credentials
         auth_creds = {}
         if source.auth_details_encrypted:
             try:
@@ -63,6 +68,7 @@ class ScraperService:
             except Exception as e:
                 logger.error(f"Failed to decrypt auth details: {e}")
 
+        # 3. Fetch Content
         if source.url.startswith("mock://"):
             mock_html = source.scraping_rules.get("mock_html", "<html></html>")
             raw_content_bytes = mock_html.encode("utf-8")
@@ -72,6 +78,7 @@ class ScraperService:
             raw_content_bytes = await self.http_client.fetch_content(source.url, auth_creds)
             content_type = source.scraping_rules.get("expected_type", "text/html").lower()
 
+        # 4. PDF Handling
         is_pdf = self.pdf_service.is_pdf(raw_content_bytes, content_type)
         if is_pdf:
             logger.info("PDF detected. Extracting text...")
@@ -84,21 +91,27 @@ class ScraperService:
                 logger.error(f"PDF extraction failed: {e}")
                 raw_content_bytes = b"<html><body>PDF extraction failed</body></html>"
 
+        # 5. Pipeline: Upload Raw -> Clean -> Upload Clean (Updated for Supabase Storage)
         timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        raw_minio_key = f"raw/{project.id}/{source.id}/{timestamp_str}.html"
+        # Renamed variable from raw_minio_key to raw_storage_key
+        raw_storage_key = f"raw/{project.id}/{source.id}/{timestamp_str}.html"
 
         extraction_result = await self.text_extractor.process_pipeline(
             raw_content=raw_content_bytes,
-            raw_bucket="raw-content",
-            raw_key=raw_minio_key,
-            clean_bucket="clean-content",
+            # Swapped MinIO bucket parameter for Supabase folder prefix
+            raw_folder_prefix="raw-scraped-text",
+            raw_key=raw_storage_key,
+            # Swapped MinIO bucket parameter for Supabase folder prefix
+            clean_folder_prefix="cleaned-scraped-text",
             source_id=source.id,
         )
 
         clean_text = extraction_result["full_text"]
 
+        # 6. Hash Check
         content_hash = hashlib.sha256(clean_text.encode()).hexdigest()
 
+        # 7. Fetch Last Revision
         rev_query = (
             select(DataRevision)
             .where(DataRevision.source_id == source.id)
@@ -108,6 +121,7 @@ class ScraperService:
         rev_result = await self.db.execute(rev_query)
         last_revision = rev_result.scalars().first()
 
+        # 8. Content Change Gatekeeper
         diff_patch = {}
         was_change_detected = False
 
@@ -127,6 +141,7 @@ class ScraperService:
                 jurisdiction_prompt=context_prompt,
             )
 
+            # 9. AI Semantic Diff
             old_data = (
                 last_revision.extracted_data.get("extracted_data", {}) if last_revision else {}
             )
@@ -151,9 +166,11 @@ class ScraperService:
                     "risk_level": "NONE",
                 }
 
+        # 10. Async Persistence
         try:
             new_revision = DataRevision(
                 source_id=source.id,
+                # Retain 'minio_object_key' as the database column name, using the result key
                 minio_object_key=extraction_result["raw_key"],
                 content_hash=content_hash,
                 extracted_data=ai_result,

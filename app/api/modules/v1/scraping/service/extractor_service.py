@@ -1,24 +1,23 @@
 """
-Text Extractor Service.
+Text Extractor Service (Supabase Storage).
 
 This module provides the TextExtractorService class, which handles the extraction of text
-from raw content (HTML, PDF, etc.). It manages the entire pipeline of uploading raw content
-to MinIO, cleaning the content to extract meaningful text, and uploading the cleaned text
-back to MinIO. It supports fallback mechanisms using readability-lxml if primary extraction fails.
+from raw content. It now manages the entire pipeline of uploading raw content
+to Supabase Storage (using the configured bucket ID) and cleaning the content.
 """
 
-import io
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from uuid import UUID, uuid4
 
-from fastapi.concurrency import run_in_threadpool
+import httpx  # Used for async Supabase Storage API calls
 from readability import Document
 
 from app.api.core.config import settings
 from app.api.utils.cleaned_text import cleaned_html, normalize_text
 
+# --- BS4 Imports with Safety Checks ---
 try:
     from bs4 import BeautifulSoup, Comment
 
@@ -28,136 +27,104 @@ except ImportError:
     Comment = None
     _HAS_BS4 = False
 
-try:
-    from minio import Minio
-    from minio.error import S3Error
-
-    _HAS_MINIO = True
-except ImportError:
-    Minio = None
-    S3Error = Exception
-    _HAS_MINIO = False
+# --- MinIO Imports are REMOVED as requested ---
+# We no longer rely on the minio SDK
 
 logger = logging.getLogger(__name__)
-EXTRACTOR_VERSION = "1.4.0"
+EXTRACTOR_VERSION = "1.6.0 (Supabase Configured)"
 
 
 class TextExtractorService:
     """
-    Unified service for storage and text extraction.
+    Unified service for Supabase storage and text extraction.
 
-    Responsibilities:
-    1. Uploading Raw Content (HTML/PDF bytes) to MinIO.
-    2. Extracting & Cleaning Text from those bytes.
-    3. Uploading Cleaned Text to MinIO.
-    4. Returning the clean text for AI processing.
+    The primary bucket ID is configured via settings (e.g., 'lwd_scrape'), and
+    the bucket arguments in process_pipeline are treated as folder prefixes.
     """
 
     def __init__(self):
-        self.minio_client = self._init_minio_client()
+        # Base Storage URL from general Supabase URL
+        self.base_storage_url = f"{settings.SUPABASE_URL}/storage/v1/object"
 
-    def _init_minio_client(self) -> Optional[Any]:
-        """Initialize MinIO client based on settings."""
-        if not _HAS_MINIO:
-            logger.warning("MinIO SDK not installed.")
-            return None
+        # Main Bucket ID from configuration (This will be 'lwd_scrape')
+        self.main_bucket_id = settings.SUPABASE_STORAGE_BUCKET_ID
+
+        # Headers include the required Service Role Key for high-privilege uploads
+        self.headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/octet-stream",
+        }
+        self.http_client = httpx.AsyncClient()
+
+    # --- Core Supabase Operations (Async) ---
+
+    async def _upload_bytes_async(
+        self, file_data: bytes, folder_prefix: str, object_name: str
+    ) -> str:
+        """
+        Async upload method using httpx for Supabase Storage API.
+
+        Constructs the URL using the main bucket ID and the folder prefix.
+        Example Path: /lwg_scrape/raw-scraped-text/raw/project_id/file.html
+        """
+
+        # The final path structure combines the folder prefix and the object key
+        final_object_path = f"{folder_prefix}/{object_name}"
+
+        # Construct the full upload URL
+        upload_url = f"{self.base_storage_url}/{self.main_bucket_id}/{final_object_path}"
 
         try:
-            client = Minio(
-                endpoint=settings.MINIO_ENDPOINT,
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
-                secure=settings.MINIO_SECURE,
+            # Perform the PUT request to upload the file
+            response = await self.http_client.put(
+                upload_url, content=file_data, headers=self.headers, timeout=30.0
             )
-            return client
-        except Exception as e:
-            logger.critical(f"Failed to initialize MinIO client: {e}")
-            return None
+            response.raise_for_status()  # Raise exception for 4xx or 5xx errors
 
-    # --- Core MinIO Operations (Internal Sync methods for Threadpool) ---
-
-    def _upload_bytes_sync(self, file_data: bytes, bucket_name: str, object_name: str) -> str:
-        """Blocking upload method to be run in threadpool."""
-        if not self.minio_client:
-            raise Exception("MinIO client not available.")
-
-        try:
-            # Check/Create Bucket (Idempotent-ish)
-            if not self.minio_client.bucket_exists(bucket_name):
-                self.minio_client.make_bucket(bucket_name)
-        except Exception as e:
-            # Ignore harmless race conditions on bucket creation or permission warnings
-            logger.warning(f"Bucket check/create warning for '{bucket_name}': {e}")
-
-        # Upload
-        try:
-            data_stream = io.BytesIO(file_data)
-            self.minio_client.put_object(
-                bucket_name=bucket_name,
-                object_name=object_name,
-                data=data_stream,
-                length=len(file_data),
-                content_type="application/octet-stream",
+            logger.info(
+                f"Successfully uploaded to Supabase: {self.main_bucket_id}/{final_object_path}"
             )
-            return object_name
+            return final_object_path
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Supabase Upload HTTP Error ({e.response.status_code}): {e.response.text}"
+            )
+            raise Exception(f"Failed to upload to Supabase: {e.response.text}") from e
         except Exception as e:
-            logger.error(f"MinIO Upload Error ({bucket_name}/{object_name}): {e}")
+            logger.error(f"Unexpected Supabase Upload Error: {e}")
             raise e
 
-    def _fetch_bytes_sync(self, bucket_name: str, object_name: str) -> Optional[bytes]:
-        """Blocking fetch method."""
-        if not self.minio_client:
-            return None
-        try:
-            response = self.minio_client.get_object(bucket_name, object_name)
-            content = response.read()
-            response.close()
-            return content
-        except Exception as e:
-            logger.error(f"MinIO Fetch Error: {e}")
-            return None
+    # The old _upload_bytes_sync and _fetch_bytes_sync (MinIO) methods are removed.
 
     # --- Pipeline Methods ---
 
     async def process_pipeline(
         self,
         raw_content: bytes,
-        raw_bucket: str,
+        raw_folder_prefix: str,  # e.g., 'raw-scraped-text'
         raw_key: str,
-        clean_bucket: str,
+        clean_folder_prefix: str,  # e.g., 'cleaned-scraped-text'
         source_id: str,
         revision_id: UUID = None,
     ) -> Dict[str, Any]:
         """
-        Master method for the Scraping Pipeline.
-
-        Steps:
-        1. Upload Raw Content to MinIO (Raw Bucket).
-        2. Clean Content (Bytes -> Clean String).
-        3. Upload Clean Content to MinIO (Clean Bucket).
-        4. Return Full Text and Metadata for the AI Service.
-
-        Args:
-            raw_content (bytes): The raw HTML or PDF bytes.
-            raw_bucket (str): Bucket name for raw files.
-            raw_key (str): Object key for the raw file.
-            clean_bucket (str): Bucket name for cleaned text files.
-            source_id (str): ID of the source (for file naming).
-            revision_id (UUID, optional): ID of the revision.
-
-        Returns:
-            Dict: Contains 'full_text', 'raw_key', 'clean_key', 'revision_id'.
+        Master method for the Scraping Pipeline, using Supabase Storage.
         """
         revision_id = revision_id or uuid4()
 
+        # 1. Upload Raw Content
         try:
-            await run_in_threadpool(self._upload_bytes_sync, raw_content, raw_bucket, raw_key)
+            # Uploads to: lwd_scrape/raw-scraped-text/raw/project_id/...
+            await self._upload_bytes_async(raw_content, raw_folder_prefix, raw_key)
         except Exception as e:
             logger.error(f"Failed to upload raw content: {e}")
             raise e
 
+        # 2. Clean (Directly from bytes)
         extracted_text = cleaned_html(raw_content)
 
+        # Readability Fallback
         if len(extracted_text) < 50:
             try:
                 html_str = raw_content.decode("utf-8", errors="ignore")
@@ -167,19 +134,22 @@ class TextExtractorService:
 
         extracted_text = normalize_text(extracted_text)
 
-        clean_key = self._generate_clean_key(source_id, revision_id)
+        # 3. Upload Cleaned
+        clean_key_path = self._generate_clean_key(source_id, revision_id)
         if extracted_text:
             try:
-                await run_in_threadpool(
-                    self._upload_bytes_sync, extracted_text.encode("utf-8"), clean_bucket, clean_key
+                # Uploads to: lwd_scrape/cleaned-scraped-text/clean/source_id/...
+                await self._upload_bytes_async(
+                    extracted_text.encode("utf-8"), clean_folder_prefix, clean_key_path
                 )
             except Exception as e:
                 logger.warning(f"Failed to upload clean text (non-fatal): {e}")
 
+        # 4. Return Data
         return {
             "full_text": extracted_text,
             "raw_key": raw_key,
-            "clean_key": clean_key,
+            "clean_key": clean_key_path,
             "revision_id": str(revision_id),
             "char_count": len(extracted_text),
         }
@@ -187,14 +157,7 @@ class TextExtractorService:
     def _generate_clean_key(self, source_id: str, revision_id: UUID) -> str:
         """Generates a standard key for cleaned text files."""
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        # This path is relative to the folder prefix (e.g., 'cleaned-scraped-text')
         return f"clean/{source_id}/{timestamp}_{revision_id}.txt"
 
-    async def extract_from_minio(self, bucket: str, object_name: str) -> str:
-        """Fetch raw HTML from MinIO and return cleaned string (Legacy support)."""
-        html_bytes = await run_in_threadpool(self._fetch_bytes_sync, bucket, object_name)
-
-        if not html_bytes or len(html_bytes.strip()) < 20:
-            return ""
-
-        extracted = cleaned_html(html_bytes)
-        return normalize_text(extracted)
+    # Legacy MinIO fetch method removed as it is no longer supported.
