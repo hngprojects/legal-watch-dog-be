@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.api.utils.validators import is_company_email, is_strong_password
@@ -8,6 +10,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     confirm_password: str
+    token: Optional[str] = None
 
     @field_validator("email")
     @classmethod
