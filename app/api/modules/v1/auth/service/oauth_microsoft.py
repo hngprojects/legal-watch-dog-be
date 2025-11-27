@@ -10,15 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.config import settings
-from app.api.core.dependencies.redis_service import get_redis_client
 from app.api.modules.v1.auth.schemas.oauth_microsoft import MicrosoftUserInfo
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.jwt import create_access_token, get_token_jti
+from app.api.utils.jwt import create_access_token
 from app.api.utils.password import hash_password
 
 logger = logging.getLogger(__name__)
 
 MICROSOFT_SCOPES: list[str] = settings.MICROSOFT_SCOPES
+MICROSOFT_OAUTH_STATE_TTL: int = settings.MICROSOFT_OAUTH_STATE_TTL
 
 
 class MicrosoftOAuthService:
@@ -40,7 +40,9 @@ class MicrosoftOAuthService:
         """Generate Microsoft OAuth authorization URL."""
         state = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("utf-8")
 
-        await self.redis_client.setex(f"oauth_state:{state}", 600, "pending")
+        await self.redis_client.setex(
+            f"microsoft_oauth_state:{state}", MICROSOFT_OAUTH_STATE_TTL, "pending"
+        )
 
         redirect = redirect_uri or settings.MICROSOFT_REDIRECT_URI
 
@@ -64,7 +66,7 @@ class MicrosoftOAuthService:
 
     async def validate_state(self, state: str) -> bool:
         """Validate OAuth state parameter against Redis storage."""
-        redis_state = await self.redis_client.get(f"oauth_state:{state}")
+        redis_state = await self.redis_client.get(f"microsoft_oauth_state:{state}")
         if redis_state:
             return True
         logger.warning("Invalid or expired OAuth state: %s", state)
@@ -82,7 +84,7 @@ class MicrosoftOAuthService:
             redirect_uri=redirect,
         )
 
-        await self.redis_client.delete(f"oauth_state:{state}")
+        await self.redis_client.delete(f"microsoft_oauth_state:{state}")
 
         if "error" in result:
             error_msg = result.get("error_description", result.get("error"))
@@ -104,7 +106,7 @@ class MicrosoftOAuthService:
                         "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json",
                     },
-                    timeout=10.0,
+                    timeout=30.0,
                 )
 
                 if response.status_code != 200:
@@ -221,11 +223,6 @@ class MicrosoftOAuthService:
             role_id=None,
             expires_delta=timedelta(days=30),
         )
-
-        refresh_token_jti = get_token_jti(refresh_token)
-        redis_client = await get_redis_client()
-        refresh_key = f"refresh_token:{user.id}:{refresh_token_jti}"
-        await redis_client.setex(refresh_key, 30 * 24 * 3600, "valid")
 
         logger.info(f"Successful Microsoft OAuth login: {user.email}, is_new_user: {is_new_user}")
 

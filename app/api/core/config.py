@@ -122,6 +122,7 @@ class Settings(BaseSettings):
     MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL: str = config(
         "MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL", default="https://minamoto.emerj.net/dashboard"
     )
+    MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
 
     model_config = SettingsConfigDict(extra="allow")
 
