@@ -9,6 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.core.config import settings
 from app.api.core.dependencies.registeration_redis import get_redis
 from app.api.db.database import get_db
+from app.api.modules.v1.auth.routes.docs.oauth_microsoft import (
+    microsoft_callback_custom_errors,
+    microsoft_callback_custom_success,
+    microsoft_callback_responses,
+    microsoft_login_custom_errors,
+    microsoft_login_custom_success,
+    microsoft_login_responses,
+)
 from app.api.modules.v1.auth.schemas.oauth_microsoft import (
     MicrosoftAuthResponse,
 )
@@ -24,6 +32,7 @@ logger = logging.getLogger("app")
     "/login",
     response_model=MicrosoftAuthResponse,
     status_code=status.HTTP_200_OK,
+    responses=microsoft_login_responses,  # type: ignore
 )
 async def microsoft_login(
     redirect_uri: Optional[str] = Query(None, description="Custom redirect URI"),
@@ -62,7 +71,15 @@ async def microsoft_login(
         )
 
 
-@router.get("/callback")
+microsoft_login._custom_errors = microsoft_login_custom_errors  # type: ignore
+microsoft_login._custom_success = microsoft_login_custom_success  # type: ignore
+
+
+@router.get(
+    "/callback",
+    status_code=status.HTTP_302_FOUND,
+    responses=microsoft_callback_responses,  # type: ignore
+)
 async def microsoft_callback(
     code: str = Query(..., description="Authorization code from Microsoft"),
     state: str = Query(..., description="State parameter for validation"),
@@ -96,14 +113,19 @@ async def microsoft_callback(
 
         response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-        is_production = settings.ENVIRONMENT == "production"
+        if settings.ENVIRONMENT == "production":
+            samesite = "none"
+            secure = True
+        else:
+            samesite = "lax"
+            secure = False
 
         response.set_cookie(
             key="lwd_access_token",
             value=result["access_token"],
             httponly=True,
-            secure=is_production,
-            samesite="lax",
+            secure=secure,
+            samesite=samesite,
             max_age=86400,
             path="/",
         )
@@ -112,8 +134,8 @@ async def microsoft_callback(
             key="lwd_refresh_token",
             value=result["refresh_token"],
             httponly=True,
-            secure=is_production,
-            samesite="lax",
+            secure=secure,
+            samesite=samesite,
             max_age=2592000,
             path="/",
         )
@@ -137,3 +159,7 @@ async def microsoft_callback(
         return RedirectResponse(
             url=f"{frontend_redirect_new_user_url}/login?error=authentication_failed"
         )
+
+
+microsoft_callback._custom_errors = microsoft_callback_custom_errors  # type: ignore
+microsoft_callback._custom_success = microsoft_callback_custom_success  # type: ignore
