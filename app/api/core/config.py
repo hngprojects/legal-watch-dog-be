@@ -150,7 +150,6 @@ class Settings(BaseSettings):
 
     # Billing Configuration
     TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
-    BILLING_GRACE_PERIOD_DAYS: int = 3
 
     model_config = SettingsConfigDict(extra="allow")
 

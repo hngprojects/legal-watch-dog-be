@@ -2,7 +2,6 @@ import asyncio
 import logging
 import time
 from typing import Any, Callable, Dict, Optional
-from uuid import UUID
 
 import stripe
 from fastapi import HTTPException
@@ -433,7 +432,7 @@ async def verify_webhook_signature(payload: bytes, header: str) -> Dict[str, Any
     return await _run_blocking(_construct, timeout=_DEFAULT_TIMEOUT)
 
 
-async def resolve_stripe_price_id_for_product(product_id: UUID) -> str:
+async def resolve_stripe_price_id_for_product(product_id: str) -> str:
     """
     Map our internal product_id to a Stripe Price ID.
     """

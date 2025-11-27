@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 class InvoiceStatus(str, Enum):
     """Invoice statuses."""
 
-    DRAFT = "draft"
-    OPEN = "open"
-    PAID = "paid"
-    VOID = "void"
-    PENDING = "pending"
-    FAILED = "failed"
-    REFUNDED = "refunded"
+    DRAFT = "DRAFT"
+    OPEN = "OPEN"
+    PAID = "PAID"
+    VOID = "VOID"
+    PENDING = "PENDING"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"
 
 
 class InvoiceHistory(SQLModel, table=True):
@@ -33,7 +33,9 @@ class InvoiceHistory(SQLModel, table=True):
 
     billing_account_id: uuid.UUID = Field(
         sa_column=Column(
-            ForeignKey("billing_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+            ForeignKey("billing_accounts.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
         )
     )
 
@@ -66,7 +68,12 @@ class InvoiceHistory(SQLModel, table=True):
 
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
     )
 
     billing_account: "BillingAccount" = Relationship(back_populates="invoices")
