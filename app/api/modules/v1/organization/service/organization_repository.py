@@ -69,13 +69,9 @@ class OrganizationCRUD:
         organization = result.scalar_one_or_none()
 
         if organization:
-            logger.info(
-                f"org {organization_id}:{organization.name},del{organization.deleted_at}"
-            )
+            logger.info(f"org {organization_id}:{organization.name},del{organization.deleted_at}")
         else:
-            logger.info(
-                f"no org {organization_id}"
-            )
+            logger.info(f"no org {organization_id}")
 
         return organization
 
