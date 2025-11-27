@@ -25,12 +25,21 @@ class DataRevisionResponse(BaseModel):
         from_attributes = True
 
 
+class PaginationMetadata(BaseModel):
+    """
+    Schema for pagination metadata.
+    """
+
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+
 class PaginatedRevisions(BaseModel):
     """
     Schema for paginated revision history response.
     """
 
     revisions: List[DataRevisionResponse]
-    total: int
-    skip: int
-    limit: int
+    pagination: PaginationMetadata
