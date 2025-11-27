@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -40,12 +40,20 @@ class Organization(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
     )
-
+    deleted_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+    )
     user_memberships: list["UserOrganization"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    roles: list["Role"] = Relationship(back_populates="organization")
-    projects: list["Project"] = Relationship(back_populates="organization")
+    roles: list["Role"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    projects: list["Project"] = Relationship(
+        back_populates="organization",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},  # ← ADD
+    )
     invitations: list["Invitation"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

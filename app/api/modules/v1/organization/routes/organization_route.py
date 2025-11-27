@@ -538,3 +538,131 @@ async def get_all_users_in_organization(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve organization users. Please try again later.",
         )
+
+
+@router.delete(
+    "/{organization_id}",
+    status_code=status.HTTP_200_OK,
+    responses={
+        200: {
+            "description": "Organization deleted successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "SUCCESS",
+                        "status_code": 200,
+                        "message": "Organization 'Acme Corp' deleted successfully",
+                        "data": {
+                            "organization_id": "123e4567-e89b-12d3-a456-426614174000",
+                            "organization_name": "Acme Corp",
+                        },
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Bad Request - Cannot delete organization",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "ERROR",
+                        "message": "Cannot delete organization with active members",
+                        "status_code": 400,
+                        "errors": {},
+                    }
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden - Admin access required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "FORBIDDEN",
+                        "message": "Only organization admins can delete organizations",
+                        "status_code": 403,
+                        "errors": {},
+                    }
+                }
+            },
+        },
+        404: {
+            "description": "Not Found - Organization not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "NOT_FOUND",
+                        "message": "Organization not found",
+                        "status_code": 404,
+                        "errors": {},
+                    }
+                }
+            },
+        },
+    },
+)
+async def delete_organization(
+    organization_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete an organization.
+
+    This endpoint allows organization admins to permanently delete their organization.
+    All associated data (memberships, invitations, roles, projects) will be cascaded.
+
+    Requirements:
+    - User must be authenticated
+    - User must be an admin of the organization
+    - Organization must have no active members besides the current user
+
+    Args:
+        organization_id: UUID of the organization to delete
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with deletion confirmation
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden,
+                      404 for not found, 500 for server errors
+    """
+    try:
+        service = OrganizationService(db)
+        result = await service.delete_organization(
+            organization_id=organization_id,
+            requesting_user_id=current_user.id,
+        )
+
+        return success_response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            message=f"Organization '{result['organization_name']}' deleted successfully",
+        )
+
+    except ValueError as e:
+        logger.warning(f"Organization deletion failed for org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "admin" in error_message.lower() or "permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to delete organization org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to delete organization. Please try again later.",
+        )

@@ -97,6 +97,12 @@ class OrganizationService:
                 description="Organization member with basic permissions",
             )
 
+            await RoleCRUD.create_manager_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Manager",
+                description="Team manager with elevated project management permissions",
+            )
             await UserOrganizationCRUD.add_user_to_organization(
                 db=self.db,
                 user_id=user_id,
@@ -357,6 +363,9 @@ class OrganizationService:
             if not organization:
                 raise ValueError("Organization not found")
 
+            if organization.deleted_at:
+                raise ValueError("Cannot send invitations for a deleted organization")
+
             inviter = await UserCRUD.get_by_id(self.db, inviter_id)
             if not inviter:
                 raise ValueError("Inviter user not found")
@@ -527,6 +536,9 @@ class OrganizationService:
             if not organization:
                 raise ValueError("Organization not found")
 
+            if organization.deleted_at:
+                raise ValueError("Organization has been deleted")
+
             membership = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
@@ -564,3 +576,82 @@ class OrganizationService:
                 exc_info=True,
             )
             raise Exception("Failed to retrieve organization users")
+
+    async def delete_organization(
+        self,
+        organization_id: uuid.UUID,
+        requesting_user_id: uuid.UUID,
+    ) -> dict:
+        """
+        Delete an organization and all its associated data.
+
+        Args:
+            organization_id: Organization UUID to delete
+            requesting_user_id: UUID of the user requesting deletion
+
+        Returns:
+            dict: Dictionary with deletion confirmation
+
+        Raises:
+            ValueError: If validation fails
+            Exception: For unexpected errors
+        """
+        logger.info(
+            f"Deleting organization org_id={organization_id} by user_id={requesting_user_id}"
+        )
+
+        try:
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            if hasattr(organization, "deleted_at") and organization.deleted_at:
+                raise ValueError("Organization is already deleted")
+
+            user_role = await self.get_user_role_in_organization(
+                requesting_user_id, organization_id
+            )
+            if user_role != "Admin":
+                raise ValueError("Only organization admins can delete organizations")
+
+            active_members_result = await UserOrganizationCRUD.get_all_users_in_organization(
+                db=self.db, organization_id=organization_id, skip=0, limit=1000, active_only=True
+            )
+
+            active_members = active_members_result["users"]
+
+            other_active_members = [
+                m for m in active_members if m["user_id"] != str(requesting_user_id)
+            ]
+
+            if other_active_members:
+                raise ValueError(
+                    f"Cannot delete organization with {len(other_active_members)} active members. "
+                    "Remove all other members first"
+                )
+
+            deletion_result = await OrganizationCRUD.delete_organization(self.db, organization_id)
+
+            await self.db.commit()
+
+            logger.info(f"Successfully deleted organization org_id={organization_id}")
+
+            return {
+                "organization_id": str(organization_id),
+                "organization_name": organization.name,
+                "deleted_at": deletion_result["deleted_at"],
+            }
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error deleting organization org_id={organization_id}: {str(e)}"
+            )
+            await self.db.rollback()
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error deleting organization org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            await self.db.rollback()
+            raise Exception("Failed to delete organization")

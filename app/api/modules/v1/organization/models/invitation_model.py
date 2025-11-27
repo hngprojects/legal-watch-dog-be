@@ -67,6 +67,14 @@ class Invitation(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    organization: "Organization" = Relationship(back_populates="invitations")
-    inviter: "User" = Relationship(back_populates="sent_invitations")
-    role: Optional["Role"] = Relationship(back_populates="invitations")
+    organization: "Organization" = Relationship(
+        back_populates="invitations", sa_relationship_kwargs={"passive_deletes": True}
+    )
+
+    inviter: "User" = Relationship(
+        back_populates="sent_invitations", sa_relationship_kwargs={"passive_deletes": True}
+    )
+
+    role: Optional["Role"] = Relationship(
+        back_populates="invitations", sa_relationship_kwargs={"passive_deletes": True}
+    )
