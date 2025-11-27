@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.users.models.users_model import User
 from main import app
@@ -540,3 +541,334 @@ class TestDeleteSourceEndpoint:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# Revision History Tests
+
+
+@pytest_asyncio.fixture
+async def test_source_for_revisions(pg_async_session):
+    """Create a test source for revision tests."""
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.organization.models.organization_model import Organization
+    from app.api.modules.v1.projects.models.project_model import Project
+
+    # Create organization
+    organization = Organization(name="Test Revision Org", email="revisions@test.com")
+    pg_async_session.add(organization)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(organization)
+
+    # Create project
+    project = Project(
+        org_id=organization.id,
+        title="Test Revision Project",
+        description="Project for revision tests",
+    )
+    pg_async_session.add(project)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(project)
+
+    # Create jurisdiction
+    jurisdiction = Jurisdiction(
+        project_id=project.id,
+        name="Test Revision Jurisdiction",
+        description="Jurisdiction for revision tests",
+    )
+    pg_async_session.add(jurisdiction)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(jurisdiction)
+
+    # Create source
+    source = Source(
+        id=uuid.uuid4(),
+        jurisdiction_id=jurisdiction.id,
+        name="Test Source for Revisions",
+        url="https://example.com/test",
+        source_type=SourceType.WEB,
+        scrape_frequency="DAILY",
+    )
+    pg_async_session.add(source)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(source)
+    return source
+
+
+@pytest_asyncio.fixture
+async def test_revisions(pg_async_session, test_source_for_revisions):
+    """Create test revisions for a source."""
+    revisions = []
+    for i in range(5):
+        revision = DataRevision(
+            id=uuid.uuid4(),
+            source_id=test_source_for_revisions.id,
+            minio_object_key=f"scrapes/2025/11/{i:02d}/test.html",
+            extracted_data={
+                "title": f"Regulation {i}",
+                "content": f"Content for regulation {i}",
+                "index": i,
+            },
+            ai_summary=f"Summary for revision {i}",
+            was_change_detected=(i % 2 == 0),
+        )
+        pg_async_session.add(revision)
+        revisions.append(revision)
+
+    await pg_async_session.commit()
+    for revision in revisions:
+        await pg_async_session.refresh(revision)
+
+    return revisions
+
+
+class TestGetRevisionsEndpoint:
+    """Tests for GET /sources/{source_id}/revisions"""
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_success(
+        self,
+        client,
+        pg_async_session,
+        test_source_for_revisions,
+        test_revisions,
+        auth_headers,
+        sample_user,
+    ):
+        """Test successful retrieval of revisions."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["message"] == "Revisions retrieved successfully"
+        assert len(data["data"]["revisions"]) == 5
+        assert data["data"]["pagination"]["total"] == 5
+        assert data["data"]["pagination"]["page"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_ordering(
+        self,
+        client,
+        pg_async_session,
+        test_source_for_revisions,
+        test_revisions,
+        auth_headers,
+        sample_user,
+    ):
+        """Test that revisions are ordered by scraped_at DESC."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        scraped_times = [rev["scraped_at"] for rev in data["data"]["revisions"]]
+        assert scraped_times == sorted(scraped_times, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_pagination(
+        self,
+        client,
+        pg_async_session,
+        test_source_for_revisions,
+        test_revisions,
+        auth_headers,
+        sample_user,
+    ):
+        """Test pagination with skip and limit."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?skip=0&limit=2",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()["data"]["revisions"]) == 2
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?skip=2&limit=2",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()["data"]["revisions"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_empty(
+        self, client, pg_async_session, test_source_for_revisions, auth_headers, sample_user
+    ):
+        """Test retrieving revisions for source with no revisions."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert len(response.json()["data"]["revisions"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_source_not_found(
+        self, client, pg_async_session, auth_headers, sample_user
+    ):
+        """Test 404 when source doesn''t exist."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{uuid.uuid4()}/revisions",
+            headers=auth_headers,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_unauthorized(
+        self, client, pg_async_session, test_source_for_revisions
+    ):
+        """Test endpoint requires authentication."""
+        app.dependency_overrides.clear()
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions",
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_data_structure(
+        self,
+        client,
+        pg_async_session,
+        test_source_for_revisions,
+        test_revisions,
+        auth_headers,
+        sample_user,
+    ):
+        """Test revision data structure."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions",
+            headers=auth_headers,
+        )
+
+        data = response.json()["data"]
+        revision = data["revisions"][0]
+        assert "id" in revision
+        assert "source_id" in revision
+
+        # Verify pagination structure
+        assert "pagination" in data
+        assert "total" in data["pagination"]
+        assert "page" in data["pagination"]
+        assert "limit" in data["pagination"]
+        assert "total_pages" in data["pagination"]
+        assert "extracted_data" in revision
+        assert isinstance(revision["extracted_data"], dict)
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_limit_validation(
+        self, client, pg_async_session, test_source_for_revisions, auth_headers, sample_user
+    ):
+        """Test limit parameter validation."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?limit=200",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?limit=300",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_revisions_skip_validation(
+        self, client, pg_async_session, test_source_for_revisions, auth_headers, sample_user
+    ):
+        """Test skip parameter validation."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?skip=0",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+        response = await client.get(
+            f"/api/v1/sources/{test_source_for_revisions.id}/revisions?skip=-1",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
