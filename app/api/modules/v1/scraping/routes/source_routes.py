@@ -21,6 +21,29 @@ from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
 from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
+    create_source_custom_errors,
+    create_source_custom_success,
+    create_source_responses,
+    delete_source_custom_errors,
+    delete_source_custom_success,
+    delete_source_responses,
+    get_source_custom_errors,
+    get_source_custom_success,
+    get_source_responses,
+    get_sources_custom_errors,
+    get_sources_custom_success,
+    get_sources_responses,
+    manual_scrape_trigger_custom_errors,
+    manual_scrape_trigger_custom_success,
+    manual_scrape_trigger_responses,
+    update_source_custom_errors,
+    update_source_custom_success,
+    update_source_patch_custom_errors,
+    update_source_patch_custom_success,
+    update_source_patch_responses,
+    update_source_responses,
+)
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceUpdate,
@@ -38,7 +61,7 @@ router = APIRouter(
 logger = logging.getLogger("app")
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, responses=create_source_responses)
 async def create_source(
     source_data: SourceCreate,
     db: AsyncSession = Depends(get_db),
@@ -63,7 +86,7 @@ async def create_source(
         JSONResponse: Standard success response with created source data.
 
     Raises:
-        HTTPException: 400 if URL already exists, 500 if creation fails.
+        HTTPException: 500 if creation fails.
 
     Examples:
         ```
@@ -115,7 +138,11 @@ async def create_source(
     )
 
 
-@router.get("", status_code=200)
+create_source._custom_errors = create_source_custom_errors
+create_source._custom_success = create_source_custom_success
+
+
+@router.get("", status_code=200, responses=get_sources_responses)
 async def get_sources(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
@@ -141,34 +168,7 @@ async def get_sources(
     Returns:
         JSONResponse: Standard success response with list of sources and count.
 
-    Examples:
-        ```
-        GET /sources?jurisdiction_id=550e8400-e29b-41d4-a716-446655440000&is_active=true
 
-        Response (200 OK):
-        {
-            "status": "success",
-            "status_code": 200,
-            "message": "Sources retrieved successfully",
-            "data": {
-                "sources": [
-                    {
-                        "id": "123e4567-e89b-12d3-a456-426614174000",
-                        "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-                        "name": "Supreme Court Opinions",
-                        "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
-                        "source_type": "web",
-                        "scrape_frequency": "DAILY",
-                        "is_active": true,
-                        "is_deleted": false,
-                        "has_auth": false,
-                        "created_at": "2025-11-21T10:30:00"
-                    }
-                ],
-                "count": 1
-            }
-        }
-        ```
     """
     logger.info(f"User {current_user.id} retrieving sources")
 
@@ -191,7 +191,11 @@ async def get_sources(
     )
 
 
-@router.get("/{source_id}", status_code=200)
+get_sources._custom_errors = get_sources_custom_errors
+get_sources._custom_success = get_sources_custom_success
+
+
+@router.get("/{source_id}", status_code=200, responses=get_source_responses)
 async def get_source(
     source_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -215,31 +219,6 @@ async def get_source(
     Raises:
         HTTPException: 404 if source not found.
 
-    Examples:
-        ```
-        GET /sources/123e4567-e89b-12d3-a456-426614174000
-
-        Response (200 OK):
-        {
-            "status": "success",
-            "status_code": 200,
-            "message": "Source retrieved successfully",
-            "data": {
-                "source": {
-                    "id": "123e4567-e89b-12d3-a456-426614174000",
-                    "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "name": "Supreme Court Opinions",
-                    "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
-                    "source_type": "web",
-                    "scrape_frequency": "DAILY",
-                    "is_active": true,
-                    "is_deleted": false,
-                    "has_auth": false,
-                    "created_at": "2025-11-21T10:30:00"
-                }
-            }
-        }
-        ```
     """
     logger.info(f"User {current_user.id} retrieving source: {source_id}")
 
@@ -253,7 +232,11 @@ async def get_source(
     )
 
 
-@router.put("/{source_id}", status_code=200)
+get_source._custom_errors = get_source_custom_errors
+get_source._custom_success = get_source_custom_success
+
+
+@router.put("/{source_id}", status_code=200, responses=update_source_responses)
 async def update_source(
     source_id: uuid.UUID,
     source_data: SourceUpdate,
@@ -283,35 +266,6 @@ async def update_source(
     Raises:
         HTTPException: 404 if source not found, 500 if update fails.
 
-    Examples:
-        ```
-        PUT /sources/123e4567-e89b-12d3-a456-426614174000
-        {
-            "scrape_frequency": "HOURLY",
-            "is_active": false
-        }
-
-        Response (200 OK):
-        {
-            "status": "success",
-            "status_code": 200,
-            "message": "Source updated successfully",
-            "data": {
-                "source": {
-                    "id": "123e4567-e89b-12d3-a456-426614174000",
-                    "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "name": "Supreme Court Opinions",
-                    "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
-                    "source_type": "web",
-                    "scrape_frequency": "HOURLY",
-                    "is_active": false,
-                    "is_deleted": false,
-                    "has_auth": false,
-                    "created_at": "2025-11-21T10:30:00"
-                }
-            }
-        }
-        ```
     """
     logger.info(f"User {current_user.id} updating source: {source_id}")
 
@@ -325,7 +279,11 @@ async def update_source(
     )
 
 
-@router.delete("/{source_id}", status_code=204)
+update_source._custom_errors = update_source_custom_errors
+update_source._custom_success = update_source_custom_success
+
+
+@router.delete("/{source_id}", status_code=204, responses=delete_source_responses)
 async def delete_source(
     source_id: uuid.UUID,
     permanent: bool = Query(
@@ -356,41 +314,20 @@ async def delete_source(
     Raises:
         HTTPException: 404 if source not found, 500 if deletion fails.
 
-    Examples:
-        **Soft Delete (Recoverable):**
-        ```
-        DELETE /sources/123e4567-e89b-12d3-a456-426614174000
-
-        Response: 204 No Content (empty body)
-
-        After soft delete:
-        - Source marked as deleted (is_deleted = true)
-        - Not returned in GET /sources list
-        - Can be restored via: PATCH /sources/{id} with {"is_deleted": false}
-        ```
-
-        **Hard Delete (Permanent):**
-        ```
-        DELETE /sources/123e4567-e89b-12d3-a456-426614174000?permanent=true
-
-        Response: 204 No Content (empty body)
-
-        After hard delete:
-        - Source permanently removed from database
-        - Cannot be recovered
-        - GET /sources/{id} will return 404
-        ```
     """
     logger.info(f"User {current_user.id} deleting source: {source_id}, permanent={permanent}")
 
     service = SourceService()
     await service.delete_source(db, source_id, permanent=permanent)
 
-    # 204 No Content response
     return None
 
 
-@router.patch("/{source_id}", status_code=200)
+delete_source._custom_errors = delete_source_custom_errors
+delete_source._custom_success = delete_source_custom_success
+
+
+@router.patch("/{source_id}", status_code=200, responses=update_source_patch_responses)
 async def update_source_patch(
     source_id: uuid.UUID,
     source_data: SourceUpdate,
@@ -424,47 +361,6 @@ async def update_source_patch(
     Raises:
         HTTPException: 404 if source not found, 500 if update fails.
 
-    Examples:
-        **Restore Soft-Deleted Source:**
-        ```
-        PATCH /sources/123e4567-e89b-12d3-a456-426614174000
-        {
-            "is_deleted": false
-        }
-
-        Response (200 OK):
-        {
-            "status": "success",
-            "status_code": 200,
-            "message": "Source updated successfully",
-            "data": {
-                "source": {
-                    "id": "123e4567-e89b-12d3-a456-426614174000",
-                    "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "name": "Supreme Court Opinions",
-                    "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
-                    "source_type": "web",
-                    "scrape_frequency": "DAILY",
-                    "is_active": true,
-                    "is_deleted": false,
-                    "has_auth": false,
-                    "created_at": "2025-11-21T10:30:00"
-                }
-            }
-        }
-        ```
-
-        **Update Multiple Fields:**
-        ```
-        PATCH /sources/123e4567-e89b-12d3-a456-426614174000
-        {
-            "is_deleted": false,
-            "scrape_frequency": "HOURLY",
-            "is_active": true
-        }
-
-        Response (200 OK): Same structure as above
-        ```
     """
     logger.info(f"User {current_user.id} patching source: {source_id}")
 
@@ -478,7 +374,15 @@ async def update_source_patch(
     )
 
 
-@router.post("/{source_id}/scrapes", status_code=status.HTTP_200_OK)
+update_source_patch._custom_errors = update_source_patch_custom_errors
+update_source_patch._custom_success = update_source_patch_custom_success
+
+
+@router.post(
+    "/{source_id}/scrapes",
+    status_code=status.HTTP_200_OK,
+    responses=manual_scrape_trigger_responses,
+)
 async def manual_scrape_trigger(
     source_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -537,3 +441,7 @@ async def manual_scrape_trigger(
             error="SCRAPE_EXECUTION_FAILED",
             errors={"details": str(e)},
         )
+
+
+manual_scrape_trigger._custom_errors = manual_scrape_trigger_custom_errors
+manual_scrape_trigger._custom_success = manual_scrape_trigger_custom_success
