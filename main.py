@@ -7,14 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from contextlib import asynccontextmanager
 
 from app.api import router as api_router
-<<<<<<< HEAD
-from app.api.db.database import engine, Base
-from app.api.utils.response_payloads import success_response
-from app.api.core.logger import setup_logging
-=======
 from app.api.core.config import settings
 from app.api.core.custom_openapi_docs import custom_openapi
 from app.api.core.exceptions import (
@@ -24,7 +18,6 @@ from app.api.core.exceptions import (
 )
 from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
-from app.api.core.middleware.billing_status import BillingStatusMiddleware
 from app.api.db.database import Base, engine
 from app.api.utils.response_payloads import success_response
 
@@ -38,31 +31,15 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
->>>>>>> fix/billing-model-cleanup
 
-setup_logging()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    await engine.dispose()
 
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
     description=f"{settings.APP_NAME} API for managing projects and endpoints",
     version=settings.APP_VERSION,
-<<<<<<< HEAD
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
-    lifespan=lifespan, 
-=======
     docs_url="/docs",
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
->>>>>>> fix/billing-model-cleanup
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -80,10 +57,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Add rate limiting middleware - 50 requests per minute while excluding waitlist
-app.add_middleware(
-    BillingStatusMiddleware,
-)
-
 app.add_middleware(
     RateLimitMiddleware,
     requests_per_minute=50,
@@ -104,26 +77,14 @@ def read_root():
         message=f"{settings.APP_NAME} API is running...",
         data={
             "version": settings.APP_VERSION,
-<<<<<<< HEAD
-            "environment": "Production" if not settings.DEBUG else "Development"
-        }
-=======
             "environment": "Production" if not settings.DEBUG else "Development",
         },
->>>>>>> fix/billing-model-cleanup
     )
 
 
 @app.get("/health")
 def health_check():
-<<<<<<< HEAD
-    return success_response(
-        status_code=200,
-        message="API is healthy"
-    )
-=======
     return success_response(status_code=200, message="API is healthy")
->>>>>>> fix/billing-model-cleanup
 
 
 if __name__ == "__main__":

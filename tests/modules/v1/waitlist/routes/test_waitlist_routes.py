@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from httpx._transports.asgi import ASGITransport
 <<<<<<< HEAD
+<<<<<<< HEAD
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -100,6 +101,8 @@ async def test_signup_waitlist_duplicate_email(app, test_session):
     assert data["status"] == "fail"
     assert "Email already registered" in data["message"]
 =======
+=======
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
@@ -159,4 +162,7 @@ async def test_signup_waitlist_duplicate_email(app, pg_async_session):
     assert data["error"] == "ERROR"
     assert "Email already registered" in data["message"]
     assert isinstance(data["errors"], dict)
+<<<<<<< HEAD
 >>>>>>> fix/billing-model-cleanup
+=======
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e

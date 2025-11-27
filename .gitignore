@@ -18,10 +18,6 @@ build/
 *.swo
 *.DS_Store
 __pypackages__/
-<<<<<<< HEAD
-uv.lock
-requirements.txt
-=======
 
 >>>>>>> fix/billing-model-cleanup
 # Virtual environments

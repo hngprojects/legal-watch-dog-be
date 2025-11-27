@@ -1,8 +1,14 @@
 import logging
+<<<<<<< HEAD
 from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
+=======
+
+import jwt
+from fastapi import Depends, HTTPException, status
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -177,6 +183,7 @@ def require_any_permission(*permissions: Permission):
     return permission_checker
 
 
+<<<<<<< HEAD
 async def get_current_user_with_org_role(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -281,6 +288,8 @@ async def require_billing_admin(
     return user
 
 
+=======
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
 async def verify_organization_access(
     resource_org_id: str, current_user: User = Depends(get_current_user)
 ) -> bool:

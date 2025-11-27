@@ -44,9 +44,13 @@ AsyncSessionLocal = async_sessionmaker(
 Base = SQLModel
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> fix/billing-model-cleanup
+=======
+
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
@@ -57,7 +61,11 @@ async def get_db():
             raise
         finally:
 <<<<<<< HEAD
+<<<<<<< HEAD
             await session.close()
 =======
             await session.close()
 >>>>>>> fix/billing-model-cleanup
+=======
+            await session.close()
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e

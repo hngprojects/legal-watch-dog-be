@@ -3,6 +3,7 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "main.py").exists())
@@ -103,54 +104,25 @@ class Settings(BaseSettings):
         "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
     )
 
-    # Stripe configuration
-    STRIPE_SECRET_KEY: str = config("STRIPE_SECRET_KEY", default="sk_test_...")
-    STRIPE_PUBLISHABLE_KEY: str = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_...")
-    STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="whsec_...")
-    STRIPE_API_TIMEOUT: int = config("STRIPE_API_TIMEOUT", default=30, cast=int)
-    STRIPE_RETRY_COUNT: int = config("STRIPE_RETRY_COUNT", default=3, cast=int)
-    STRIPE_RETRY_BACKOFF: float = config("STRIPE_RETRY_BACKOFF", default=0.5, cast=float)
+    MICROSOFT_REDIRECT_URI: str = config(
+        "MICROSOFT_REDIRECT_URI", default="https://minamoto.emerj.net"
+    )
+    MICROSOFT_TENANT_ID: str = config("MICROSOFT_TENANT_ID", default="tenant-id")
+    MICROSOFT_CLIENT_SECRET: str = config("MICROSOFT_CLIENT_SECRET", default="client-secret")
+    MICROSOFT_CLIENT_ID: str = config("MICROSOFT_CLIENT_ID", default="client-id")
+    MICROSOFT_USERINFO_ENDPOINT: str = config("MICROSOFT_USERINFO_ENDPOINT", default="user-info")
 
-    STRIPE_MONTHLY_PRODUCT_ID: str = config("STRIPE_MONTHLY_PRODUCT_ID", default="prod_monthly_123")
-    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="price_monthly_id")
-    STRIPE_YEARLY_PRODUCT_ID: str = config("STRIPE_YEARLY_PRODUCT_ID", default="prod_yearly_123")
-    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="price_yearly_id")
-    STRIPE_ONE_OFF_YEAR_PROD_ID: str = config(
-        "STRIPE_ONE_OFF_YEAR_PROD_ID", default="prod_oneoff_year_123"
-    )
-    STRIPE_ONE_OFF_YEAR_PRICE_ID: str = config(
-        "STRIPE_ONE_OFF_YEAR_PRICE_ID", default="price_oneoff_year_id"
-    )
-    STRIPE_ONE_OFF_MONTH_PROD_ID: str = config(
-        "STRIPE_ONE_OFF_MONTH_PROD_ID", default="prod_oneoff_month_123"
-    )
-    STRIPE_ONE_OFF_MONTH_PRICE_ID: str = config(
-        "STRIPE_ONE_OFF_MONTH_PRICE_ID", default="price_oneoff_month_id"
-    )
-    STRIPE_INVOICE_DURATION_DAYS: int = config("STRIPE_INVOICE_DURATION_DAYS", default=3, cast=int)
-    STRIPE_CHECKOUT_SUCCESS_PATH: str = config(
-        "STRIPE_CHECKOUT_SUCCESS_PATH", default="/billing/success"
-    )
-    STRIPE_CHECKOUT_CANCEL_PATH: str = config(
-        "STRIPE_CHECKOUT_CANCEL_PATH", default="/billing/cancel"
+    MICROSOFT_SCOPES: list[str] = Field(
+        default_factory=lambda: ["https://graph.microsoft.com/User.Read"]
     )
 
-    # Frontend URL (for Stripe redirects)
-    @property
-    def FRONTEND_URL(self) -> str:
-        return os.getenv("FRONTEND_URL") or (self.DEV_URL if self.DEBUG else self.APP_URL)
-
-    @property
-    def STRIPE_CHECKOUT_SUCCESS_URL(self) -> str:
-        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_SUCCESS_PATH}"
-
-    @property
-    def STRIPE_CHECKOUT_CANCEL_URL(self) -> str:
-        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_CANCEL_PATH}"
-
-    # Billing Configuration
-    TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
-    BILLING_GRACE_PERIOD_DAYS: int = 3
+    MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
 
     model_config = SettingsConfigDict(extra="allow")
 

@@ -16,10 +16,14 @@ def success_response(status_code: int, message: str, data: Optional[dict] = None
     Returns:
         JSONResponse: Contains:
 <<<<<<< HEAD
+<<<<<<< HEAD
             - status: "success"
 =======
             - status: "SUCCESS"
 >>>>>>> fix/billing-model-cleanup
+=======
+            - status: "SUCCESS"
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
             - status_code: same as HTTP status code
             - message: same message passed
             - data: payload object (never null)
@@ -30,10 +34,14 @@ def success_response(status_code: int, message: str, data: Optional[dict] = None
         "status_code": status_code,
         "message": message,
 <<<<<<< HEAD
+<<<<<<< HEAD
         "data": data or {}
 =======
         "data": data or {},
 >>>>>>> fix/billing-model-cleanup
+=======
+        "data": data or {},
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
     }
 
     return JSONResponse(
@@ -61,6 +69,7 @@ def auth_response(status_code: int, message: str, access_token: str, data: Optio
         "status": "SUCCESS",
         "status_code": status_code,
         "message": message,
+<<<<<<< HEAD
 <<<<<<< HEAD
         "data": {
             "access_token": access_token,
@@ -147,3 +156,54 @@ def error_response(
 
     return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
 >>>>>>> fix/billing-model-cleanup
+=======
+        "data": {"access_token": access_token, **(data or {})},
+    }
+
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+
+
+def error_response(
+    *,
+    status_code: int,
+    message: str,
+    error: str = "ERROR",
+    errors: Optional[Dict[str, List[str]]] = None,
+) -> JSONResponse:
+    """
+    Create a standardized JSON response for failed requests.
+
+    Args:
+        status_code (int): HTTP status code representing the error (e.g. 400, 401, 404, 422).
+        message (str): High-level human-readable error description.
+        error (str): Machine-readable error code (e.g. "VALIDATION_ERROR", "BAD_REQUEST").
+            Defaults to "ERROR".
+        errors (Optional[Dict[str, List[str]]]): Optional field-level validation errors
+            in the form:
+                {
+                    "field_name": ["error message 1", "error message 2"],
+                    ...
+                }
+
+    Returns:
+        JSONResponse: Standard error structure:
+            {
+                "error": "<ERROR_CODE>",
+                "message": "<message>",
+                "status_code": <status_code>,
+                "errors": {
+                    "field": ["error1", "error2"],
+                    ...
+                }
+            }
+    """
+
+    response_data = {
+        "error": error,
+        "message": message,
+        "status_code": status_code,
+        "errors": errors or {},
+    }
+
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(response_data))
+>>>>>>> 92e9e9285276ed3d5b58eebfb6e8e42aca67935e
