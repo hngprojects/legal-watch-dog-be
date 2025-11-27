@@ -7,7 +7,7 @@ try:
     from minio.error import S3Error
 
     _HAS_MINIO = True
-except Exception as _e:  # ImportError in case package missing
+except Exception as _e:
     Minio = None
     S3Error = Exception
     _HAS_MINIO = False
@@ -16,17 +16,14 @@ from app.api.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize MinIO Client (if the SDK is available)
 minio_client = None
 if _HAS_MINIO:
-    # We wrap this in a try-except to ensure the app doesn't crash on startup if
-    # MinIO is down, but requests needing it will fail gracefully later.
     try:
         minio_client = Minio(
-            endpoint=settings.MINIO_ENDPOINT,  # e.g., "localhost:9000" or "minio:9000"
+            endpoint=settings.MINIO_ENDPOINT,
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_SECURE,  # True for HTTPS, False for HTTP
+            secure=settings.MINIO_SECURE,
         )
     except Exception as e:
         logger.critical(f"Failed to initialize MinIO client: {e}")
@@ -62,14 +59,12 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
         raise Exception("MinIO client is not initialized. Check configuration.")
 
     try:
-        # 1. Ensure Bucket Exists (Idempotent check)
         try:
             if not minio_client.bucket_exists(bucket_name=bucket_name):
                 logger.info(f"Bucket '{bucket_name}' does not exist. Creating it...")
                 minio_client.make_bucket(bucket_name=bucket_name)
         except Exception as e:
             logger.warning(f"Bucket existence check failed (may already exist): {e}")
-            # Attempt creation anyway; if bucket exists, MinIO will handle gracefully
             try:
                 minio_client.make_bucket(bucket_name=bucket_name)
             except Exception as create_err:
@@ -78,11 +73,8 @@ def upload_raw_content(file_data: bytes, bucket_name: str, object_name: str) -> 
                 ) and "BucketAlreadyOwnedByYou" not in str(create_err):
                     raise create_err
 
-        # 2. Prepare Stream
-        # MinIO's put_object requires a stream, not raw bytes
         data_stream = io.BytesIO(file_data)
 
-        # 3. Upload
         minio_client.put_object(
             bucket_name=bucket_name,
             object_name=object_name,
@@ -120,4 +112,3 @@ def fetch_raw_content_from_minio(
     except Exception as e:
         logger.error(f"Failed to fetch object {object_name} from MinIO: {e}")
         return None
-

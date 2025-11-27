@@ -418,6 +418,18 @@ act -v pull_request
 
 ---
 
+## **Starting the Celery Server**
+To start the Celery server locally, run the following commands:
+
+```bash
+celery -A app.celery_app:celery_app worker -l info
+```
+and
+```bash
+celery -A app.celery_app:celery_app beat -l info
+```
+in two different terminal windows.
+
 ## **Contribution Guidelines**
 
 We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request to understand our development process, testing requirements, and code standards.

@@ -63,6 +63,11 @@ class Source(SQLModel, table=True):
     auth_details_encrypted: Optional[str] = Field(default=None)
     scraping_rules: Dict = Field(default={}, sa_column=Column(JSON))
 
+    last_scraped_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    last_error: Optional[str] = Field(default=None)
+
     created_at: datetime = Field(
         default_factory=now_utc_aware, sa_column=Column(DateTime(timezone=True))
     )

@@ -271,7 +271,6 @@ class LoginService:
         Implements automatic token rotation for enhanced security.
 
         Args:
-            db: Database session
             user_id: User UUID
             old_refresh_token: Current refresh token to rotate
 
@@ -283,7 +282,6 @@ class LoginService:
             HTTPException: 404 if user not found
             HTTPException: 403 if user inactive
         """
-
         old_token_jti = get_token_jti(old_refresh_token)
         if not old_token_jti:
             logger.warning(f"Invalid refresh token format for user {user_id}")
@@ -300,7 +298,6 @@ class LoginService:
             )
 
         user = await self.db.scalar(select(User).where(User.id == user_id))
-
         if not user:
             logger.warning(f"Token refresh failed: user {user_id} not found")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -309,16 +306,7 @@ class LoginService:
             logger.warning(f"Token refresh blocked: user {user.email} is inactive")
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
 
-        role = await self.db.scalar(select(Role).where(Role.id == user.role_id))
-        if not role:
-            logger.error(f"Role not found for user {user.email} during token refresh")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User role configuration error",
-            )
-
         await self._revoke_refresh_token(user_id, old_token_jti)
-
         ttl = calculate_token_ttl(old_refresh_token)
         await add_token_to_denylist(old_token_jti, ttl)
 
