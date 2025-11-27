@@ -3,6 +3,7 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "main.py").exists())
@@ -102,6 +103,26 @@ class Settings(BaseSettings):
     LLM_SYSTEM_PROMPT: str = config(
         "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
     )
+
+    MICROSOFT_REDIRECT_URI: str = config(
+        "MICROSOFT_REDIRECT_URI", default="https://minamoto.emerj.net"
+    )
+    MICROSOFT_TENANT_ID: str = config("MICROSOFT_TENANT_ID", default="tenant-id")
+    MICROSOFT_CLIENT_SECRET: str = config("MICROSOFT_CLIENT_SECRET", default="client-secret")
+    MICROSOFT_CLIENT_ID: str = config("MICROSOFT_CLIENT_ID", default="client-id")
+    MICROSOFT_USERINFO_ENDPOINT: str = config("MICROSOFT_USERINFO_ENDPOINT", default="user-info")
+
+    MICROSOFT_SCOPES: list[str] = Field(
+        default_factory=lambda: ["https://graph.microsoft.com/User.Read"]
+    )
+
+    MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
 
     model_config = SettingsConfigDict(extra="allow")
 

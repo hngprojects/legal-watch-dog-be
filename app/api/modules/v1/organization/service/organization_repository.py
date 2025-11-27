@@ -139,3 +139,30 @@ class OrganizationCRUD:
                 exc_info=True,
             )
             raise Exception("Failed to update organization")
+
+    @staticmethod
+    async def get_user_org_by_name(
+        db: AsyncSession, user_id: uuid.UUID, name: str
+    ) -> Optional[Organization]:
+        """
+        Get an organization by name belonging to a specific user.
+        """
+        from app.api.modules.v1.organization.service.user_organization_service import (
+            UserOrganizationCRUD,
+        )
+
+        memberships = await UserOrganizationCRUD.get_user_organizations(db, user_id)
+
+        if not memberships:
+            return None
+
+        org_ids = [m.organization_id for m in memberships]
+
+        if not org_ids:
+            return None
+
+        result = await db.execute(
+            select(Organization).where(Organization.id.in_(org_ids), Organization.name == name)
+        )
+
+        return result.scalar_one_or_none()
