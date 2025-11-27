@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, UniqueConstraint
+import sqlalchemy as sa
+from sqlalchemy import JSON, Boolean, Column, DateTime, UniqueConstraint, func
 from sqlmodel import Field, ForeignKey, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -15,12 +16,12 @@ if TYPE_CHECKING:
 class BillingStatus(str, Enum):
     """Billing account statuses."""
 
-    TRIALING = "trialing"
-    ACTIVE = "active"
-    PAST_DUE = "past_due"
-    UNPAID = "unpaid"
-    CANCELLED = "cancelled"
-    BLOCKED = "blocked"
+    TRIALING = "TRIALING"
+    ACTIVE = "ACTIVE"
+    PAST_DUE = "PAST_DUE"
+    UNPAID = "UNPAID"
+    CANCELLED = "CANCELLED"
+    BLOCKED = "BLOCKED"
 
 
 class BillingAccount(SQLModel, table=True):
@@ -49,7 +50,10 @@ class BillingAccount(SQLModel, table=True):
         default=None, max_length=255, nullable=True, index=True
     )
 
-    status: BillingStatus = Field(default=BillingStatus.TRIALING, max_length=50, nullable=False)
+    status: BillingStatus = Field(
+        sa_column=sa.Column(sa.Enum(BillingStatus, name="billingstatus"), nullable=False),
+        default=BillingStatus.TRIALING,
+    )
 
     trial_starts_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
@@ -101,7 +105,12 @@ class BillingAccount(SQLModel, table=True):
 
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
     )
 
     payment_methods: List["PaymentMethod"] = Relationship(

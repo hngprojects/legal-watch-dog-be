@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
@@ -249,23 +249,16 @@ class BillingService:
             await self.db.refresh(pm)
 
             if account.stripe_customer_id:
-                try:
-                    await stripe_attach_payment_method(
-                        customer_id=account.stripe_customer_id,
-                        payment_method_id=stripe_payment_method_id,
-                        set_as_default=is_default,
-                    )
-                    logger.info(
-                        "Attached payment method %s to stripe customer %s",
-                        stripe_payment_method_id,
-                        account.stripe_customer_id,
-                    )
-                except Exception:
-                    logger.exception(
-                        "Stripe attach failed for pm=%s customer=%s",
-                        stripe_payment_method_id,
-                        account.stripe_customer_id,
-                    )
+                await stripe_attach_payment_method(
+                    customer_id=account.stripe_customer_id,
+                    payment_method_id=stripe_payment_method_id,
+                    set_as_default=is_default,
+                )
+                logger.info(
+                    "Attached payment method %s to stripe customer %s",
+                    stripe_payment_method_id,
+                    account.stripe_customer_id,
+                )
 
             await self.db.commit()
             await self.db.refresh(pm)
@@ -277,6 +270,7 @@ class BillingService:
 
             logger.info("Added payment method %s for billing_account=%s", pm.id, billing_account_id)
             return pm
+
         except Exception as exc:
             await self.db.rollback()
             logger.exception(
@@ -320,15 +314,30 @@ class BillingService:
                 the transaction will be rolled back before the exception is re-raised.
         """
         try:
-            stmt = select(PaymentMethod).where(PaymentMethod.id == payment_method_id)
-            pm = await self.db.scalar(stmt)
-            if not pm or pm.billing_account_id != billing_account_id:
+            pm_check = await self.db.scalar(
+                select(PaymentMethod).where(PaymentMethod.id == payment_method_id)
+            )
+            if not pm_check or pm_check.billing_account_id != billing_account_id:
                 raise ValueError("Payment method not found for billing account")
 
-            await self._clear_default_payment_method(billing_account_id)
-
-            pm.is_default = True
-            self.db.add(pm)
+            stmt = (
+                update(PaymentMethod)
+                .where(PaymentMethod.billing_account_id == billing_account_id)
+                .values(
+                    is_default=case(
+                        (PaymentMethod.id == payment_method_id, True),
+                        else_=False,
+                    )
+                )
+                .returning(PaymentMethod)
+            )
+            result = await self.db.execute(stmt)
+            pm = None
+            for row in result.scalars():
+                if row.is_default:
+                    pm = row
+            if not pm:
+                raise ValueError("Payment method not found while setting default")
 
             acct_stmt = (
                 update(BillingAccount)
@@ -336,15 +345,13 @@ class BillingService:
                 .values(default_payment_method_id=payment_method_id)
                 .returning(BillingAccount)
             )
-            result = await self.db.execute(acct_stmt)
-            account = result.scalar_one_or_none()
-
-            await self.db.flush()
-            await self.db.refresh(pm)
-            await self.db.commit()
-
+            account_result = await self.db.execute(acct_stmt)
+            account = account_result.scalar_one_or_none()
             if not account:
                 raise ValueError("Billing account not found")
+
+            await self.db.commit()
+            await self.db.refresh(pm)
 
             if account.stripe_customer_id and pm.stripe_payment_method_id:
                 try:
@@ -364,14 +371,13 @@ class BillingService:
                         account.stripe_customer_id,
                     )
 
-            await self.db.commit()
-            await self.db.refresh(pm)
             logger.info(
                 "Set payment method %s as default for account %s",
                 payment_method_id,
                 billing_account_id,
             )
             return pm
+
         except Exception:
             await self.db.rollback()
             logger.exception(
