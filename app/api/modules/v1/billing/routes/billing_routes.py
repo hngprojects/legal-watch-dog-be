@@ -49,14 +49,32 @@ async def create_checkout_session(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Start a Stripe Checkout session so the org can subscribe (monthly/yearly).
+    Create a Stripe Checkout session for the organisation’s subscription.
 
-    Flow:
-    - Ensure the organisation has a BillingAccount (and Stripe customer).
-    - Create a Stripe Checkout session in subscription mode.
-    - Return the checkout URL + session id to the frontend.
+    Args:
+        organization_id (UUID):
+            The UUID of the organisation creating a subscription.
+        payload (CheckoutSessionCreateRequest):
+            Request payload specifying plan (monthly/yearly) and optional metadata.
+        current_user (Depends(require_billing_admin)):
+            The authenticated user; must have billing permissions.
+        db (AsyncSession, Depends(get_db)):
+            The database session injected by FastAPI.
 
-    The actual subscription activation is handled asynchronously via Stripe webhooks.
+    Returns:
+        dict: A standard API response containing:
+            - `status_code`: HTTP status code.
+            - `message`: A success message.
+            - `data`: A `CheckoutSessionResponse` containing:
+                - `checkout_url`: URL to redirect the user to Stripe Checkout.
+                - `session_id`: The created Checkout session ID.
+
+    Raises:
+        HTTPException:
+            - 400 if the plan is invalid.
+            - 500 if Stripe customer creation fails or billing config is invalid.
+        Exception:
+            Any unexpected errors during checkout creation.
     """
     try:
         billing_service: BillingService = get_billing_service(db)
