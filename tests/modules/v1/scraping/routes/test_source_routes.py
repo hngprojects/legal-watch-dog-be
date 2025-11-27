@@ -542,11 +542,7 @@ class TestDeleteSourceEndpoint:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-
-# ==============================================================================
 # Revision History Tests
-# ==============================================================================
-
 
 @pytest_asyncio.fixture
 async def test_source_for_revisions(pg_async_session):

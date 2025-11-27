@@ -619,7 +619,6 @@ async def manual_scrape_trigger(
     Returns:
         JSONResponse: Success response with scrape results or error response
     """
-    # 1. Check if source exists and is active
     query = select(Source).where(Source.id == source_id)
     result = await db.execute(query)
     source = result.scalars().first()
@@ -638,10 +637,8 @@ async def manual_scrape_trigger(
             error="SOURCE_INACTIVE",
         )
 
-    # 2. Execute ScraperService Directly
     try:
         service = ScraperService(db)
-        # This await will block until the entire pipeline finishes
         scrape_result = await service.execute_scrape_job(str(source.id))
 
         return success_response(
@@ -651,7 +648,6 @@ async def manual_scrape_trigger(
         )
 
     except Exception as e:
-        # Catch scraping errors and return error response
         logger.error(f"Manual scrape failed for source {source_id}: {str(e)}")
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
