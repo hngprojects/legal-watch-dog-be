@@ -53,58 +53,48 @@ class ContactUsService:
         """
         logger.info("Processing contact form submission from email=%s", payload.email)
 
-        try:
-            admin_context = {
-                "full_name": payload.full_name,
-                "email": payload.email,
-                "phone_number": payload.phone_number,
-                "message": payload.message,
-                "submitted_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            }
+        admin_context = {
+            "full_name": payload.full_name,
+            "email": payload.email,
+            "phone_number": payload.phone_number,
+            "message": payload.message,
+            "submitted_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
 
-            background_tasks.add_task(
-                send_email,
-                "contact_us_admin.html",
-                f"New Contact Form Submission from {payload.full_name}",
-                settings.ADMIN_EMAIL,
-                admin_context,
-            )
+        background_tasks.add_task(
+            send_email,
+            "contact_us_admin.html",
+            f"New Contact Form Submission from {payload.full_name}",
+            settings.ADMIN_EMAIL,
+            admin_context,
+        )
 
-            user_context = {
-                "full_name": payload.full_name,
-                "message": payload.message,
-            }
+        user_context = {
+            "full_name": payload.full_name,
+            "message": payload.message,
+        }
 
-            background_tasks.add_task(
-                send_email,
-                "contact_us_confirmation.html",
-                "We received your message",
-                payload.email,
-                user_context,
-            )
+        background_tasks.add_task(
+            send_email,
+            "contact_us_confirmation.html",
+            "We received your message",
+            payload.email,
+            user_context,
+        )
 
-            logger.info("Successfully processed contact form from email=%s", payload.email)
+        logger.info("Successfully processed contact form from email=%s", payload.email)
 
-            await ContactUsCRUD.create(
-                db=self.db,
-                full_name=payload.full_name,
-                email=payload.email,
-                phone_number=payload.phone_number,
-                message=payload.message,
-            )
+        await ContactUsCRUD.create(
+            db=self.db,
+            full_name=payload.full_name,
+            email=payload.email,
+            phone_number=payload.phone_number,
+            message=payload.message,
+        )
 
-            await self.db.commit()
+        await self.db.commit()
 
-            return {"email": payload.email}
-
-        except Exception as e:
-            logger.error(
-                "Unexpected error during contact form submission for email=%s: %s",
-                payload.email,
-                str(e),
-                exc_info=True,
-            )
-            raise Exception("An error occurred while submitting your message. Please try again.")
+        return {"email": payload.email}
 
     async def get_all_contacts(
         self,
@@ -126,28 +116,20 @@ class ContactUsService:
         Raises:
             Exception: For unexpected errors during retrieval
         """
-        try:
-            contacts, total_count = await ContactUsCRUD.get_all(
-                db=self.db,
-                page=page,
-                page_size=page_size,
-                email=email,
-            )
 
-            contacts_list = [ContactUsDetail.model_validate(contact) for contact in contacts]
+        contacts, total_count = await ContactUsCRUD.get_all(
+            db=self.db,
+            page=page,
+            page_size=page_size,
+            email=email,
+        )
 
-            pagination = calculate_pagination(
-                total=total_count,
-                page=page,
-                limit=page_size,
-            )
+        contacts_list = [ContactUsDetail.model_validate(contact) for contact in contacts]
 
-            return {"data": contacts_list, **pagination}
+        pagination = calculate_pagination(
+            total=total_count,
+            page=page,
+            limit=page_size,
+        )
 
-        except Exception as e:
-            logger.error(
-                "Failed to retrieve contact submissions: %s",
-                str(e),
-                exc_info=True,
-            )
-            raise
+        return {"data": contacts_list, **pagination}

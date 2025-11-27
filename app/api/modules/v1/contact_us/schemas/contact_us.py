@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List
 from uuid import UUID
 
+import phonenumbers
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.api.utils.validators import is_company_email
@@ -23,12 +24,17 @@ class ContactUsRequest(BaseModel):
     @field_validator("phone_number")
     @classmethod
     def validate_phone(cls, v):
-        cleaned = v.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-        if not cleaned.replace("+", "").isdigit():
-            raise ValueError("Phone number must contain only digits and optional '+'")
-        if len(cleaned) < 10:
-            raise ValueError("Phone number must be at least 10 digits")
-        return v.strip()
+        try:
+            p = phonenumbers.parse(v, None)
+            if not phonenumbers.is_valid_number(p):
+                region = phonenumbers.region_code_for_number(p)
+                if region:
+                    raise ValueError(f"Invalid phone number (Country: {region})")
+                else:
+                    raise ValueError("Invalid phone number format")
+            return phonenumbers.format_number(p, phonenumbers.PhoneNumberFormat.E164)
+        except phonenumbers.NumberParseException:
+            raise ValueError("Invalid phone number format")
 
     @field_validator("email")
     @classmethod
