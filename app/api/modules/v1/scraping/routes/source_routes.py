@@ -21,6 +21,10 @@ from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
 from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.scraping.schemas.data_revision_schema import (
+    DataRevisionResponse,
+    PaginatedRevisions,
+)
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceUpdate,
@@ -587,12 +591,12 @@ async def get_source_revisions(
     return success_response(
         status_code=200,
         message="Revisions retrieved successfully",
-        data={
-            "revisions": [revision.model_dump() for revision in revisions],
-            "total": total,
-            "skip": skip,
-            "limit": limit,
-        },
+        data=PaginatedRevisions(
+            revisions=[DataRevisionResponse.model_validate(r) for r in revisions],
+            total=total,
+            skip=skip,
+            limit=limit,
+        ).model_dump(),
     )
 
 
