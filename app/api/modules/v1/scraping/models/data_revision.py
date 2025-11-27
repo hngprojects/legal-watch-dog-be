@@ -8,6 +8,12 @@ from sqlmodel import JSON, Field, SQLModel
 
 
 class DataRevision(SQLModel, table=True):
+    """
+    DataRevision model
+    Represents a specific revision of scraped data,
+    including its content, metadata, and AI-generated summaries.
+    """
+
     __tablename__ = "data_revisions"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
