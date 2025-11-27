@@ -1,9 +1,11 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.redis_service import check_rate_limit
+from app.api.db.database import get_db
 from app.api.modules.v1.contact_us.routes.docs.contact_route import (
     contact_us_custom_errors,
     contact_us_custom_success,
@@ -38,6 +40,7 @@ async def contact_us(
     payload: ContactUsRequest,
     background_tasks: BackgroundTasks,
     request: Request,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Submit a contact form.
@@ -91,7 +94,7 @@ async def contact_us(
                     detail="Too many attempts from this IP. Try again in 1 hour.",
                 )
 
-        service = ContactUsService()
+        service = ContactUsService(db)
         result = await service.submit_contact_form(payload, background_tasks)
 
         return success_response(
