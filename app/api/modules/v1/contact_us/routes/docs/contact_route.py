@@ -156,3 +156,111 @@ contact_us_custom_success = {
     "status_code": 200,
     "description": "Contact form submitted successfully. Confirmation email sent.",
 }
+
+
+get_all_contacts_responses = {
+    200: {
+        "description": "Contact Submissions Retrieved Successfully",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "success": {
+                        "summary": "Successfully Retrieved Contact Submissions",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 200,
+                            "message": "Contact submissions retrieved successfully",
+                            "data": {
+                                "contacts": [
+                                    {
+                                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                                        "full_name": "John Doe",
+                                        "email": "john.doe@company.com",
+                                        "phone_number": "+1234567890",
+                                        "message": "I would like to inquire about your services.",
+                                        "created_at": "2024-01-15T10:30:00Z",
+                                    },
+                                    {
+                                        "id": "223e4567-e89b-12d3-a456-426614174001",
+                                        "full_name": "Jane Smith",
+                                        "email": "jane.smith@company.com",
+                                        "phone_number": "+0987654321",
+                                        "message": "Please reach me for partnership opportunities.",
+                                        "created_at": "2024-01-14T15:45:00Z",
+                                    },
+                                ],
+                                "total": 25,
+                                "page": 1,
+                                "limit": 10,
+                                "total_pages": 3,
+                            },
+                        },
+                    },
+                    "success_filtered": {
+                        "summary": "Retrieved Submissions Filtered by Email",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 200,
+                            "message": "Contact submissions retrieved successfully",
+                            "data": {
+                                "contacts": [
+                                    {
+                                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                                        "full_name": "John Doe",
+                                        "email": "john.doe@company.com",
+                                        "phone_number": "+1234567890",
+                                        "message": "I would like to inquire about your services.",
+                                        "created_at": "2024-01-15T10:30:00Z",
+                                    }
+                                ],
+                                "total": 1,
+                                "page": 1,
+                                "limit": 10,
+                                "total_pages": 1,
+                            },
+                        },
+                    },
+                    "success_empty": {
+                        "summary": "No Submissions Found",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 200,
+                            "message": "Contact submissions retrieved successfully",
+                            "data": {
+                                "contacts": [],
+                                "total": 0,
+                                "page": 1,
+                                "limit": 10,
+                                "total_pages": 0,
+                            },
+                        },
+                    },
+                }
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "server_error": {
+                        "summary": "Server Error",
+                        "value": {
+                            "error": "INTERNAL_SERVER_ERROR",
+                            "message": "Failed to retrieve contact submissions",
+                            "status_code": 500,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+}
+
+get_all_contacts_custom_errors = ["500"]
+get_all_contacts_custom_success = {
+    "status_code": 200,
+    "description": "Contact submissions retrieved successfully with pagination metadata.",
+}

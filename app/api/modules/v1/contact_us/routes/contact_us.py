@@ -1,7 +1,15 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.redis_service import check_rate_limit
@@ -10,8 +18,12 @@ from app.api.modules.v1.contact_us.routes.docs.contact_route import (
     contact_us_custom_errors,
     contact_us_custom_success,
     contact_us_responses,
+    get_all_contacts_custom_errors,
+    get_all_contacts_custom_success,
+    get_all_contacts_responses,
 )
 from app.api.modules.v1.contact_us.schemas.contact_us import (
+    ContactUsListResponse,
     ContactUsRequest,
     ContactUsResponse,
 )
@@ -126,3 +138,72 @@ async def contact_us(
 
 contact_us._custom_errors = contact_us_custom_errors
 contact_us._custom_success = contact_us_custom_success
+
+
+@router.get(
+    "",
+    response_model=ContactUsListResponse,
+    status_code=status.HTTP_200_OK,
+    responses=get_all_contacts_responses,
+)
+async def get_all_contact_submissions(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
+    email: Optional[str] = Query(None, description="Filter by email address"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all contact form submissions with pagination.
+
+    Retrieves a paginated list of all contact form submissions.
+    Optionally filter by email address.
+
+    Args:
+        page (int): Page number (default: 1)
+        page_size (int): Number of items per page (default: 10, max: 100)
+        email (str, optional): Filter by email address
+        db (AsyncSession): Database session
+
+    Returns:
+        dict: Paginated list of contact submissions with metadata
+
+    Raises:
+        HTTPException: 500 if database operation fails
+    """
+    try:
+        service = ContactUsService(db)
+        result = await service.get_all_contacts(
+            page=page,
+            page_size=page_size,
+            email=email,
+        )
+
+        contacts_list = [contact.model_dump() for contact in result["data"]]
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Contact submissions retrieved successfully",
+            data=ContactUsListResponse(
+                contacts=contacts_list,
+                total=result["total"],
+                page=result["page"],
+                limit=result["limit"],
+                total_pages=result["total_pages"],
+            ).model_dump(),
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to retrieve contact submissions: %s",
+            str(e),
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="INTERNAL_SERVER_ERROR",
+            message="Failed to retrieve contact submissions",
+        )
+
+
+get_all_contact_submissions._custom_errors = get_all_contacts_custom_errors
+get_all_contact_submissions._custom_success = get_all_contacts_custom_success

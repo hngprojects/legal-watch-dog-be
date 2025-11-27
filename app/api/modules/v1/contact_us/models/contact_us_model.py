@@ -1,4 +1,3 @@
-# app/api/modules/v1/contact_us/models/contact_us_model.py
 import uuid
 from datetime import datetime, timezone
 
