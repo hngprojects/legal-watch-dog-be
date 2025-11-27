@@ -124,6 +124,13 @@ class Settings(BaseSettings):
     )
     MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="your-google-client-id")
+    GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="your-google-client-secret")
+    GOOGLE_REDIRECT_URI: str = config(
+        "GOOGLE_REDIRECT_URI", default="https://minamoto.emerj.net/api/v1/oauth/google/callback"
+    )
+
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
 
     model_config = SettingsConfigDict(extra="allow")

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -18,7 +18,7 @@ class User(SQLModel, table=True):
 
     email: str = Field(max_length=255, nullable=False, unique=True, index=True)
 
-    hashed_password: str = Field(max_length=255, nullable=False)
+    hashed_password: Optional[str] = Field(default=None, max_length=255, nullable=True)
 
     auth_provider: str = Field(
         default="local", max_length=20, nullable=False
