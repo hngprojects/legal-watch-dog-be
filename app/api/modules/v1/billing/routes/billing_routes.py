@@ -9,6 +9,47 @@ from app.api.core.config import settings
 from app.api.core.dependencies.auth import require_billing_admin
 from app.api.db.database import get_db
 from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.routes.docs.billing_routes_docs import (
+    add_payment_method_custom_errors,
+    add_payment_method_custom_success,
+    add_payment_method_responses,
+    cancel_subscription_custom_errors,
+    cancel_subscription_custom_success,
+    cancel_subscription_responses,
+    change_subscription_plan_custom_errors,
+    change_subscription_plan_custom_success,
+    change_subscription_plan_responses,
+    create_billing_account_custom_errors,
+    create_billing_account_custom_success,
+    create_billing_account_responses,
+    create_checkout_custom_errors,
+    create_checkout_custom_success,
+    create_checkout_responses,
+    create_invoice_record_custom_errors,
+    create_invoice_record_custom_success,
+    create_invoice_record_responses,
+    delete_payment_method_custom_errors,
+    delete_payment_method_custom_success,
+    delete_payment_method_responses,
+    get_billing_account_custom_errors,
+    get_billing_account_custom_success,
+    get_billing_account_responses,
+    list_invoices_custom_errors,
+    list_invoices_custom_success,
+    list_invoices_responses,
+    list_payment_methods_custom_errors,
+    list_payment_methods_custom_success,
+    list_payment_methods_responses,
+    list_plans_custom_errors,
+    list_plans_custom_success,
+    list_plans_responses,
+    set_default_payment_method_custom_errors,
+    set_default_payment_method_custom_success,
+    set_default_payment_method_responses,
+    subscription_status_custom_errors,
+    subscription_status_custom_success,
+    subscription_status_responses,
+)
 from app.api.modules.v1.billing.schemas.billing_schema import (
     BillingAccountCreateRequest,
     BillingAccountResponse,
@@ -49,6 +90,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     response_model=CheckoutSessionResponse,
     summary="Create Stripe Checkout session for subscription",
+    responses=create_checkout_responses,
 )
 async def create_checkout_session(
     organization_id: UUID,
@@ -176,11 +218,16 @@ async def create_checkout_session(
         )
 
 
+create_checkout_session._custom_errors = create_checkout_custom_errors
+create_checkout_session._custom_success = create_checkout_custom_success
+
+
 @router.get(
     "/subscription",
     status_code=status.HTTP_200_OK,
     response_model=SubscriptionStatusResponse,
     summary="Get current subscription status for organisation",
+    responses=subscription_status_responses,
 )
 async def get_subscription_status(
     organization_id: UUID,
@@ -221,11 +268,16 @@ async def get_subscription_status(
         )
 
 
+get_subscription_status._custom_errors = subscription_status_custom_errors
+get_subscription_status._custom_success = subscription_status_custom_success
+
+
 @router.post(
     "/subscription/change-plan",
     status_code=status.HTTP_200_OK,
     response_model=SubscriptionStatusResponse,
     summary="Change subscription plan (monthly/yearly, etc)",
+    responses=change_subscription_plan_responses,
 )
 async def change_subscription_plan(
     organization_id: UUID,
@@ -301,11 +353,16 @@ async def change_subscription_plan(
         )
 
 
+change_subscription_plan._custom_errors = change_subscription_plan_custom_errors
+change_subscription_plan._custom_success = change_subscription_plan_custom_success
+
+
 @router.post(
     "/subscription/cancel",
     status_code=status.HTTP_200_OK,
     response_model=SubscriptionStatusResponse,
     summary="Cancel subscription (stop renewal or immediate)",
+    responses=cancel_subscription_responses,
 )
 async def cancel_subscription(
     organization_id: UUID,
@@ -370,11 +427,16 @@ async def cancel_subscription(
         )
 
 
+cancel_subscription._custom_errors = cancel_subscription_custom_errors
+cancel_subscription._custom_success = cancel_subscription_custom_success
+
+
 @router.post(
     "/accounts",
     status_code=status.HTTP_201_CREATED,
     response_model=BillingAccountResponse,
     summary="Create billing account for your organisation",
+    responses=create_billing_account_responses,
 )
 async def create_billing_account(
     organization_id: UUID,
@@ -428,11 +490,16 @@ async def create_billing_account(
         )
 
 
+create_billing_account._custom_errors = create_billing_account_custom_errors
+create_billing_account._custom_success = create_billing_account_custom_success
+
+
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
     response_model=BillingAccountResponse,
     summary="Get billing account for your organisation",
+    responses=get_billing_account_responses,
 )
 async def get_billing_account(
     organization_id: UUID,
@@ -476,11 +543,16 @@ async def get_billing_account(
         )
 
 
+get_billing_account._custom_errors = get_billing_account_custom_errors
+get_billing_account._custom_success = get_billing_account_custom_success
+
+
 @router.post(
     "/payment-methods",
     status_code=status.HTTP_201_CREATED,
     response_model=PaymentMethodResponse,
     summary="Add a payment method (metadata only)",
+    responses=add_payment_method_responses,
 )
 async def add_payment_method(
     organization_id: UUID,
@@ -540,11 +612,16 @@ async def add_payment_method(
         )
 
 
+add_payment_method._custom_errors = add_payment_method_custom_errors
+add_payment_method._custom_success = add_payment_method_custom_success
+
+
 @router.get(
     "/payment-methods",
     status_code=status.HTTP_200_OK,
     response_model=List[PaymentMethodResponse],
     summary="List payment methods for account",
+    responses=list_payment_methods_responses,
 )
 async def list_payment_methods(
     organization_id: UUID,
@@ -586,11 +663,16 @@ async def list_payment_methods(
         )
 
 
+list_payment_methods._custom_errors = list_payment_methods_custom_errors
+list_payment_methods._custom_success = list_payment_methods_custom_success
+
+
 @router.post(
     "/payment-methods/{payment_method_id}/default",
     status_code=status.HTTP_200_OK,
     response_model=PaymentMethodResponse,
     summary="Set default payment method",
+    responses=set_default_payment_method_responses,
 )
 async def set_default_payment_method(
     organization_id: UUID,
@@ -641,10 +723,15 @@ async def set_default_payment_method(
         )
 
 
+set_default_payment_method._custom_errors = set_default_payment_method_custom_errors
+set_default_payment_method._custom_success = set_default_payment_method_custom_success
+
+
 @router.delete(
     "/payment-methods/{payment_method_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a payment method",
+    responses=delete_payment_method_responses,
 )
 async def delete_payment_method(
     organization_id: UUID,
@@ -686,11 +773,16 @@ async def delete_payment_method(
         )
 
 
+delete_payment_method._custom_errors = delete_payment_method_custom_errors
+delete_payment_method._custom_success = delete_payment_method_custom_success
+
+
 @router.get(
     "/plans",
     status_code=status.HTTP_200_OK,
     response_model=List[BillingPlanInfo],
     summary="List available subscription plans",
+    responses=list_plans_responses,
 )
 async def list_plans(
     organization_id: UUID,
@@ -727,11 +819,16 @@ async def list_plans(
     )
 
 
+list_plans._custom_errors = list_plans_custom_errors
+list_plans._custom_success = list_plans_custom_success
+
+
 @router.post(
     "/invoices",
     status_code=status.HTTP_201_CREATED,
     response_model=InvoiceResponse,
     summary="Create an invoice (Stripe + local history)",
+    responses=create_invoice_record_responses,
 )
 async def create_invoice_record(
     organization_id: UUID,
@@ -777,11 +874,16 @@ async def create_invoice_record(
         )
 
 
+create_invoice_record._custom_errors = create_invoice_record_custom_errors
+create_invoice_record._custom_success = create_invoice_record_custom_success
+
+
 @router.get(
     "/invoices",
     status_code=status.HTTP_200_OK,
     response_model=List[InvoiceResponse],
     summary="List invoices for the caller's billing account",
+    responses=list_invoices_responses,
 )
 async def list_invoices(
     organization_id: UUID,
@@ -821,3 +923,7 @@ async def list_invoices(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, message="Failed to list invoices"
         )
+
+
+list_invoices._custom_errors = list_invoices_custom_errors
+list_invoices._custom_success = list_invoices_custom_success

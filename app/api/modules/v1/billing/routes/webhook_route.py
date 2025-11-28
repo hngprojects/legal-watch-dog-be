@@ -5,6 +5,11 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.db.database import get_db
+from app.api.modules.v1.billing.routes.docs.webhook_route_docs import (
+    stripe_webhook_custom_errors,
+    stripe_webhook_custom_success,
+    stripe_webhook_responses,
+)
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
     verify_webhook_signature,
 )
@@ -16,7 +21,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
-@router.post("/webhook", status_code=status.HTTP_200_OK, summary="Stripe webhook endpoint")
+@router.post(
+    "/webhook",
+    status_code=status.HTTP_200_OK,
+    summary="Stripe webhook endpoint",
+    responses=stripe_webhook_responses,
+)
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Stripe webhook receiver.
@@ -88,3 +98,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, message="Internal server error"
         )
+
+
+stripe_webhook._custom_errors = stripe_webhook_custom_errors
+stripe_webhook._custom_success = stripe_webhook_custom_success

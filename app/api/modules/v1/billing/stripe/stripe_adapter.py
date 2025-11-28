@@ -141,7 +141,19 @@ async def attach_payment_method(
     customer_id: str, payment_method_id: str, set_as_default: bool = False
 ) -> Dict[str, Any]:
     """
-    Attach a PaymentMethod to a Stripe Customer and optionally mark it as default for invoices.
+    Attach a Stripe payment method to a customer and optionally set it as the default.
+
+    Args:
+        customer_id (str): Stripe customer ID to attach the payment method to.
+        payment_method_id (str): Stripe payment method ID to be attached.
+        set_as_default (bool): Whether to set this method as the default for invoices.
+
+    Returns:
+        Dict[str, Any]: The attached Stripe PaymentMethod object as a dictionary.
+
+    Raises:
+        ValueError: If Stripe rejects the payment method as invalid.
+        Exception: If the Stripe API call or executor execution fails.
     """
 
     def _attach():
@@ -159,14 +171,6 @@ async def attach_payment_method(
         except stripe.error.InvalidRequestError as e:
             logger.warning("Stripe rejected payment method %s: %s", payment_method_id, str(e))
             raise ValueError(f"Invalid Stripe payment method: {payment_method_id}") from e
-
-    logger.info(
-        "Attaching payment method %s to customer %s (set_default=%s)",
-        payment_method_id,
-        customer_id,
-        set_as_default,
-    )
-    return await _run_blocking(_attach, timeout=_DEFAULT_TIMEOUT)
 
     logger.info(
         "Attaching payment method %s to customer %s (set_default=%s)",
@@ -196,7 +200,18 @@ async def detach_payment_method(payment_method_id: str) -> Dict[str, Any]:
 
 
 async def retrieve_payment_method(payment_method_id: str) -> Dict[str, Any]:
-    """Retrieve a Stripe PaymentMethod object."""
+    """
+    Retrieve a Stripe payment method by its identifier.
+
+    Args:
+        payment_method_id (str): The Stripe payment method ID to fetch.
+
+    Returns:
+        Dict[str, Any]: The retrieved Stripe PaymentMethod data.
+
+    Raises:
+        Exception: If the Stripe retrieval request fails.
+    """
 
     def _get():
         return _run_blocking_with_retries(stripe.PaymentMethod.retrieve, payment_method_id)
@@ -310,7 +325,16 @@ async def create_subscription(
 
 async def retrieve_subscription(subscription_id: str) -> dict:
     """
-    Retrieve a Stripe Subscription by ID.
+    Retrieve a Stripe subscription by its identifier.
+
+    Args:
+        subscription_id (str): The Stripe subscription ID to fetch.
+
+    Returns:
+        dict: The retrieved Stripe Subscription object.
+
+    Raises:
+        Exception: If the Stripe retrieval request fails.
     """
 
     def _get():
@@ -328,7 +352,18 @@ async def update_subscription_price(
     new_price_id: str,
 ) -> dict:
     """
-    Update subscription to a new price (assumes single price item).
+    Update a Stripe subscription to use a new price for its existing item.
+
+    Args:
+        subscription_id (str): The Stripe subscription ID to update.
+        new_price_id (str): The new Stripe price ID to apply to the subscription.
+
+    Returns:
+        dict: The updated Stripe Subscription object.
+
+    Raises:
+        SubscriptionAlreadyCanceledError: If the subscription is already canceled.
+        Exception: If the Stripe update request fails.
     """
 
     def _update():
@@ -370,8 +405,17 @@ async def cancel_subscription(
     cancel_at_period_end: bool = True,
 ) -> dict:
     """
-    If cancel_at_period_end=True, subscription stays active till period end.
-    If False, it cancels immediately.
+    Cancel a Stripe subscription either immediately or at the end of the current period.
+
+    Args:
+        subscription_id (str): The Stripe subscription ID to cancel.
+        cancel_at_period_end (bool): If True, cancel at period end; otherwise cancel now.
+
+    Returns:
+        dict: The updated or deleted Stripe Subscription object, depending on mode.
+
+    Raises:
+        Exception: If the Stripe cancellation request fails.
     """
 
     def _cancel():
@@ -403,14 +447,21 @@ async def create_invoice_for_customer_with_price_id(
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Create a one-off invoice for a customer using a Stripe Price + quantity,
-    then finalize it.
+    Create and finalize a one-off Stripe invoice for a customer using a price and quantity.
 
-    - Creates an InvoiceItem with `price` + `quantity`.
-    - Creates an Invoice for the customer.
-    - Finalizes the invoice so that `total`, `amount_due`, etc. are populated.
+    Args:
+        customer_id (str): Stripe customer ID to invoice.
+        price_id (str): Stripe price ID used to generate the invoice item.
+        quantity (int): Quantity applied to the price. Defaults to 1.
+        description (Optional[str]): Optional description for the invoice item.
+        metadata (Optional[Dict[str, Any]]): Extra metadata for both invoice and item.
+
+    Returns:
+        Dict[str, Any]: The finalized Stripe Invoice object.
+
+    Raises:
+        Exception: If Stripe invoice creation, item creation, or finalization fails.
     """
-
     metadata = metadata or {}
 
     def _create():
@@ -491,9 +542,6 @@ async def create_invoice_for_customer_with_amount(
             metadata=metadata,
         )
 
-        # this logic sends the invoice to the customer email
-        # we can charge it automatically if by setting collection_method="charge_automatically"
-
         finalized = stripe.Invoice.finalize_invoice(invoice.id)
 
         return finalized
@@ -534,9 +582,18 @@ async def verify_webhook_signature(payload: bytes, header: str) -> Dict[str, Any
 
 async def resolve_stripe_price_id_for_product(product_id: str) -> str:
     """
-    Map our internal product_id to a Stripe Price ID.
-    """
+    Resolve an internal product ID to a validated Stripe one-time price ID.
 
+    Args:
+        product_id (str): Internal product identifier to map to a Stripe price.
+
+    Returns:
+        str: The Stripe price ID corresponding to the given product.
+
+    Raises:
+        HTTPException: If the product ID is unknown, the price ID is invalid, or the price
+            is not a one-time price, or if a Stripe error occurs while retrieving the price.
+    """
     if product_id == settings.STRIPE_MONTHLY_PRODUCT_ID:
         price_id = settings.STRIPE_MONTHLY_PRICE_ID
     elif product_id == settings.STRIPE_YEARLY_PRODUCT_ID:
