@@ -16,7 +16,17 @@ async def require_billing_access(
     db: AsyncSession = Depends(get_db),
 ) -> BillingAccount:
     """
-    Single billing guard for org routes.
+    Validate an organization’s billing state before allowing access to protected routes.
+
+    Args:
+        organization_id (UUID): ID of the organization whose billing access is being checked.
+        db (AsyncSession): Database session used to fetch billing data and evaluate eligibility.
+
+    Returns:
+        BillingAccount: The organization’s billing account when access is permitted.
+
+    Raises:
+        HTTPException: If the billing account is missing or the billing state blocks access.
     """
     service = get_billing_service(db)
 

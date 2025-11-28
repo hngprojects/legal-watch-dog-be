@@ -17,7 +17,13 @@ _EVENT_TTL_SECONDS = 30 * 24 * 3600
 
 async def _mark_event_processed(event_id: str) -> None:
     """
-    Record that an event has been processed by setting a Redis key (SET with NX).
+    Mark a Stripe event as processed by recording an idempotency key in Redis.
+
+    Args:
+        event_id (str): Unique Stripe event identifier to mark as processed.
+
+    Raises:
+        Exception: If the Redis operation fails (error is logged and suppressed).
     """
     client = await get_redis_client()
     key = _EVENT_KEY_PREFIX + event_id
@@ -35,7 +41,16 @@ async def _mark_event_processed(event_id: str) -> None:
 
 async def _is_event_processed(event_id: str) -> bool:
     """
-    Check if an event id has already been processed.
+    Check whether a Stripe event has already been processed using a Redis key.
+
+    Args:
+        event_id (str): Unique Stripe event identifier to check.
+
+    Returns:
+        bool: True if the event is already marked as processed, otherwise False.
+
+    Raises:
+        Exception: If the Redis lookup fails (error is logged and False is returned).
     """
     client = await get_redis_client()
     key = _EVENT_KEY_PREFIX + event_id
@@ -49,7 +64,17 @@ async def _is_event_processed(event_id: str) -> bool:
 
 async def _handle_invoice_event(db: AsyncSession, data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Handle invoice related events using BillingService helper lookups.
+    Handle invoice-related Stripe events and update local invoice records.
+
+    Args:
+        db (AsyncSession): Database session used for invoice lookups and updates.
+        data (Dict[str, Any]): Stripe invoice payload (event.data.object).
+
+    Returns:
+        Dict[str, Any]: A structured action result describing what was performed.
+
+    Raises:
+        Exception: If invoice lookup or update fails after logging the error.
     """
     billing_service = get_billing_service(db)
     stripe_invoice_id = data.get("id")
@@ -84,8 +109,17 @@ async def _handle_invoice_event(db: AsyncSession, data: Dict[str, Any]) -> Dict[
 
 async def _handle_payment_intent_event(db: AsyncSession, data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Handle payment_intent events (succeeded / payment_failed).
-    Attempts to find local invoice by stripe_payment_intent_id and mark paid/failed.
+    Handle payment_intent events to update local invoices as paid or failed.
+
+    Args:
+        db (AsyncSession): Database session used for invoice lookups and updates.
+        data (Dict[str, Any]): Stripe payment_intent payload (event.data.object).
+
+    Returns:
+        Dict[str, Any]: A structured action result describing what was performed.
+
+    Raises:
+        Exception: If invoice lookup or update fails after logging the error.
     """
     billing_service = get_billing_service(db)
     pi_id = data.get("id")
@@ -122,9 +156,17 @@ async def _handle_payment_intent_event(db: AsyncSession, data: Dict[str, Any]) -
 
 async def _handle_subscription_event(db: AsyncSession, data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Handle subscription events to update BillingAccount periods and status.
-    Uses BillingService.attach_stripe_customer to atomically attach subscription id,
-    then updates period/price/status via the service or a safe update.
+    Handle subscription events and sync billing account periods, price, and status.
+
+    Args:
+        db (AsyncSession): Database session used for billing account updates.
+        data (Dict[str, Any]): Stripe subscription payload (event.data.object).
+
+    Returns:
+        Dict[str, Any]: A structured action result describing what was performed.
+
+    Raises:
+        Exception: If billing account lookup or update fails after logging the error.
     """
     billing_service = get_billing_service(db)
     customer_id = data.get("customer")
@@ -218,15 +260,17 @@ async def _handle_checkout_session_completed(
     db: AsyncSession, data: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Handle `checkout.session.completed`.
+    Handle checkout.session.completed events and link them to billing accounts.
 
-    We mainly:
-    - Resolve the BillingAccount via metadata or customer id.
-    - Optionally attach subscription id if present.
-    - Log and return a structured action.
+    Args:
+        db (AsyncSession): Database session used for billing account resolution.
+        data (Dict[str, Any]): Stripe checkout session payload (event.data.object).
 
-    Most of the real billing-state changes are still handled by
-    customer.subscription.* events, which is the recommended pattern.
+    Returns:
+        Dict[str, Any]: A structured action result describing the checkout outcome.
+
+    Raises:
+        Exception: If billing account updates fail after logging the error.
     """
     billing_service = get_billing_service(db)
 
@@ -288,12 +332,17 @@ async def _handle_checkout_session_completed(
 
 async def _handle_payment_method_attached(db: AsyncSession, data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Handle `payment_method.attached`.
+    Handle payment_method.attached events and create local payment method records.
 
-    Goal:
-    - Resolve BillingAccount via stripe_customer_id.
-    - If we don't already have a PaymentMethod for this stripe pm, create one
-      using BillingService.add_payment_method.
+    Args:
+        db (AsyncSession): Database session used for billing account and payment method changes.
+        data (Dict[str, Any]): Stripe payment_method payload (event.data.object).
+
+    Returns:
+        Dict[str, Any]: A structured action result describing what was performed.
+
+    Raises:
+        Exception: If payment method creation or related lookups fail after logging the error.
     """
     billing_service = get_billing_service(db)
 
@@ -361,7 +410,17 @@ async def _handle_payment_method_attached(db: AsyncSession, data: Dict[str, Any]
 
 async def process_stripe_event(db: AsyncSession, event: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Top-level dispatcher to process a stripe.Event object.
+    Dispatch a Stripe event to the appropriate handler with idempotency protection.
+
+    Args:
+        db (AsyncSession): Database session used across handler calls.
+        event (Dict[str, Any]): Full Stripe event payload to be processed.
+
+    Returns:
+        Dict[str, Any]: A structured result containing processed status and action details.
+
+    Raises:
+        Exception: Not propagated; any handler error is logged and folded into the result.
     """
     event_id = event.get("id")
     event_type = event.get("type")

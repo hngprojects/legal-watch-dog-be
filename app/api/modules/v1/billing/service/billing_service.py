@@ -59,11 +59,15 @@ class BillingService:
         self, organization_id: UUID
     ) -> Tuple[bool, BillingStatus | None]:
         """
-        Determine whether the given organisation is allowed to use the product
-        right now, based on its BillingAccount and status.
+        Check whether an organization is currently allowed to use the product based on its
+        billing account and status.
+
+        Args:
+            organization_id (UUID): ID of the organization to evaluate for billing eligibility.
 
         Returns:
-            (allowed, effective_status)
+            Tuple[bool, BillingStatus | None]: A tuple of (allowed, effective_status) indicating
+            whether usage is permitted and the resolved billing status.
         """
         stmt = select(BillingAccount).where(BillingAccount.organization_id == organization_id)
         account: BillingAccount | None = await self.db.scalar(stmt)
@@ -189,6 +193,16 @@ class BillingService:
         return await self.db.scalar(stmt)
 
     async def get_billing_account_by_id(self, account_id: UUID) -> BillingAccount | None:
+        """
+        Retrieve a billing account by its unique identifier.
+
+        Args:
+            account_id (UUID): The ID of the billing account to fetch.
+
+        Returns:
+            BillingAccount | None: The matching billing account, or None if not found.
+        """
+
         stmt = select(BillingAccount).where(BillingAccount.id == account_id)
         return await self.db.scalar(stmt)
 
@@ -294,7 +308,18 @@ class BillingService:
             raise
 
     async def _clear_default_payment_method(self, billing_account_id: UUID) -> None:
-        """Clear the is_default flag on all payment methods for an account."""
+        """
+        Clear the default payment method flag for all methods on a billing account.
+
+        Args:
+            billing_account_id (UUID): ID of the billing account whose default flags are cleared.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the database update fails for any reason.
+        """
         try:
             stmt = (
                 update(PaymentMethod)
@@ -407,6 +432,12 @@ class BillingService:
     ) -> Optional[PaymentMethod]:
         """
         Find a local PaymentMethod by its Stripe payment_method id.
+
+        Args:
+            stripe_payment_method_id (str): The Stripe payment method identifier to search for.
+
+        Returns:
+            Optional[PaymentMethod]: The matching payment method, or None if not found.
         """
         stmt = select(PaymentMethod).where(
             PaymentMethod.stripe_payment_method_id == stripe_payment_method_id
@@ -534,6 +565,12 @@ class BillingService:
     def _map_stripe_invoice_status(stripe_status: Optional[str]) -> InvoiceStatus:
         """
         Map Stripe's invoice.status -> our InvoiceStatus enum.
+
+        Args:
+            stripe_status (Optional[str]): The raw status value returned by Stripe.
+
+        Returns:
+            InvoiceStatus: The mapped internal invoice status, defaulting to PENDING.
         """
         if not stripe_status:
             return InvoiceStatus.PENDING
@@ -556,16 +593,21 @@ class BillingService:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> InvoiceHistory:
         """
-        Convenience helper: create a real Stripe invoice for this billing account,
-        based on a Stripe Price + quantity, and persist a matching InvoiceHistory
-        record that mirrors the Stripe invoice.
+        Create a Stripe invoice for a billing account and persist a matching local invoice record.
 
-        Flow:
-        - Load the BillingAccount and ensure it has a Stripe customer id.
-        - Use Stripe to create an invoice item using `stripe_price_id` and `quantity`,
-        then create + finalize a Stripe Invoice for that customer.
-        - Map the Stripe invoice fields into our local InvoiceHistory table
-        (amount_due, amount_paid, status, URLs, metadata, etc.).
+        Args:
+            billing_account_id (UUID): ID of the billing account to invoice.
+            stripe_price_id (str): Stripe price identifier used to build the invoice items.
+            quantity (int): Quantity to bill for the given Stripe price. Defaults to 1.
+            description (Optional[str]): Optional human-readable description for the invoice.
+            metadata (Optional[Dict[str, Any]]): Extra metadata to attach to the Stripe invoice.
+
+        Returns:
+            InvoiceHistory: The persisted invoice record mirroring the Stripe invoice.
+
+        Raises:
+            ValueError: If the billing account does not exist or lacks a Stripe customer ID.
+            Exception: If Stripe invoice creation or database persistence fails.
         """
         acct_stmt = select(BillingAccount).where(BillingAccount.id == billing_account_id)
         account = await self.db.scalar(acct_stmt)
@@ -799,74 +841,15 @@ class BillingService:
         self, organization_id: UUID
     ) -> Optional[BillingAccount]:
         """
-        Convenience helper: return the BillingAccount for an org so the API
-        can expose subscription-related fields.
+        Return an organization’s billing account for exposing subscription-related details.
+
+        Args:
+            organization_id (UUID): ID of the organization whose subscription is requested.
+
+        Returns:
+            Optional[BillingAccount]: The organization’s billing account, or None if not found.
         """
         return await self.get_billing_account_by_org(organization_id)
-
-    async def cancel_subscription_for_account(
-        self,
-        account: BillingAccount,
-        cancel_at_period_end: bool = True,
-    ) -> BillingAccount:
-        """
-        Cancel the Stripe subscription for this account.
-
-        - If cancel_at_period_end=True → subscription remains ACTIVE/ TRIALING
-          until end of period, and we set cancel_at_period_end flag.
-        - If False → cancel immediately and mark status CANCELLED.
-        """
-        if not account.stripe_subscription_id:
-            raise ValueError("Billing account has no Stripe subscription id")
-
-        try:
-            stripe_sub = await stripe_cancel_subscription(
-                subscription_id=account.stripe_subscription_id,
-                cancel_at_period_end=cancel_at_period_end,
-            )
-
-            update_values: Dict[str, Any] = {
-                "cancel_at_period_end": cancel_at_period_end,
-            }
-
-            if not cancel_at_period_end:
-                update_values["status"] = BillingStatus.CANCELLED
-
-            period = stripe_sub.get("current_period_end")
-            if period:
-                try:
-                    update_values["current_period_end"] = datetime.fromtimestamp(
-                        int(period), tz=timezone.utc
-                    )
-                except Exception:
-                    logger.warning("Failed to parse current_period_end=%s from stripe", period)
-
-            stmt = (
-                update(BillingAccount)
-                .where(BillingAccount.id == account.id)
-                .values(**update_values)
-                .returning(BillingAccount)
-            )
-            result = await self.db.execute(stmt)
-            updated = result.scalar_one_or_none()
-            await self.db.commit()
-
-            if not updated:
-                raise ValueError("Billing account not found during cancel update")
-
-            await self.db.refresh(updated)
-
-            logger.info(
-                "Cancelled subscription for account=%s (cancel_at_period_end=%s)",
-                account.id,
-                cancel_at_period_end,
-            )
-            return updated
-
-        except Exception:
-            await self.db.rollback()
-            logger.exception("Failed to cancel subscription for billing_account=%s", account.id)
-            raise
 
     async def update_subscription_price_for_account(
         self,
@@ -874,7 +857,18 @@ class BillingService:
         new_price_id: str,
     ) -> BillingAccount:
         """
-        Change the Stripe subscription price for an account and persist the new price id.
+        Update a billing account’s Stripe subscription price and persist the new price ID.
+
+        Args:
+            account (BillingAccount): Billing account whose subscription price will be updated.
+            new_price_id (str): The new Stripe price identifier to apply to the subscription.
+
+        Returns:
+            BillingAccount: The updated billing account with the new current_price_id.
+
+        Raises:
+            ValueError: If there is no Stripe subscription ID or the subscription is cancelled.
+            Exception: If the Stripe update or database persistence fails.
         """
         if not account.stripe_subscription_id:
             raise ValueError("Billing account has no Stripe subscription id")
@@ -930,15 +924,96 @@ class BillingService:
             )
             raise
 
+    async def cancel_subscription_for_account(
+        self,
+        account: BillingAccount,
+        cancel_at_period_end: bool = True,
+    ) -> BillingAccount:
+        """
+        Cancel a Stripe subscription for a billing account and update local billing state.
+
+        Args:
+            account (BillingAccount): Billing account whose subscription will be cancelled.
+            cancel_at_period_end (bool): If True, cancel at period end; otherwise cancel
+                immediately.
+
+        Returns:
+            BillingAccount: The updated billing account after the cancellation change.
+
+        Raises:
+            ValueError: If the billing account has no Stripe subscription ID or is not found.
+            Exception: If Stripe cancellation or database persistence fails.
+        """
+        if not account.stripe_subscription_id:
+            raise ValueError("Billing account has no Stripe subscription id")
+
+        try:
+            stripe_sub = await stripe_cancel_subscription(
+                subscription_id=account.stripe_subscription_id,
+                cancel_at_period_end=cancel_at_period_end,
+            )
+
+            update_values: Dict[str, Any] = {
+                "cancel_at_period_end": cancel_at_period_end,
+            }
+
+            if not cancel_at_period_end:
+                update_values["status"] = BillingStatus.CANCELLED
+
+            period = stripe_sub.get("current_period_end")
+            if period:
+                try:
+                    update_values["current_period_end"] = datetime.fromtimestamp(
+                        int(period), tz=timezone.utc
+                    )
+                except Exception:
+                    logger.warning("Failed to parse current_period_end=%s from stripe", period)
+
+            stmt = (
+                update(BillingAccount)
+                .where(BillingAccount.id == account.id)
+                .values(**update_values)
+                .returning(BillingAccount)
+            )
+            result = await self.db.execute(stmt)
+            updated = result.scalar_one_or_none()
+            await self.db.commit()
+
+            if not updated:
+                raise ValueError("Billing account not found during cancel update")
+
+            await self.db.refresh(updated)
+
+            logger.info(
+                "Cancelled subscription for account=%s (cancel_at_period_end=%s)",
+                account.id,
+                cancel_at_period_end,
+            )
+            return updated
+
+        except Exception:
+            await self.db.rollback()
+            logger.exception("Failed to cancel subscription for billing_account=%s", account.id)
+            raise
+
     async def sync_subscription_from_stripe(
         self,
         account: BillingAccount,
     ) -> BillingAccount:
         """
-        (Optional helper) Use Stripe as source-of-truth for subscription status
-        and update local BillingAccount.
+        Sync a billing account’s subscription state from Stripe and update local fields.
+        [Unused for now]
 
-        You can call this from a 'refresh' endpoint if needed.
+        Args:
+            account (BillingAccount): Billing account whose subscription will be refreshed from
+                Stripe.
+
+        Returns:
+            BillingAccount: The updated billing account after syncing Stripe subscription data.
+
+        Raises:
+            ValueError: If the billing account has no Stripe subscription ID.
+            Exception: If Stripe retrieval or database persistence fails.
         """
         if not account.stripe_subscription_id:
             raise ValueError("Billing account has no Stripe subscription id")
