@@ -236,7 +236,7 @@ request_new_otp._custom_success = request_new_otp_custom_success
 
 
 @router.get(
-    "/accept-invite/{token}",
+    "/invitations/{token}/accept",
     status_code=status.HTTP_302_FOUND,
     response_model=None,
 )

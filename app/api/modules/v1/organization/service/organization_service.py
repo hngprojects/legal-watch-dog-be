@@ -365,7 +365,7 @@ class OrganizationService:
 
             if organization.deleted_at:
                 raise ValueError("Cannot send invitations for a deleted organization")
-            
+
             organization_name = organization.name
 
             inviter = await UserCRUD.get_by_id(self.db, inviter_id)
@@ -408,7 +408,7 @@ class OrganizationService:
                 organization_id,
             )
 
-            invitation_link = f"{settings.APP_URL}/auth/accept-invite/{token}"
+            invitation_link = f"{settings.APP_URL}/auth/invitations/{token}/accept"
 
             logger.info("TESTING - Invitation link: %s", invitation_link)
 

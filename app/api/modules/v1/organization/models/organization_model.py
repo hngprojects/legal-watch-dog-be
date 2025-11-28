@@ -52,7 +52,7 @@ class Organization(SQLModel, table=True):
     )
     projects: list["Project"] = Relationship(
         back_populates="organization",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},  # ← ADD
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     invitations: list["Invitation"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
