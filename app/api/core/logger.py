@@ -33,6 +33,11 @@ LOG_CONFIG = {
     },
 }
 
+logging.config.dictConfig(LOG_CONFIG)
+
+logger = logging.getLogger("app")
 
 def setup_logging():
     logging.config.dictConfig(LOG_CONFIG)
+
+
