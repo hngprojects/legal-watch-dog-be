@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -25,6 +25,8 @@ class User(SQLModel, table=True):
     )  # 'local', 'oidc', 'saml'
 
     name: str = Field(index=True, max_length=255)
+
+    avatar_url: Optional[str] = Field(None, max_length=500, description="User avatar image URL")
 
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(

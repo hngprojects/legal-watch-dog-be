@@ -356,6 +356,80 @@ class UserOrganizationCRUD:
         return membership
 
     @staticmethod
+    async def update_member_details(
+        db: AsyncSession,
+        organization_id: uuid.UUID,
+        user_id: uuid.UUID,
+        user_updates: dict,
+        membership_updates: dict,
+    ) -> tuple[User, UserOrganization]:
+        """
+        Update member details including user and membership info.
+
+        Args:
+            db: Database session
+            organization_id: Organization UUID
+            user_id: User UUID to update
+            user_updates: Dictionary of User fields to update
+            membership_updates: Dictionary of UserOrganization fields to update
+
+        Returns:
+            Tuple of (updated_user, updated_membership)
+
+        Raises:
+            ValueError: If user or membership not found
+            Exception: If database operation fails
+        """
+        try:
+            # Get user
+            user_result = await db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalar_one_or_none()
+
+            if not user:
+                raise ValueError(f"User {user_id} not found")
+
+            # Get membership
+            membership = await UserOrganizationCRUD.get_user_organization(
+                db, user_id, organization_id
+            )
+
+            if not membership:
+                raise ValueError(
+                    f"User {user_id} is not a member of organization {organization_id}"
+                )
+
+            # Update user fields
+            if user_updates:
+                for key, value in user_updates.items():
+                    setattr(user, key, value)
+                user.updated_at = datetime.now(timezone.utc)
+                db.add(user)
+
+            # Update membership fields
+            if membership_updates:
+                for key, value in membership_updates.items():
+                    setattr(membership, key, value)
+                membership.updated_at = datetime.now(timezone.utc)
+                db.add(membership)
+
+            await db.flush()
+            await db.refresh(user)
+            await db.refresh(membership)
+
+            logger.info(f"Updated member user_id={user_id} in org_id={organization_id}")
+
+            return user, membership
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to update member user_id={user_id} in org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to update member details")
+
+    @staticmethod
     async def remove_user_from_organization(
         db: AsyncSession,
         user_id: uuid.UUID,

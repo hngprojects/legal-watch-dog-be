@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
@@ -35,6 +35,16 @@ class UserOrganization(SQLModel, table=True):
 
     is_active: bool = Field(
         default=True, nullable=False, description="Whether this membership is active"
+    )
+
+    title: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="User's job title in this organization (e.g., 'Administrative Officer')",
+    )
+
+    department: Optional[str] = Field(
+        None, max_length=100, description="User's department (e.g., 'Compliance team')"
     )
 
     joined_at: datetime = Field(

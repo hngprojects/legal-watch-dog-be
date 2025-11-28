@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -20,6 +20,16 @@ class Organization(SQLModel, table=True):
     name: str = Field(max_length=255, nullable=False, index=True)
 
     industry: str = Field(max_length=100, nullable=True)
+
+    location: Optional[str] = Field(
+        None, max_length=255, description="Organization location (e.g., 'United Kingdom', 'Global')"
+    )
+
+    plan: Optional[str] = Field(
+        None, max_length=50, description="Subscription plan (e.g., 'Professional', 'Enterprise')"
+    )
+
+    logo_url: Optional[str] = Field(None, max_length=500, description="Organization logo URL")
 
     settings: dict = Field(
         default_factory=dict,
