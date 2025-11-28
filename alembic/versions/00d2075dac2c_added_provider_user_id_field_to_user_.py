@@ -1,7 +1,7 @@
 """Added provider_user_id field to User Model
 
 Revision ID: 00d2075dac2c
-Revises: e40a68f35eaa
+Revises: f661a36459ec
 Create Date: 2025-11-28 07:03:14.555001
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '00d2075dac2c'
-down_revision: Union[str, Sequence[str], None] = 'e40a68f35eaa'
+down_revision: Union[str, Sequence[str], None] = 'f661a36459ec'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
