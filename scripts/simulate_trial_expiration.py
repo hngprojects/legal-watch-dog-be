@@ -11,12 +11,11 @@ from app.api.modules.v1.billing.tasks import _expire_trials_async
 ORGANIZATION_ID = "69046481-7af9-4988-9285-0d4d0b4a9a35"  # <-- Replace with your org ID
 # ==================================================
 
+
 async def simulate_trial_expiration():
     async with AsyncSessionLocal() as db:
         # 1️⃣ Fetch billing account
-        stmt = select(BillingAccount).where(
-            BillingAccount.organization_id == ORGANIZATION_ID
-        )
+        stmt = select(BillingAccount).where(BillingAccount.organization_id == ORGANIZATION_ID)
         result = await db.execute(stmt)
         billing_account = result.scalar_one_or_none()
 
@@ -35,12 +34,11 @@ async def simulate_trial_expiration():
 
     # 4️⃣ Fetch account again to check status
     async with AsyncSessionLocal() as db:
-        stmt = select(BillingAccount).where(
-            BillingAccount.organization_id == ORGANIZATION_ID
-        )
+        stmt = select(BillingAccount).where(BillingAccount.organization_id == ORGANIZATION_ID)
         result = await db.execute(stmt)
         billing_account = result.scalar_one()
         print(f"Billing account status after expiration task: {billing_account.status.value}")
+
 
 # Run the async function
 asyncio.run(simulate_trial_expiration())

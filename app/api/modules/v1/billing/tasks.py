@@ -53,14 +53,13 @@ def expire_trials():
 
 async def _expire_trials_async():
     logger.info("Running trial expiration task")
-    
+
     async with AsyncSessionLocal() as db:
         try:
             now = datetime.utcnow()
 
             statement = select(BillingAccount).where(
-                BillingAccount.trial_ends_at <= now,
-                BillingAccount.status == BillingStatus.TRIALING
+                BillingAccount.trial_ends_at <= now, BillingAccount.status == BillingStatus.TRIALING
             )
 
             result = await db.execute(statement)
@@ -68,7 +67,7 @@ async def _expire_trials_async():
 
             logger.info(
                 f"Found {len(expired_accounts)} expired trial accounts",
-                extra={"count": len(expired_accounts)}
+                extra={"count": len(expired_accounts)},
             )
 
             for billing_account in expired_accounts:
@@ -91,16 +90,14 @@ async def _expire_trials_async():
                     logger.error(
                         "Failed to process expired trial",
                         exc_info=True,
-                        extra={
-                            "billing_account_id": str(billing_account.id),
-                            "error": str(e)
-                        },
+                        extra={"billing_account_id": str(billing_account.id), "error": str(e)},
                     )
                     continue
 
             await db.commit()
-            logger.info("Trial expiration task completed", 
-            extra={"processed": len(expired_accounts)})
+            logger.info(
+                "Trial expiration task completed", extra={"processed": len(expired_accounts)}
+            )
 
         except Exception as e:
             logger.error("Trial expiration task failed", exc_info=True, extra={"error": str(e)})
@@ -120,7 +117,7 @@ def update_billing_status():
 async def _update_billing_status_async():
     """Async implementation of update_billing_status"""
     logger.info("Running billing status update task")
-    
+
     async with AsyncSessionLocal() as db:
         try:
             now = datetime.utcnow()
@@ -134,17 +131,21 @@ async def _update_billing_status_async():
 
             logger.info(
                 f"Checking {len(billing_accounts)} billing accounts",
-                extra={"count": len(billing_accounts)}
+                extra={"count": len(billing_accounts)},
             )
 
             for billing_account in billing_accounts:
                 try:
                     # Get active subscription
-                    sub_statement = select(Subscription).where(
-                        Subscription.billing_account_id == billing_account.id,
-                        Subscription.is_active 
-                    ).order_by(Subscription.created_at.desc())
-                    
+                    sub_statement = (
+                        select(Subscription)
+                        .where(
+                            Subscription.billing_account_id == billing_account.id,
+                            Subscription.is_active,
+                        )
+                        .order_by(Subscription.created_at.desc())
+                    )
+
                     sub_result = await db.execute(sub_statement)
                     subscription = sub_result.scalars().first()
 
@@ -166,11 +167,11 @@ async def _update_billing_status_async():
                     if billing_account.status != mapped_status:
                         old_status = billing_account.status
                         billing_account.status = mapped_status
-                        
+
                         # Update period dates
                         billing_account.current_period_start = subscription.current_period_start
                         billing_account.current_period_end = subscription.current_period_end
-                        
+
                         db.add(billing_account)
 
                         logger.info(
@@ -199,8 +200,9 @@ async def _update_billing_status_async():
             logger.info("Billing status update task completed")
 
         except Exception as e:
-            logger.error("Billing status update task failed",
-             exc_info=True, extra={"error": str(e)})
+            logger.error(
+                "Billing status update task failed", exc_info=True, extra={"error": str(e)}
+            )
             await db.rollback()
 
 
@@ -216,7 +218,7 @@ def send_trial_reminders():
 async def _send_trial_reminders_async():
     """Async implementation of send_trial_reminders"""
     logger.info("Running trial reminder task")
-    
+
     async with AsyncSessionLocal() as db:
         try:
             now = datetime.utcnow()
@@ -274,15 +276,18 @@ async def _send_trial_reminders_async():
 
 # ==================== HELPER FUNCTIONS ====================
 
+
 def _map_subscription_status(stripe_status: SubscriptionStatus) -> BillingStatus:
     """Map Stripe subscription status to BillingStatus"""
     if stripe_status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]:
         return BillingStatus.ACTIVE
     elif stripe_status == SubscriptionStatus.PAST_DUE:
         return BillingStatus.PAST_DUE
-    elif stripe_status in [SubscriptionStatus.INCOMPLETE,
-     SubscriptionStatus.INCOMPLETE_EXPIRED,
-      SubscriptionStatus.UNPAID]:
+    elif stripe_status in [
+        SubscriptionStatus.INCOMPLETE,
+        SubscriptionStatus.INCOMPLETE_EXPIRED,
+        SubscriptionStatus.UNPAID,
+    ]:
         return BillingStatus.UNPAID
     elif stripe_status in [SubscriptionStatus.CANCELED]:
         return BillingStatus.CANCELLED
@@ -291,6 +296,7 @@ def _map_subscription_status(stripe_status: SubscriptionStatus) -> BillingStatus
 
 
 # ==================== EMAIL TASK WRAPPERS ====================
+
 
 def send_trial_expired_email_task(billing_account: BillingAccount):
     """
@@ -318,6 +324,7 @@ def send_payment_failed_email_task(billing_account: BillingAccount):
 
 # ==================== ASYNC EMAIL IMPLEMENTATIONS ====================
 
+
 async def _send_trial_expired_email_async(billing_account: BillingAccount):
     """
     Send trial expired notification.
@@ -338,8 +345,7 @@ async def _send_trial_expired_email_async(billing_account: BillingAccount):
                 .join(UserOrganization, UserOrganization.user_id == UserORM.id)
                 .join(RoleORM, RoleORM.id == UserOrganization.role_id)
                 .where(
-                    UserOrganization.organization_id == org.id,
-                    RoleORM.name.in_(["admin", "owner"])
+                    UserOrganization.organization_id == org.id, RoleORM.name.in_(["admin", "owner"])
                 )
             )
 
@@ -363,10 +369,7 @@ async def _send_trial_expired_email_async(billing_account: BillingAccount):
         logger.error(
             "Failed to send trial expired email",
             exc_info=True,
-            extra={
-                "billing_account_id": str(billing_account.id),
-                "error": str(e)
-            },
+            extra={"billing_account_id": str(billing_account.id), "error": str(e)},
         )
 
 
@@ -390,8 +393,7 @@ async def _send_trial_reminder_email_async(billing_account: BillingAccount, days
                 .join(UserOrganization, UserOrganization.user_id == UserORM.id)
                 .join(RoleORM, RoleORM.id == UserOrganization.role_id)
                 .where(
-                    UserOrganization.organization_id == org.id,
-                    RoleORM.name.in_(["admin", "owner"])
+                    UserOrganization.organization_id == org.id, RoleORM.name.in_(["admin", "owner"])
                 )
             )
 
@@ -406,7 +408,6 @@ async def _send_trial_reminder_email_async(billing_account: BillingAccount, days
                         f"Your Legal Watchdog Trial Ends in {days_remaining} "
                         f"Day{'s' if days_remaining > 1 else ''}"
                     ),
-
                     template_name="trial_reminder",
                     context={
                         "user_name": admin.name or admin.email,
@@ -445,8 +446,7 @@ async def _send_payment_failed_email_async(billing_account: BillingAccount):
                 .join(UserOrganization, UserOrganization.user_id == UserORM.id)
                 .join(RoleORM, RoleORM.id == UserOrganization.role_id)
                 .where(
-                    UserOrganization.organization_id == org.id,
-                    RoleORM.name.in_(["admin", "owner"])
+                    UserOrganization.organization_id == org.id, RoleORM.name.in_(["admin", "owner"])
                 )
             )
 

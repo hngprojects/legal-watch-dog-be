@@ -6,6 +6,7 @@ from app.api.modules.v1.auth.routes.oauth_microsoft import router as oauth_micro
 from app.api.modules.v1.auth.routes.reset_password import (
     router as password_reset_router,
 )
+from app.api.modules.v1.billing.routes.billing_routes import router as billing_router
 from app.api.modules.v1.contact_us.routes.contact_us import router as contact_us_router
 from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,

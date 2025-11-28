@@ -31,7 +31,7 @@ async def create_test_data():
             )
             session.add_all([org1, org2])
 
-        await session.commit()  
+        await session.commit()
 
         async with session.begin():
             # Create expired trial account
