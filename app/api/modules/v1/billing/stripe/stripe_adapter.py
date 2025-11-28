@@ -7,6 +7,7 @@ import stripe
 from fastapi import HTTPException
 
 from app.api.core.config import settings
+from app.api.modules.v1.billing.stripe.errors import SubscriptionAlreadyCanceledError
 
 _DEFAULT_TIMEOUT = settings.STRIPE_API_TIMEOUT
 _DEFAULT_RETRIES = settings.STRIPE_RETRY_COUNT
@@ -144,16 +145,28 @@ async def attach_payment_method(
     """
 
     def _attach():
-        pm = _run_blocking_with_retries(
-            stripe.PaymentMethod.attach, payment_method_id, customer=customer_id
-        )
-        if set_as_default:
-            _run_blocking_with_retries(
-                stripe.Customer.modify,
-                customer_id,
-                invoice_settings={"default_payment_method": payment_method_id},
+        try:
+            pm = _run_blocking_with_retries(
+                stripe.PaymentMethod.attach, payment_method_id, customer=customer_id
             )
-        return pm
+            if set_as_default:
+                _run_blocking_with_retries(
+                    stripe.Customer.modify,
+                    customer_id,
+                    invoice_settings={"default_payment_method": payment_method_id},
+                )
+            return pm
+        except stripe.error.InvalidRequestError as e:
+            logger.warning("Stripe rejected payment method %s: %s", payment_method_id, str(e))
+            raise ValueError(f"Invalid Stripe payment method: {payment_method_id}") from e
+
+    logger.info(
+        "Attaching payment method %s to customer %s (set_default=%s)",
+        payment_method_id,
+        customer_id,
+        set_as_default,
+    )
+    return await _run_blocking(_attach, timeout=_DEFAULT_TIMEOUT)
 
     logger.info(
         "Attaching payment method %s to customer %s (set_default=%s)",
@@ -180,6 +193,16 @@ async def detach_payment_method(payment_method_id: str) -> Dict[str, Any]:
 
     logger.info("Detaching payment method %s", payment_method_id)
     return await _run_blocking(_detach, timeout=_DEFAULT_TIMEOUT)
+
+
+async def retrieve_payment_method(payment_method_id: str) -> Dict[str, Any]:
+    """Retrieve a Stripe PaymentMethod object."""
+
+    def _get():
+        return _run_blocking_with_retries(stripe.PaymentMethod.retrieve, payment_method_id)
+
+    logger.debug("Retrieving stripe payment method %s", payment_method_id)
+    return await _run_blocking(_get, timeout=_DEFAULT_TIMEOUT)
 
 
 async def create_checkout_session(
@@ -285,14 +308,91 @@ async def create_subscription(
     return await _run_blocking(_create, timeout=_DEFAULT_TIMEOUT)
 
 
-async def retrieve_payment_method(payment_method_id: str) -> Dict[str, Any]:
-    """Retrieve a Stripe PaymentMethod object."""
+async def retrieve_subscription(subscription_id: str) -> dict:
+    """
+    Retrieve a Stripe Subscription by ID.
+    """
 
     def _get():
-        return _run_blocking_with_retries(stripe.PaymentMethod.retrieve, payment_method_id)
+        return _run_blocking_with_retries(
+            stripe.Subscription.retrieve,
+            subscription_id,
+        )
 
-    logger.debug("Retrieving stripe payment method %s", payment_method_id)
+    logger.debug("Retrieving Stripe subscription %s", subscription_id)
     return await _run_blocking(_get, timeout=_DEFAULT_TIMEOUT)
+
+
+async def update_subscription_price(
+    subscription_id: str,
+    new_price_id: str,
+) -> dict:
+    """
+    Update subscription to a new price (assumes single price item).
+    """
+
+    def _update():
+        sub = _run_blocking_with_retries(
+            stripe.Subscription.retrieve,
+            subscription_id,
+        )
+
+        if sub.get("status") == "canceled":
+            raise SubscriptionAlreadyCanceledError(
+                "Subscription is canceled and cannot be changed."
+            )
+
+        item_id = sub["items"]["data"][0]["id"]
+
+        updated = _run_blocking_with_retries(
+            stripe.Subscription.modify,
+            subscription_id,
+            items=[
+                {
+                    "id": item_id,
+                    "price": new_price_id,
+                }
+            ],
+            proration_behavior="create_prorations",
+        )
+        return updated
+
+    logger.info(
+        "Updating subscription %s to price=%s",
+        subscription_id,
+        new_price_id,
+    )
+    return await _run_blocking(_update, timeout=_DEFAULT_TIMEOUT)
+
+
+async def cancel_subscription(
+    subscription_id: str,
+    cancel_at_period_end: bool = True,
+) -> dict:
+    """
+    If cancel_at_period_end=True, subscription stays active till period end.
+    If False, it cancels immediately.
+    """
+
+    def _cancel():
+        if cancel_at_period_end:
+            return _run_blocking_with_retries(
+                stripe.Subscription.modify,
+                subscription_id,
+                cancel_at_period_end=True,
+            )
+        else:
+            return _run_blocking_with_retries(
+                stripe.Subscription.delete,
+                subscription_id,
+            )
+
+    logger.info(
+        "Cancelling subscription %s (cancel_at_period_end=%s)",
+        subscription_id,
+        cancel_at_period_end,
+    )
+    return await _run_blocking(_cancel, timeout=_DEFAULT_TIMEOUT)
 
 
 async def create_invoice_for_customer_with_price_id(
