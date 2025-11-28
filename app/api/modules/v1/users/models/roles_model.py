@@ -39,4 +39,6 @@ class Role(SQLModel, table=True):
     )
 
     organization: "Organization" = Relationship(back_populates="roles")
-    invitations: list["Invitation"] = Relationship(back_populates="role")
+    invitations: list["Invitation"] = Relationship(
+        back_populates="role", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

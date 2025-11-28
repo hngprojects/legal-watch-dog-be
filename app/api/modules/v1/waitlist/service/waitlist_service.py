@@ -66,7 +66,7 @@ class WaitlistService:
             )
 
         except Exception as e:
-            await db.rollback()  # ✅ Rollback on any error
+            await db.rollback()
             logger.error(f"Failed to add to waitlist: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
