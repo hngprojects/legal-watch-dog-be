@@ -171,6 +171,8 @@ class Settings(BaseSettings):
     )
     MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
 
+    ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
+
     model_config = SettingsConfigDict(extra="allow")
 
 
