@@ -27,38 +27,36 @@ def get_cookie_settings(request: Request):
     origin = request.headers.get("origin", "")
     referer = request.headers.get("referer", "")
 
-    # Use origin if available, otherwise parse from referer
+
     source_url = origin if origin else referer
 
     logger.info(f"Determining cookie settings for origin: {origin}, referer: {referer}")
 
-    # Check if it's local development
+    
     is_local = "localhost" in source_url or "127.0.0.1" in source_url
 
     if is_local:
-        # Local development environment
+
         return {
-            "domain": None,  # Don't set domain for localhost
-            "secure": False,  # HTTP for local dev
-            "samesite": "lax",  # Lax is fine for same-origin localhost
+            "domain": None,  
+            "secure": False,  
+            "samesite": "lax",  
             "frontend_url": settings.DEV_URL,
         }
     else:
-        # Production/Staging environment (uses APP_URL from config)
-        # Extract domain from APP_URL for cookie sharing across subdomains
+        
         parsed = urlparse(settings.APP_URL)
 
-        # Create wildcard domain (e.g., .minamoto.emerj.net or .staging.minamoto.emerj.net)
         if parsed.netloc:
-            # Add leading dot for subdomain sharing
+           
             domain = f".{parsed.netloc}" if not parsed.netloc.startswith(".") else parsed.netloc
         else:
             domain = None
 
         return {
             "domain": domain,
-            "secure": True,  # HTTPS required for production/staging
-            "samesite": "none",  # Required for cross-origin (different subdomains)
+            "secure": True, 
+            "samesite": "none", 
             "frontend_url": settings.APP_URL,
         }
 
@@ -132,11 +130,10 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             expires_delta=timedelta(days=30),
         )
 
-        # Store refresh token in Redis
         refresh_token_jti = get_token_jti(refresh_token)
         await _store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
-        # Get dynamic cookie settings based on request origin
+
         cookie_settings = get_cookie_settings(request)
 
         logger.info(
@@ -147,30 +144,30 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             f"frontend_url={cookie_settings['frontend_url']}"
         )
 
-        # Create redirect response to frontend dashboard
+    
         response = RedirectResponse(
             url=f"{cookie_settings['frontend_url']}/dashboard/projects", status_code=302
         )
 
-        # Set refresh token cookie (HTTP-only for security)
+        
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
             secure=cookie_settings["secure"],
-            max_age=30 * 24 * 60 * 60,  # 30 days
+            max_age=30 * 24 * 60 * 60,  
             domain=cookie_settings["domain"],
             path="/",
             samesite=cookie_settings["samesite"],
         )
 
-        # Set access token cookie (accessible to frontend)
+        
         response.set_cookie(
             key="access_token",
             value=access_token,
-            httponly=False,  # Frontend needs to read this
+            httponly=False, 
             secure=cookie_settings["secure"],
-            max_age=24 * 60 * 60,  # 24 hours
+            max_age=24 * 60 * 60,  
             domain=cookie_settings["domain"],
             path="/",
             samesite=cookie_settings["samesite"],
@@ -180,18 +177,18 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         return response
 
     except HTTPException as he:
-        # Re-raise HTTP exceptions
+        
         raise he
 
     except Exception as e:
         logger.error("Google login failed: %s", str(e), exc_info=True)
 
-        # Try to get cookie settings for error redirect
+        
         try:
             cookie_settings = get_cookie_settings(request)
             frontend_url = cookie_settings["frontend_url"]
         except Exception:
-            # Fallback to APP_URL if cookie settings fail
+            
             frontend_url = settings.APP_URL
 
         return RedirectResponse(
