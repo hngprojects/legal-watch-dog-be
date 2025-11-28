@@ -55,7 +55,7 @@ async def test_get_jurisdiction_by_id_not_found_raises():
     svc = JurisdictionService()
     fake_db = FakeDB(execute_result=FakeResult(scalar_none=True))
     with pytest.raises(HTTPException) as exc:
-        await svc.get_jurisdiction_by_id(fake_db, uuid4())
+        await svc.get_jurisdiction_by_id(fake_db, uuid4(), uuid4())
 
     assert exc.value.status_code == 404
 
@@ -67,7 +67,7 @@ async def test_get_jurisdiction_by_id_archived_raises_410():
     fake_db = FakeDB(execute_result=FakeResult(first_obj=jur))
 
     with pytest.raises(HTTPException) as exc:
-        await svc.get_jurisdiction_by_id(fake_db, uuid4())
+        await svc.get_jurisdiction_by_id(fake_db, uuid4(), uuid4())
 
     assert exc.value.status_code == 410
 
@@ -78,7 +78,7 @@ async def test_get_jurisdictions_by_project_no_active_raises_404():
     fake_db = FakeDB(execute_result=FakeResult(scalars_list=[]))
 
     with pytest.raises(HTTPException) as exc:
-        await svc.get_jurisdictions_by_project(fake_db, uuid4())
+        await svc.get_jurisdictions_by_project(fake_db, uuid4(), uuid4())
 
     assert exc.value.status_code == 404
 
@@ -92,7 +92,7 @@ async def test_get_all_jurisdictions_all_archived_raises_410():
     fake_db = FakeDB(execute_result=FakeResult(scalars_list=[j1, j2]))
 
     with pytest.raises(HTTPException) as exc:
-        await svc.get_all_jurisdictions(fake_db)
+        await svc.get_all_jurisdictions(fake_db, uuid4())
 
     assert exc.value.status_code == 410
 
@@ -101,19 +101,27 @@ async def test_get_all_jurisdictions_all_archived_raises_410():
 async def test_soft_delete_by_id_not_found_returns_none():
     svc = JurisdictionService()
     fake_db = FakeDB(get_result=None)
-    result = await svc.soft_delete(fake_db, jurisdiction_id=uuid4())
+    result = await svc.soft_delete(uuid4(), fake_db, jurisdiction_id=uuid4())
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_get_jurisdiction_tree_and_restore_all_archived():
     svc = JurisdictionService()
+    org_id = uuid4()
+    project_id = uuid4()
 
-    # Now test restore_all_archived_jurisdictions: two archived jurisdictions
-    a1 = SimpleNamespace(id=uuid4(), is_deleted=True, children=[])
-    a2 = SimpleNamespace(id=uuid4(), is_deleted=True, children=[])
-    fake_db_restore = FakeDB(execute_result=FakeResult(scalars_list=[a1, a2]))
+    a1 = SimpleNamespace(id=uuid4(), is_deleted=True, children=[], project_id=project_id)
+    a2 = SimpleNamespace(id=uuid4(), is_deleted=True, children=[], project_id=project_id)
 
-    restored = await svc.restore_all_archived_jurisdictions(fake_db_restore, project_id=uuid4())
+    fake_project = SimpleNamespace(id=project_id, org_id=org_id)
+
+    fake_db_restore = FakeDB(
+        execute_result=FakeResult(scalars_list=[a1, a2]), get_result=fake_project
+    )
+
+    restored = await svc.restore_all_archived_jurisdictions(
+        fake_db_restore, org_id, project_id=project_id
+    )
     assert isinstance(restored, list)
     assert all(not getattr(j, "is_deleted", False) for j in restored)

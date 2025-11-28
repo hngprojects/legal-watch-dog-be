@@ -23,8 +23,7 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     fake_id = uuid4()
 
-    async def fake_create(db, jurisdiction):
-        # return a lightweight object, avoid constructing a SQLModel instance
+    async def fake_create(db, jurisdiction, organization_id):
         return SimpleNamespace(
             id=fake_id,
             project_id=jurisdiction.project_id,
@@ -34,10 +33,6 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     monkeypatch.setattr(routes.service, "create", fake_create)
 
-    # Prevent the route from constructing a real SQLModel Jurisdiction which
-    # triggers SQLAlchemy mapper initialization (and fails in tests). Replace
-    # the `Jurisdiction` symbol in the routes module with a lightweight stub
-    # that accepts arbitrary kwargs and sets them as attributes.
     class _StubJurisdiction:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
@@ -47,7 +42,9 @@ async def test_create_jurisdiction_handler_monkeypatched(monkeypatch):
 
     payload = JurisdictionCreateSchema(project_id=uuid4(), name="R-1", description="d")
 
-    res = await routes.create_jurisdiction(payload, db=cast(Any, None))
+    res = await routes.create_jurisdiction(
+        organization_id=uuid4(), payload=payload, db=cast(Any, None)
+    )
 
     assert hasattr(res, "status_code")
     assert res.status_code == 201
@@ -71,7 +68,7 @@ async def test_get_jurisdiction_not_found_raises(monkeypatch):
     failure JSONResponse.
     """
 
-    async def fake_get(db, jurisdiction_id):
+    async def fake_get(*args, **kwargs):
         """Asynchronous test stub that simulates retrieving a jurisdiction by its identifier.
         Parameters
         ----------
@@ -94,7 +91,9 @@ async def test_get_jurisdiction_not_found_raises(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
 
-    res = await routes.get_jurisdiction(uuid4(), db=cast(Any, None))
+    res = await routes.get_jurisdiction(
+        organization_id=uuid4(), jurisdiction_id=uuid4(), db=cast(Any, None)
+    )
     assert hasattr(res, "status_code")
     assert res.status_code == 404
 
@@ -119,7 +118,7 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
     - The test verifies route-level behavior (404 on empty result), not service logic.
     """
 
-    async def fake_all(db):
+    async def fake_all(db, organization_id):
         """
         Asynchronous test helper that simulates fetching all records from a datastore.
         Parameters
@@ -138,11 +137,6 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_all_jurisdictions", fake_all)
 
-    # Provide a minimal fake DB object in case the monkeypatch does not get
-    # applied to the instance method (some test environments bind methods
-    # differently). The fake db implements an async `execute` that returns an
-    # object with a `scalars().all()` chain returning an empty list so the
-    # original service implementation (if called) behaves like the fake.
     class _FakeResult:
         def scalar(self):
             return 0
@@ -162,7 +156,7 @@ async def test_get_jurisdictions_empty_raises(monkeypatch):
 
     fake_db = SimpleNamespace(execute=_fake_execute)
 
-    res = await routes.get_all_jurisdictions(db=cast(Any, fake_db))
+    res = await routes.get_all_jurisdictions(organization_id=uuid4(), db=cast(Any, fake_db))
     assert hasattr(res, "status_code")
     assert res.status_code == 404
 
@@ -178,12 +172,14 @@ async def test_delete_jurisdiction_returns_id(monkeypatch):
 
     fake_id = uuid4()
 
-    async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
+    async def fake_soft_delete(organization_id, db, jurisdiction_id=None, project_id=None):
         return SimpleNamespace(id=fake_id, project_id=uuid4(), name="x", description="d")
 
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
 
-    res = await routes.soft_delete_jurisdiction(fake_id, db=cast(Any, None))
+    res = await routes.soft_delete_jurisdiction(
+        organization_id=uuid4(), jurisdiction_id=fake_id, db=cast(Any, None)
+    )
     assert hasattr(res, "status_code")
     assert res.status_code == 204
     import json
@@ -212,7 +208,7 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
 
     fake_id = uuid4()
 
-    async def fake_soft_delete(db, jurisdiction_id=None, project_id=None):
+    async def fake_soft_delete(organization_id, db, jurisdiction_id=None, project_id=None):
         """
         Simulate a soft-delete operation for jurisdictions in tests.
         This asynchronous test helper returns a list containing a single fake
@@ -228,7 +224,9 @@ async def test_delete_jurisdictions_by_project_returns_ids(monkeypatch):
     monkeypatch.setattr(routes.service, "soft_delete", fake_soft_delete)
 
     proj_id = uuid4()
-    res = await routes.soft_delete_jurisdictions_by_project(proj_id, db=cast(Any, None))
+    res = await routes.soft_delete_jurisdictions_by_project(
+        organization_id=uuid4(), project_id=proj_id, db=cast(Any, None)
+    )
     assert hasattr(res, "status_code")
     assert res.status_code == 204
     import json
@@ -258,7 +256,6 @@ async def test_restore_jurisdiction_success(monkeypatch):
 
     fake_id = uuid4()
 
-    # use a lightweight object to represent the jurisdiction under test
     jur = SimpleNamespace(
         id=fake_id,
         project_id=uuid4(),
@@ -268,19 +265,19 @@ async def test_restore_jurisdiction_success(monkeypatch):
         deleted_at=None,
     )
 
-    # Accept arbitrary kwargs (e.g. `restore_nested`) because the route calls
-    # service.get_jurisdiction_for_restoration(..., restore_nested=True).
-    async def fake_get(db, jurisdiction_id, *args, **kwargs):
+    async def fake_get(*args, **kwargs):
         return jur
 
-    async def fake_update(db, jurisdiction):
+    async def fake_update(db, jurisdiction, organization_id=None):
         return jurisdiction
 
     monkeypatch.setattr(routes.service, "get_jurisdiction_for_restoration", fake_get)
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get)
     monkeypatch.setattr(routes.service, "update", fake_update)
 
-    res = await routes.restore_jurisdiction(fake_id, db=cast(Any, None))
+    res = await routes.restore_jurisdiction(
+        organization_id=uuid4(), jurisdiction_id=fake_id, db=cast(Any, None)
+    )
 
     assert hasattr(res, "status_code")
     assert res.status_code == 200

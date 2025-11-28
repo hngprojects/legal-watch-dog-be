@@ -53,6 +53,12 @@ class UserOrganization(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    user: "User" = Relationship(back_populates="organization_memberships")
-    organization: "Organization" = Relationship(back_populates="user_memberships")
-    role: "Role" = Relationship()
+    user: "User" = Relationship(
+        back_populates="organization_memberships", sa_relationship_kwargs={"passive_deletes": True}
+    )
+
+    organization: "Organization" = Relationship(
+        back_populates="user_memberships", sa_relationship_kwargs={"passive_deletes": True}
+    )
+
+    role: "Role" = Relationship(sa_relationship_kwargs={"passive_deletes": True})
