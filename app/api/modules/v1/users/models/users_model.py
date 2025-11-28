@@ -25,6 +25,7 @@ class User(SQLModel, table=True):
     )  # 'local', 'oidc', 'saml'
 
     name: str = Field(index=True, max_length=255)
+    provider_user_id: Optional[str] = Field(default=None, index=True)
 
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(

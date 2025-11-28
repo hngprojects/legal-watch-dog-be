@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.api.modules.v1.users.models.roles_model import Role  # Added import for Role
+from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 
 logger = logging.getLogger("app")
@@ -58,7 +58,7 @@ class UserCRUD:
             await db.refresh(user)
 
             logger.info(
-                "Created user: id=%s, email=%s, organization_id=%s, role_id=%s",
+                "Created user: id=%s, email=%s",
                 user.id,
                 user.email,
             )
@@ -367,12 +367,10 @@ class UserCRUD:
         logger.info(f"Fetching optimized profile for user_id={user_id}")
 
         try:
-            # Fetch user
             user = await UserCRUD.get_by_id(db, user_id)
             if not user:
                 raise ValueError("User not found")
 
-            # Fetch memberships + org + role in ONE query
             stmt = (
                 select(UserOrganization, Organization, Role)
                 .join(Organization, Organization.id == UserOrganization.organization_id)
@@ -404,7 +402,6 @@ class UserCRUD:
                     }
                 )
 
-            # Build final profile output
             profile = {
                 "user": {
                     "id": str(user.id),

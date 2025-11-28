@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}New Revision Available - Legal Watchdog{% endblock %}
+
+{% block preheader %}A new revision has been generated and is ready for review.{% endblock %}
+
+{% block header_image_alt %}Revision Notification{% endblock %}
+
+{% block main_heading %}New Revision Notification{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      New Revision Available
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Hello <strong>{{ user_name }}</strong>,
+    </p>
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      A new data revision has been created in your project. Below is a summary:
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 30px;">
+    <table style="width: 100%; border-collapse: collapse; background-color: #F9F8F7; border-radius: 8px; padding: 20px;">
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Summary
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69; white-space: pre-wrap;">
+            {{ ai_summary }}
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Please review the revision at your earliest convenience.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td>
+    <a href="{{ project_url }}" style="display: inline-block; padding: 12px 24px; background-color: #C14E32; color: #FFFFFF; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+      View Revision
+    </a>
+  </td>
+</tr>
+{% endblock %}

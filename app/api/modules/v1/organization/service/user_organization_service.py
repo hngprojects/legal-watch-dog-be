@@ -177,11 +177,16 @@ class UserOrganizationCRUD:
         organizations = []
         for membership in memberships:
             org_result = await db.execute(
-                select(Organization).where(Organization.id == membership.organization_id)
+                select(Organization).where(
+                    Organization.id == membership.organization_id, Organization.deleted_at.is_(None)
+                )
             )
             org = org_result.scalar_one_or_none()
 
             if not org:
+                logger.warning(
+                    f"Organization {membership.organization_id} not found for user {user_id}"
+                )
                 continue
 
             role = await db.get(Role, membership.role_id)
@@ -194,7 +199,7 @@ class UserOrganizationCRUD:
                     "is_active": org.is_active,
                     "user_role": role.name if role else None,
                     "created_at": org.created_at.isoformat(),
-                    "updated_at": org.updated_at.isoformat(),
+                    "updated_at": org.updated_at.isoformat() if org.updated_at else None,
                 }
             )
 
@@ -222,9 +227,23 @@ class UserOrganizationCRUD:
             Dictionary with users list and total count
         """
 
-        membership_query = select(UserOrganization).where(
+        all_memberships_query = select(UserOrganization).where(
             UserOrganization.organization_id == organization_id
         )
+        if active_only:
+            all_memberships_query = all_memberships_query.where(UserOrganization.is_active)
+
+        all_memberships_result = await db.execute(all_memberships_query)
+        all_memberships = list(all_memberships_result.scalars().all())
+
+        logger.info(f"DEBUG: Found {len(all_memberships)} total memberships in database")
+        for i, membership in enumerate(all_memberships):
+            logger.info(
+                f"Membership{i + 1}: user_id={membership.user_id}, is_active={membership.is_active}"
+            )
+            membership_query = select(UserOrganization).where(
+                UserOrganization.organization_id == organization_id
+            )
 
         if active_only:
             membership_query = membership_query.where(UserOrganization.is_active)
