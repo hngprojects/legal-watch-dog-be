@@ -30,7 +30,7 @@ jobs:
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
 
           # Application URLs
-          APP_URL="${{ vars.APP_URL || 'https://minamoto.emerj.net' }}"
+          APP_URL=${{ secrets.APP_URL }}
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
 
           # Database configuration
@@ -191,7 +191,7 @@ jobs:
           LEGAL_WATCH_DOG_BASE_URL=${{ secrets.BASE_URL || vars.BASE_URL }}
 
           # Application URLs
-          APP_URL="${{ vars.APP_URL || 'https://staging.minamoto.emerj.net' }}"
+          APP_URL=${{ secrets.APP_URL }}
           DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
 
           # Database configuration
