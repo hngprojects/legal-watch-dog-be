@@ -1,6 +1,6 @@
 """create revision_notifications table
 Revision ID: f661a36459ec
-Revises: e40a68f35eaa
+Revises: d5328ba9783c
 Create Date: 2025-11-28 11:04:23.362655
 """
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = 'f661a36459ec'
-down_revision: Union[str, Sequence[str], None] = 'e40a68f35eaa'
+down_revision: Union[str, Sequence[str], None] = 'd5328ba9783c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
