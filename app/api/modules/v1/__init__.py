@@ -7,6 +7,7 @@ from app.api.modules.v1.auth.routes.reset_password import (
     router as password_reset_router,
 )
 from app.api.modules.v1.billing.routes import billing_router
+from app.api.modules.v1.contact_us.routes.contact_us import router as contact_us_router
 from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
@@ -19,6 +20,7 @@ from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist
 
 router = APIRouter(prefix="/v1")
 router.include_router(waitlist_router)
+router.include_router(contact_us_router)
 router.include_router(register_router)
 router.include_router(oauth_microsoft_router)
 router.include_router(organization_router)
