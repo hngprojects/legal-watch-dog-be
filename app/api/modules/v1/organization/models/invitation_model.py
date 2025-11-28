@@ -29,6 +29,7 @@ class Invitation(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
     organization_id: uuid.UUID = Field(foreign_key="organizations.id", index=True, nullable=False)
+    organization_name: str = Field(max_length=255, index=True, nullable=True)
     invited_email: str = Field(max_length=255, index=True, nullable=False)
     inviter_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
     token: str = Field(max_length=255, unique=True, index=True, nullable=False)

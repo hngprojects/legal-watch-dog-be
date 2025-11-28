@@ -365,6 +365,8 @@ class OrganizationService:
 
             if organization.deleted_at:
                 raise ValueError("Cannot send invitations for a deleted organization")
+            
+            organization_name = organization.name
 
             inviter = await UserCRUD.get_by_id(self.db, inviter_id)
             if not inviter:
@@ -391,6 +393,7 @@ class OrganizationService:
             invitation = await InvitationCRUD.create_invitation(
                 db=self.db,
                 organization_id=organization_id,
+                organization_name=organization_name,
                 invited_email=invited_email,
                 inviter_id=inviter_id,
                 token=token,
