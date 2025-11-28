@@ -121,10 +121,12 @@ async def get_my_invitations(
             db, current_user.email
         )
 
+        invitation_responses = [InvitationResponse.model_validate(inv) for inv in invitations]
+
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Pending invitations retrieved successfully",
-            data=invitations,
+            data=invitation_responses,
         )
 
     except Exception as e:

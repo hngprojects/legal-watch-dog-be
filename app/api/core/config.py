@@ -175,6 +175,19 @@ class Settings(BaseSettings):
 
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
 
+    APPLE_TEAM_ID: str = config("APPLE_TEAM_ID", default="your-apple-developer-team-id")
+    APPLE_CLIENT_ID: str = config("APPLE_CLIENT_ID", default="your-apple-developer-client-id")
+    APPLE_KEY_ID: str = config("APPLE_KEY_ID", default="your-apple-developer-key-identifier")
+    APPLE_PRIVATE_KEY: str = config(
+        "APPLE_PRIVATE_KEY", default="your-app-private-key-apple-developer"
+    )
+    APPLE_CLIENT_SECRET_LIFETIME: int = config(
+        "APPLE_CLIENT_SECRET_LIFETIME", default=21600, cast=int
+    )
+    APPLE_REDIRECT_URI: str = config(
+        "APPLE_REDIRECT_URI", default="http://localhost:8000/auth/apple/callback"
+    )
+
     model_config = SettingsConfigDict(extra="allow")
 
 

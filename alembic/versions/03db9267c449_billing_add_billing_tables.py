@@ -1,7 +1,7 @@
 """billing: add billing tables
 
 Revision ID: 03db9267c449
-Revises: e40a68f35eaa
+Revises: 00d2075dac2c
 Create Date: 2025-11-25 01:45:27.948456
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '03db9267c449'
-down_revision: Union[str, Sequence[str], None] = 'e40a68f35eaa'
+down_revision: Union[str, Sequence[str], None] = '00d2075dac2c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
