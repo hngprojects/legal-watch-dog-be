@@ -92,7 +92,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         if not id_token_str:
             raise HTTPException(status_code=400, detail="No id_token in token")
 
-        # Verify Google ID token
+        
         user_info = id_token.verify_oauth2_token(
             id_token_str, google_requests.Request(), audience=settings.GOOGLE_CLIENT_ID
         )
@@ -103,7 +103,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         logger.info(f"Google OAuth callback for email: {email}")
 
-        # Fetch or create user
+    
         user = await UserCRUD.get_by_email(db, email)
         if not user:
             user = await UserCRUD.create_google_user(
@@ -114,7 +114,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             await db.refresh(user)
             logger.info(f"Created new user via Google OAuth: {email}")
 
-        # Check if user is active
+        
         if not user.is_active:
             logger.warning(f"Google login blocked: inactive account {email}")
             cookie_settings = get_cookie_settings(request)
@@ -123,7 +123,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 status_code=302,
             )
 
-        # Generate JWT tokens
+    
         access_token = create_access_token(
             user_id=str(user.id),
             organization_id=None,
