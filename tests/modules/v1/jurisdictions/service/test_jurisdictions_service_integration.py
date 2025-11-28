@@ -9,14 +9,13 @@ async def test_create_jurisdiction_integration():
     using the real SQLModel models and the async test_session fixture.
     Models are imported inside the test to avoid early mapper configuration.
     """
-    # import models lazily to allow test setup to create tables first
+
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
     svc = JurisdictionService()
 
-    # Create a lightweight in-memory async engine and session local to this test
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlmodel import SQLModel
     from sqlmodel.ext.asyncio.session import AsyncSession
@@ -27,8 +26,6 @@ async def test_create_jurisdiction_integration():
         engine, class_=AsyncSession, expire_on_commit=False
     )
 
-    # Create only the tables for the models we import to avoid pulling in
-    # Postgres-specific tables which the global test setup skips for SQLite.
     def _create_tables(conn):
         sqlite_metadata = SQLModel.metadata.__class__()
         for m in (Organization, Project, Jurisdiction):
@@ -50,7 +47,7 @@ async def test_create_jurisdiction_integration():
         await session.refresh(project)
 
         jur = Jurisdiction(project_id=project.id, name="IntJ", description="desc")
-        created = await svc.create(session, jur)
+        created = await svc.create(session, jur, org.id)
 
         assert created is not None
         assert created.id is not None

@@ -127,7 +127,9 @@ class JurisdictionService:
 
         return data
 
-    async def get_jurisdiction_by_id(self, db: AsyncSession, jurisdiction_id: UUID):
+    async def get_jurisdiction_by_id(
+        self, db: AsyncSession, jurisdiction_id: UUID, organization_id: UUID
+    ):
         """
         Retrieve a single Jurisdiction by its unique identifier.
 
@@ -150,6 +152,7 @@ class JurisdictionService:
         try:
             query = (
                 select(Jurisdiction)
+                .join(Project)
                 .options(
                     with_loader_criteria(
                         Jurisdiction,
@@ -157,7 +160,10 @@ class JurisdictionService:
                         include_aliases=True,
                     )
                 )
-                .where(Jurisdiction.id == jurisdiction_id)
+                .where(
+                    Jurisdiction.id == jurisdiction_id,
+                    Project.org_id == organization_id,
+                )
             )
 
             result = await db.execute(query)
@@ -207,9 +213,19 @@ class JurisdictionService:
         result = await db.execute(stmt)
         return result.first()
 
-    async def create(self, db: AsyncSession, jurisdiction: Jurisdiction):
+    async def create(self, db: AsyncSession, jurisdiction: Jurisdiction, organization_id: UUID):
         """Create a Jurisdiction. If first in project, set parent_id to itself."""
         try:
+            project = await db.get(Project, jurisdiction.project_id)
+
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(
+                    status_code=403, detail="Cannot create jurisdiction in another organization"
+                )
+
             db.add(jurisdiction)
             await db.commit()
             await db.refresh(jurisdiction)
@@ -222,7 +238,9 @@ class JurisdictionService:
             await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    async def get_jurisdictions_by_project(self, db: AsyncSession, project_id: UUID):
+    async def get_jurisdictions_by_project(
+        self, db: AsyncSession, project_id: UUID, organization_id: UUID
+    ):
         """
         Retrieve all active jurisdictions associated with a specific project
         including nested children.
@@ -247,6 +265,13 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
+            project = await db.get(Project, project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(status_code=403, detail="Cross-organization access denied")
+
             stmt = select(Jurisdiction).where(
                 cast(Any, Jurisdiction.project_id) == project_id,
                 cast(Any, Jurisdiction.is_deleted).is_(False),
@@ -268,7 +293,7 @@ class JurisdictionService:
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def get_all_jurisdictions(self, db: AsyncSession):
+    async def get_all_jurisdictions(self, db: AsyncSession, organization_id: UUID):
         """
         Retrieve all active jurisdictions in the system.
         Flat Structure (non-nested)
@@ -291,24 +316,35 @@ class JurisdictionService:
                 - 500 if a database error occurs.
         """
         try:
-            stmt = select(Jurisdiction)
+            stmt = (
+                select(Jurisdiction)
+                .join(Project)
+                .where(
+                    Project.org_id == organization_id,
+                    cast(Any, Jurisdiction.is_deleted).is_(False),
+                    cast(Any, Jurisdiction.parent_id).is_(None),
+                )
+            )
             result = await db.execute(stmt)
-            jurisdictions = result.scalars().all()
+            top_level_jurisdictions = result.scalars().all()
 
-            if not jurisdictions:
+            if not top_level_jurisdictions:
                 raise HTTPException(status_code=404, detail="No jurisdictions found")
 
-            if all(j.is_deleted for j in jurisdictions):
+            if all(j.is_deleted for j in top_level_jurisdictions):
                 raise HTTPException(status_code=410, detail="All jurisdictions have been archived")
 
-            active_jurisdictions = [j for j in jurisdictions if not j.is_deleted]
+            active_jurisdictions = [j for j in top_level_jurisdictions if not j.is_deleted]
 
-            return active_jurisdictions
+            for jurisdiction in active_jurisdictions:
+                await filter_archived_recursive(jurisdiction, db)
+
+            return [self._serialize_jurisdiction(j) for j in active_jurisdictions]
 
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def update(self, db: AsyncSession, jurisdiction: Jurisdiction):
+    async def update(self, db: AsyncSession, jurisdiction: Jurisdiction, organization_id: UUID):
         """
         Persist updates to an existing Jurisdiction in the database.
 
@@ -330,6 +366,13 @@ class JurisdictionService:
                 - 500 if a general database error occurs during commit or refresh.
         """
         try:
+            project = await db.get(Project, jurisdiction.project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(status_code=403, detail="Cross-organization update denied")
+
             await db.commit()
             await db.refresh(jurisdiction)
 
@@ -340,7 +383,9 @@ class JurisdictionService:
                     await db.refresh(jurisdiction)
                 else:
                     try:
-                        await self.restore_jurisdiction_and_children(db, jurisdiction.id)
+                        await self.restore_jurisdiction_and_children(
+                            db, jurisdiction.id, organization_id
+                        )
                     except Exception:
                         await _restore_jurisdiction_recursive(jurisdiction, db)
                         await db.commit()
@@ -356,7 +401,7 @@ class JurisdictionService:
             await db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def read(self, db: AsyncSession):
+    async def read(self, db: AsyncSession, organization_id: UUID):
         """
         Retrieve all jurisdictions from the database, including soft-deleted ones.
 
@@ -375,7 +420,7 @@ class JurisdictionService:
                 - 500 if a database error occurs while retrieving jurisdictions.
         """
         try:
-            stmt = select(Jurisdiction)
+            stmt = select(Jurisdiction).join(Project).where(Project.org_id == organization_id)
             result = await db.execute(stmt)
             return result.all()
         except SQLAlchemyError as e:
@@ -383,6 +428,7 @@ class JurisdictionService:
 
     async def soft_delete(
         self,
+        organization_id: UUID,
         db: AsyncSession,
         jurisdiction_id: Optional[UUID] = None,
         project_id: Optional[UUID] = None,
@@ -413,6 +459,12 @@ class JurisdictionService:
                 jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
                 if not jurisdiction:
                     return None
+
+                project = await db.get(Project, jurisdiction.project_id)
+                if project is None:
+                    raise HTTPException(status_code=404, detail="Project not found")
+                if str(project.org_id) != str(organization_id):
+                    raise HTTPException(403, "Cross-organization access denied")
                 jurisdiction.is_deleted = True
                 jurisdiction.deleted_at = datetime.now(timezone.utc)
                 await _soft_delete_jurisdiction(jurisdiction.id, db)
@@ -457,7 +509,9 @@ class JurisdictionService:
                 detail=f"Database error occurred while deleting jurisdiction: {str(e)}",
             )
 
-    async def delete(self, db: AsyncSession, jurisdiction: Jurisdiction) -> bool:
+    async def delete(
+        self, db: AsyncSession, jurisdiction: Jurisdiction, organization_id: UUID
+    ) -> bool:
         """
         Permanently delete a Jurisdiction record from the database.
 
@@ -477,7 +531,13 @@ class JurisdictionService:
                 - 500 if a database error occurs during the deletion.
         """
         try:
-            # Expecting a jurisdiction instance to be passed in (as tests provide)
+            project = await db.get(Project, jurisdiction.project_id)
+            if project is None:
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(status_code=403, detail="Cross-organization access denied")
+
             await db.delete(jurisdiction)
             await db.commit()
             return True
@@ -495,7 +555,11 @@ class JurisdictionService:
             )
 
     async def get_jurisdiction_for_restoration(
-        self, db: AsyncSession, jurisdiction_id: UUID, restore_nested: bool = False
+        self,
+        db: AsyncSession,
+        organization_id: UUID,
+        jurisdiction_id: UUID,
+        restore_nested: bool = False,
     ) -> Jurisdiction:
         """
         Retrieve a single Jurisdiction by ID for restoration purposes.
@@ -532,6 +596,12 @@ class JurisdictionService:
             if not jurisdiction:
                 raise HTTPException(status_code=404, detail="Jurisdiction not found")
 
+            project = await db.get(Project, jurisdiction.project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(status_code=403, detail="Cross-organization access denied")
+
             if restore_nested:
                 await _restore_jurisdiction_recursive(jurisdiction, db)
                 await db.commit()
@@ -541,7 +611,9 @@ class JurisdictionService:
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def restore_jurisdiction_and_children(self, db: AsyncSession, jurisdiction_id: UUID):
+    async def restore_jurisdiction_and_children(
+        self, db: AsyncSession, organization_id: UUID, jurisdiction_id: UUID
+    ):
         """
         Restore a jurisdiction and all its descendant jurisdictions using a
         bulk UPDATE. This avoids ORM lifecycle event DB I/O that can trigger
@@ -555,6 +627,12 @@ class JurisdictionService:
             jurisdiction = result.scalar_one_or_none()
             if not jurisdiction:
                 raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+            project = await db.get(Project, jurisdiction.project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            if str(project.org_id) != str(organization_id):
+                raise HTTPException(status_code=403, detail="Cross-organization access denied")
 
             cte_sql = text(
                 """
@@ -601,7 +679,7 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def restore_all_archived_jurisdictions(
-        self, db: AsyncSession, project_id: UUID | None = None
+        self, db: AsyncSession, organization_id: UUID, project_id: UUID | None = None
     ) -> list[Jurisdiction]:
         """
         Restore all archived jurisdictions and return the restored objects.
@@ -636,8 +714,16 @@ class JurisdictionService:
             result = await db.execute(stmt)
             archived_jurisdictions = list(result.scalars().all())
 
-            if not archived_jurisdictions:
+            filtered_jurisdictions = []
+            for j in archived_jurisdictions:
+                project = await db.get(Project, j.project_id)
+                if project and str(project.org_id) == str(organization_id):
+                    filtered_jurisdictions.append(j)
+
+            if not filtered_jurisdictions:
                 return []
+
+            archived_jurisdictions = filtered_jurisdictions
 
             ids = [j.id for j in archived_jurisdictions]
 
