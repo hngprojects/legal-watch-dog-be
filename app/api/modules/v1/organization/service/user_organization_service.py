@@ -452,31 +452,45 @@ class UserOrganizationCRUD:
             raise Exception("Failed to update member details")
 
     @staticmethod
-    async def remove_user_from_organization(
+    async def soft_delete_member(
         db: AsyncSession,
-        user_id: uuid.UUID,
         organization_id: uuid.UUID,
+        user_id: uuid.UUID,
     ) -> None:
         """
-        Remove a user from an organization (hard delete).
+        Soft delete a user's membership in an organization.
 
         Args:
             db: Database session
-            user_id: User UUID
             organization_id: Organization UUID
+            user_id: User UUID to soft delete
 
         Raises:
-            ValueError: If membership not found
+            ValueError: If membership not found or already deleted
         """
-        membership = await UserOrganizationCRUD.get_user_organization(db, user_id, organization_id)
-        if not membership:
-            raise ValueError("User membership not found in this organization")
+        try:
+            membership = await UserOrganizationCRUD.get_user_organization(
+                db, user_id, organization_id
+            )
 
-        await db.delete(membership)
-        await db.flush()
+            if not membership:
+                raise ValueError("User is not a member of this organization")
 
-        logger.info(
-            "Removed user %s from organization %s",
-            user_id,
-            organization_id,
-        )
+            if membership.is_deleted:
+                raise ValueError("Membership is already deleted")
+
+            membership.is_deleted = True
+            membership.deleted_at = datetime.now(timezone.utc)
+            db.add(membership)
+            await db.flush()
+
+            logger.info(f"Soft deleted member user_id={user_id} from org_id={organization_id}")
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to delete member {user_id} from org {organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError("An error occurred while deleting the member")

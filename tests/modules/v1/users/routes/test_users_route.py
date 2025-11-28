@@ -39,8 +39,7 @@ async def test_update_user_profile_success():
     updated_user.updated_at.isoformat.return_value = "2024-01-01T00:00:00Z"
 
     with patch(
-        "app.api.modules.v1.users.routes.users_route.UserCRUD.update_user", 
-        new_callable=AsyncMock
+        "app.api.modules.v1.users.routes.users_route.UserCRUD.update_user", new_callable=AsyncMock
     ) as mock_update:
         mock_update.return_value = updated_user
 

@@ -65,6 +65,7 @@ class OrganizationDetailResponse(BaseModel):
     plan: Optional[str]
     logo_url: Optional[str]
     is_active: bool
+    projects_count: int
     created_at: datetime
     updated_at: datetime
     settings: dict
@@ -80,6 +81,7 @@ class OrganizationDetailResponse(BaseModel):
                 "plan": "Enterprise",
                 "logo_url": "https://example.com/logo.png",
                 "is_active": True,
+                "projects_count": 5,
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",
                 "settings": {},

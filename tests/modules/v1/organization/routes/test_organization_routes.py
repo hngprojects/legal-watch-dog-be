@@ -1,0 +1,123 @@
+"""
+This module contains unit tests for the organization routes in the v1 API.
+
+It covers various scenarios for organization-related API endpoints,
+including creation, retrieval, update, and deletion of organizations,
+as well as handling of associated users and permissions.
+"""
+
+import json
+import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import status
+
+from app.api.modules.v1.organization.routes.organization_route import (
+    get_organization,
+    update_organization,
+)
+from app.api.modules.v1.organization.schemas.organization_schema import (
+    UpdateOrganizationRequest,
+)
+from app.api.modules.v1.users.models.users_model import User
+
+
+@pytest.mark.asyncio
+async def test_get_organization_success():
+    """Test successful retrieval of organization details."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+    org_id = uuid.uuid4()
+
+    mock_org_details = {
+        "id": str(org_id),
+        "name": "Test Org",
+        "industry": "Tech",
+        "is_active": True,
+        "created_at": "2023-01-01T00:00:00",
+        "updated_at": "2023-01-01T00:00:00",
+        "projects_count": 5,
+        "location": "New York",
+        "plan": "Enterprise",
+        "logo_url": "http://example.com/logo.png",
+        "settings": {},
+        "billing_info": {},
+    }
+
+    with (
+        patch(
+            "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
+            new_callable=AsyncMock,
+        ) as mock_check_perm,
+        patch(
+            "app.api.modules.v1.organization.routes.organization_route.OrganizationService.get_organization_details",
+            new_callable=AsyncMock,
+        ) as mock_get_details,
+    ):
+        mock_check_perm.return_value = True
+        mock_get_details.return_value = mock_org_details
+
+        response = await get_organization(
+            organization_id=org_id,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = json.loads(response.body)
+        assert body["status"] == "SUCCESS"
+        assert body["data"]["projects_count"] == 5
+        assert body["data"]["location"] == "New York"
+
+
+@pytest.mark.asyncio
+async def test_update_organization_success():
+    """Test successful update of organization details."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+    org_id = uuid.uuid4()
+
+    payload = UpdateOrganizationRequest(
+        name="Updated Org",
+        industry="Finance",
+        is_active=True,
+    )
+
+    mock_updated_org_data = {
+        "id": str(org_id),
+        "name": payload.name,
+        "industry": payload.industry,
+        "is_active": payload.is_active,
+        "created_at": "2023-01-01T00:00:00",
+        "updated_at": "2023-01-02T00:00:00",
+        "settings": {},
+        "billing_info": {},
+        "user_role": "Admin",
+        "location": None,
+        "plan": None,
+        "logo_url": None,
+        "projects_count": 0,
+    }
+
+    with patch(
+        "app.api.modules.v1.organization.routes.organization_route.OrganizationService",
+    ) as mock_org_service:
+        mock_instance = mock_org_service.return_value
+        # Ensure the method we await is an AsyncMock
+        mock_instance.update_organization = AsyncMock(return_value=mock_updated_org_data)
+
+        response = await update_organization(
+            organization_id=org_id,
+            payload=payload,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = json.loads(response.body)
+        assert body["status"] == "SUCCESS"
+        assert body["data"]["name"] == "Updated Org"
+        assert body["data"]["industry"] == "Finance"

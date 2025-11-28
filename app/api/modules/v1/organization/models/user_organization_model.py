@@ -63,6 +63,14 @@ class UserOrganization(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
+    is_deleted: bool = Field(default=False, nullable=False, description="Soft delete flag")
+
+    deleted_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+        description="When the membership was soft deleted",
+    )
+
     user: "User" = Relationship(
         back_populates="organization_memberships", sa_relationship_kwargs={"passive_deletes": True}
     )

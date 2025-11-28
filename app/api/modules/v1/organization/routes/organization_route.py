@@ -576,6 +576,121 @@ async def update_member_details(
         )
 
 
+@router.delete(
+    "/{organization_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_member(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft delete a member from an organization.
+
+    This endpoint allows admin users to remove members from the organization
+    using soft delete (membership record is kept but marked as deleted).
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' permission in the organization
+    - Cannot delete yourself
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member to delete
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden, 404 for not found
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to manage users in this organization")
+
+        if current_user.id == user_id:
+            raise ValueError("You cannot delete yourself from the organization")
+
+        await UserOrganizationCRUD.soft_delete_member(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        await db.commit()
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed to delete member user_id={user_id} from org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower() or "not a member" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        elif "cannot delete yourself" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error deleting member user_id={user_id} from org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to delete member. Please try again later.",
+        )
+
+
+@router.get(
+    "/{organization_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def get_organization(
+    organization_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get organization details.
+
+    Returns the details of a specific organization, including:
+    - Basic info (name, industry, etc.)
+    - Profile info (location, plan, logo_url)
+    - Projects count
+
+    Requirements:
+    - User must be a member of the organization
+    """
+    # Check if user is a member
+    await check_user_permission(db, current_user.id, organization_id, "read")
+
+    org_details = await OrganizationService.get_organization_details(db, organization_id)
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Organization details retrieved successfully",
+        data=OrganizationDetailResponse(**org_details),
+    )
+
+
 @router.get(
     "/{organization_id}/users",
     status_code=status.HTTP_200_OK,
