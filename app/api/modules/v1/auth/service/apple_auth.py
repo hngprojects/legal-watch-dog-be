@@ -114,7 +114,10 @@ class AppleAuthClient:
         dummy_password = secrets.token_urlsafe(32)
 
         result = await self.db.execute(
-            select(User).where(User.auth_provider == "apple", User.email == email)
+            select(User).where(
+                (User.auth_provider == "apple")
+                & ((User.provider_user_id == provider_user_id) | (User.email == email))
+            )
         )
         user = result.scalars().first()
         is_new_user = False

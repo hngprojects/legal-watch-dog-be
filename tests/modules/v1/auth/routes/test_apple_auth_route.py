@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,7 +29,6 @@ async def test_apple_login_success():
     with patch("app.api.modules.v1.auth.routes.apple_auth_route.AppleAuthClient", DummyClient):
         resp = await apple_login(req, db=fake_db)
 
-    # auth_response returns a Response-like object with body bytes
     assert resp is not None
     import json
 
@@ -53,7 +53,6 @@ async def test_apple_login_failure_returns_error():
         resp = await apple_login(req, db=fake_db)
 
     assert resp is not None
-    import json
 
     data = json.loads(resp.body.decode())
     assert (

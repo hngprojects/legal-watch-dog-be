@@ -52,9 +52,7 @@ async def apple_login(req: AppleAuthRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/callback")
-async def apple_callback(
-    code: str = Form(...), id_token: str = Form(None), db: AsyncSession = Depends(get_db)
-):
+async def apple_callback(code: str = Form(...), db: AsyncSession = Depends(get_db)):
     """
     Callback endpoint for Apple OAuth.
 
@@ -67,5 +65,11 @@ async def apple_callback(
             code=code, redirect_uri=settings.APPLE_REDIRECT_URI
         )
         return success_response(status_code=200, message="Login successful", data=result)
+    except ValueError as e:
+        logger.warning(f"Apple callback failed due to invalid data: {e}")
+        return error_response(status_code=400, message=str(e), error="invalid_request")
     except Exception as e:
-        return error_response(status_code=400, message="Apple login failed", error=str(e))
+        logger.exception(f"An unexpected error occurred during Apple callback: {e}")
+        return error_response(
+            status_code=500, message="An internal server error occurred.", error="server_error"
+        )
