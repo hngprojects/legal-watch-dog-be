@@ -83,15 +83,21 @@ async def _handle_scrape_failure_async(source_id: str, error_msg: str):
 async def _scrape_source_async(source_id: str):
     """Async implementation of the scraping logic.
 
-    Fetches the source from the database, performs the scraping operation,
-    and updates the source's next_scrape_time, last_scraped_at, and last_error.
+    Fetches the source from the database, performs the actual scraping operation
+    using ScraperService, and updates the source's next_scrape_time, last_scraped_at,
+    and last_error based on the scraping results.
 
     Args:
         source_id: The UUID of the source to scrape.
 
     Returns:
         A message indicating the outcome of the scraping attempt.
+
+    Raises:
+        Exception: Re-raises exceptions from the scraping pipeline for retry handling.
     """
+    from app.api.modules.v1.scraping.service.scraper_service import ScraperService
+
     logger.info(f"Running _scrape_source_async for source {source_id} in async loop.")
     async with AsyncSessionLocal() as db:
         query = select(Source).where(Source.id == source_id)
@@ -104,26 +110,42 @@ async def _scrape_source_async(source_id: str):
 
         logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
 
-        # Simulate async work (to be replaced with actual async scraping logic later)
-        await asyncio.sleep(random.uniform(0.1, 0.5))
+        try:
+            scraper_service = ScraperService(db)
+            scrape_result = await scraper_service.execute_scrape_job(str(source.id))
 
-        # If scraping is successful
-        new_next_scrape_time = get_next_scrape_time(
-            datetime.now(timezone.utc), source.scrape_frequency
-        )
-        source.next_scrape_time = new_next_scrape_time
-        source.last_scraped_at = datetime.now(timezone.utc)
-        source.last_error = None  # Clear previous errors
+            new_next_scrape_time = get_next_scrape_time(
+                datetime.now(timezone.utc), source.scrape_frequency
+            )
+            source.next_scrape_time = new_next_scrape_time
+            source.last_scraped_at = datetime.now(timezone.utc)
+            source.last_error = None  # Clear previous errors
 
-        db.add(source)
-        await db.commit()
-        await db.refresh(source)
+            db.add(source)
+            await db.commit()
+            await db.refresh(source)
 
-        logger.info(
-            f"Successfully scraped source {source.name}. "
-            f"Next scrape time: {source.next_scrape_time}"
-        )
-        return f"Source {source.id} scraped successfully. Next scrape: {source.next_scrape_time}"
+            change_status = "with changes" if scrape_result.get("change_detected") else "no changes"
+            logger.info(
+                f"Successfully scraped source {source.name} ({change_status}). "
+                f"Next scrape time: {source.next_scrape_time}"
+            )
+            return (
+                f"Source {source.id} scraped successfully ({change_status}). "
+                f"Next scrape: {source.next_scrape_time}"
+            )
+
+        except Exception as e:
+            error_msg = f"Scraping failed: {str(e)}"
+            logger.error(f"Error scraping source {source.name}: {error_msg}")
+
+            # Update last_error but don't update next_scrape_time yet
+            source.last_error = error_msg
+            db.add(source)
+            await db.commit()
+
+            # Re-raise to trigger Celery retry mechanism
+            raise
 
 
 @shared_task(bind=True, max_retries=settings.SCRAPE_MAX_RETRIES)
