@@ -85,6 +85,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         if not id_token_str:
             raise HTTPException(status_code=400, detail="No id_token in token")
 
+        
         user_info = id_token.verify_oauth2_token(
             id_token_str, google_requests.Request(), audience=settings.GOOGLE_CLIENT_ID
         )
