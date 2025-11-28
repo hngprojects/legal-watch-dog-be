@@ -8,7 +8,10 @@ celery_app = Celery(
     "legal_watch_dog",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.api.modules.v1.scraping.service.tasks"],
+    include=[
+        "app.api.modules.v1.scraping.service.tasks",
+        "app.api.modules.v1.notifications.service.revision_notification_task",
+    ],
 )
 
 celery_app.conf.beat_schedule = {

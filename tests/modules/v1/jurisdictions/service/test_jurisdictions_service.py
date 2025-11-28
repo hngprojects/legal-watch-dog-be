@@ -34,7 +34,7 @@ async def test_create_first_jurisdiction_sets_parent(pg_async_session):
     await pg_async_session.refresh(project)
 
     jur = Jurisdiction(project_id=project.id, name="J-First", description="d1")
-    created = await svc.create(pg_async_session, jur)
+    created = await svc.create(pg_async_session, jur, org.id)
 
     assert created is not None
     assert created.id is not None
@@ -58,17 +58,17 @@ async def test_get_by_name_and_delete_and_read(pg_async_session):
     await pg_async_session.refresh(project)
 
     jur = Jurisdiction(project_id=project.id, name="FindMe", description="d")
-    created = await svc.create(pg_async_session, jur)
+    created = await svc.create(pg_async_session, jur, org.id)
 
     found = await svc.get_jurisdiction_by_name(pg_async_session, "FindMe")
     found_obj = found if hasattr(found, "id") else found[0]
     assert found_obj.id == created.id
 
-    all_j = await svc.read(pg_async_session)
+    all_j = await svc.read(pg_async_session, org.id)
     ids = [item.id if hasattr(item, "id") else item[0].id for item in all_j]
     assert created.id in ids
 
-    deleted = await svc.delete(pg_async_session, created)
+    deleted = await svc.delete(pg_async_session, created, org.id)
     assert deleted is True
 
 

@@ -1168,7 +1168,9 @@ dependencies = [
     { name = "loguru" },
     { name = "lxml" },
     { name = "minio" },
+    { name = "msal" },
     { name = "pdfplumber" },
+    { name = "phonenumbers" },
     { name = "playwright" },
     { name = "pre-commit" },
     { name = "psycopg2-binary" },
@@ -1227,7 +1229,9 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "lxml", specifier = ">=6.0.2" },
     { name = "minio", specifier = ">=7.2.18" },
+    { name = "msal", specifier = ">=1.34.0" },
     { name = "pdfplumber", specifier = ">=0.11.8" },
+    { name = "phonenumbers", specifier = ">=9.0.19" },
     { name = "playwright", specifier = ">=1.56.0" },
     { name = "pre-commit", specifier = ">=4.4.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
@@ -1465,6 +1469,20 @@ wheels = [
 ]
 
 [[package]]
+name = "msal"
+version = "1.34.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cf/0e/c857c46d653e104019a84f22d4494f2119b4fe9f896c92b4b864b3b045cc/msal-1.34.0.tar.gz", hash = "sha256:76ba83b716ea5a6d75b0279c0ac353a0e05b820ca1f6682c0eb7f45190c43c2f", size = 153961, upload-time = "2025-09-22T23:05:48.989Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/dc/18d48843499e278538890dc709e9ee3dea8375f8be8e82682851df1b48b5/msal-1.34.0-py3-none-any.whl", hash = "sha256:f669b1644e4950115da7a176441b0e13ec2975c29528d8b9e81316023676d6e1", size = 116987, upload-time = "2025-09-22T23:05:47.294Z" },
+]
+
+[[package]]
 name = "multidict"
 version = "6.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1615,6 +1633,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/09/d8/cb9fda4261ce389656bec0bb0bdde905df109ad97f7ae387747ded070e8c/pdfplumber-0.11.8.tar.gz", hash = "sha256:db29b04bc8bb62f39dd444533bcf2e0ba33584bd24f5a54644f3ba30f4f22d31", size = 102724, upload-time = "2025-11-08T20:52:01.955Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/28/3958ed81a9be317610ab73df32f1968076751d651c84dff1bcb45b7c6c0e/pdfplumber-0.11.8-py3-none-any.whl", hash = "sha256:7dda117b8ed21bca9c8e7d7808fee2439f93c8bd6ea45989bfb1aead6dc3cad3", size = 60043, upload-time = "2025-11-08T20:52:00.652Z" },
+]
+
+[[package]]
+name = "phonenumbers"
+version = "9.0.19"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/5d/ed5a4642c42c16ffbab3d275f516a1db7d14b6a55c1a181c7504c56ed4f7/phonenumbers-9.0.19.tar.gz", hash = "sha256:e0674e31554362f4d95383558f7aefde738ef2e7bf96d28a10afd3e87d63a65c", size = 2298261, upload-time = "2025-11-20T18:37:07.686Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/3e/151cc6a597d15ae45c932d21e98170e0d5d32b057e495fdb3193725c994a/phonenumbers-9.0.19-py2.py3-none-any.whl", hash = "sha256:004abdfe2010518c2383f148515664a742e8a5d5540e07c049735c139d7e8b09", size = 2584208, upload-time = "2025-11-20T18:37:05.522Z" },
 ]
 
 [[package]]
@@ -2104,6 +2131,11 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785, upload-time = "2024-11-28T03:43:29.933Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997, upload-time = "2024-11-28T03:43:27.893Z" },
+]
+
+[package.optional-dependencies]
+crypto = [
+    { name = "cryptography" },
 ]
 
 [[package]]

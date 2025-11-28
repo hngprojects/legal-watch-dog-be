@@ -18,6 +18,7 @@ class InvitationCRUD:
     async def create_invitation(
         db: AsyncSession,
         organization_id: uuid.UUID,
+        organization_name: str,
         invited_email: str,
         inviter_id: uuid.UUID,
         token: str,
@@ -31,6 +32,7 @@ class InvitationCRUD:
         try:
             invitation = Invitation(
                 organization_id=organization_id,
+                organization_name=organization_name,
                 invited_email=invited_email,
                 inviter_id=inviter_id,
                 token=token,

@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.api.core.security import encrypt_auth_details
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
@@ -316,6 +317,65 @@ class SourceService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete source",
             )
+
+    async def get_source_revisions(
+        self,
+        db: AsyncSession,
+        source_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[List[DataRevision], int]:
+        """
+        Retrieve revision history for a specific source.
+
+        Fetches all data revisions associated with a source, ordered by most recent first.
+        Supports pagination for large revision histories.
+
+        Args:
+            db (AsyncSession): Database session.
+            source_id (uuid.UUID): The source UUID to get revisions for.
+            skip (int): Number of records to skip (pagination). Default: 0.
+            limit (int): Maximum number of records to return. Default: 50.
+
+        Returns:
+            tuple: (List[DataRevision], int) - List of revisions and total count.
+
+        Raises:
+            HTTPException: 404 if source not found.
+
+        Examples:
+            >>> revisions, total = await service.get_source_revisions(db, source_id)
+            >>> print(f"Found {total} revisions, showing {len(revisions)}")
+            Found 150 revisions, showing 50
+        """
+        # Verify source exists
+        source = await db.get(Source, source_id)
+        if not source:
+            logger.warning(f"Cannot fetch revisions - source not found: {source_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source not found",
+            )
+
+        # Query revisions for this source
+        query = (
+            select(DataRevision)
+            .where(DataRevision.source_id == source_id)
+            .order_by(DataRevision.scraped_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await db.execute(query)
+        revisions = result.scalars().all()
+
+        # Get total count for pagination metadata
+        count_query = select(func.count()).where(DataRevision.source_id == source_id)
+        count_result = await db.execute(count_query)
+        total = count_result.scalar_one()
+
+        logger.info(f"Retrieved {len(revisions)} revisions for source {source_id} (total: {total})")
+        return revisions, total
 
     def _to_read_schema(self, source: Source) -> SourceRead:
         """
