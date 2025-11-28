@@ -288,3 +288,69 @@ async def test_restore_jurisdiction_success(monkeypatch):
     jur = content["data"]["jurisdiction"]
 
     assert jur.get("is_deleted") is False
+
+
+@pytest.mark.asyncio
+async def test_get_sources_for_jurisdiction_success(monkeypatch):
+    """Test successful retrieval of sources for a jurisdiction."""
+    from app.api.modules.v1.scraping.schemas.source_service import SourceRead
+
+    # Mock jurisdiction exists
+    fake_jurisdiction = SimpleNamespace(id=uuid4(), name="Test Jurisdiction")
+
+    async def fake_get_jurisdiction(*args, **kwargs):
+        return fake_jurisdiction
+
+    monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get_jurisdiction)
+
+    # Mock sources
+    fake_sources = [
+        SourceRead(
+            id=uuid4(),
+            jurisdiction_id=fake_jurisdiction.id,
+            name="Source 1",
+            url="https://example.com",
+            source_type="web",
+            scrape_frequency="DAILY",
+            is_active=True,
+            is_deleted=False,
+            has_auth=False,
+            created_at="2025-01-01T00:00:00Z",
+        )
+    ]
+
+    async def fake_get_sources(*args, **kwargs):
+        return fake_sources
+
+    monkeypatch.setattr(routes.SourceService, "get_sources", fake_get_sources)
+
+    res = await routes.get_sources_for_jurisdiction(
+        organization_id=uuid4(), jurisdiction_id=fake_jurisdiction.id, db=cast(Any, None)
+    )
+
+    assert hasattr(res, "status_code")
+    assert res.status_code == 200
+    import json
+
+    content = json.loads(res.body)
+    assert "data" in content and "sources" in content["data"]
+    sources = content["data"]["sources"]
+    assert len(sources) == 1
+    assert sources[0]["name"] == "Source 1"
+
+
+@pytest.mark.asyncio
+async def test_get_sources_for_jurisdiction_not_found(monkeypatch):
+    """Test that requesting sources for a non-existent jurisdiction returns 404."""
+
+    async def fake_get_jurisdiction(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get_jurisdiction)
+
+    res = await routes.get_sources_for_jurisdiction(
+        organization_id=uuid4(), jurisdiction_id=uuid4(), db=cast(Any, None)
+    )
+
+    assert hasattr(res, "status_code")
+    assert res.status_code == 404

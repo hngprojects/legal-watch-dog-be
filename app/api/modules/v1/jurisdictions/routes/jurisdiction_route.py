@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, cast
+from typing import List, Optional, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard
@@ -19,6 +19,8 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     OrgResourceGuard,
     get_descendant_ids,
 )
+from app.api.modules.v1.scraping.schemas.source_service import SourceRead
+from app.api.modules.v1.scraping.service.source_service import SourceService
 from app.api.utils.pagination import calculate_pagination
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -656,4 +658,62 @@ async def restore_jurisdictions_by_project_id(
         status_code=200,
         message=f"Restored {len(restored_jurisdictions)} jurisdiction(s)",
         data={"jurisdictions": restored_jurisdictions},
+    )
+
+
+@router.get(
+    "/{jurisdiction_id}/sources",
+    status_code=status.HTTP_200_OK,
+    response_model=List[SourceRead],
+)
+async def get_sources_for_jurisdiction(
+    organization_id: UUID,
+    jurisdiction_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+):
+    """
+    Retrieve sources for a specific jurisdiction with optional filtering and pagination.
+
+    Args:
+        organization_id (UUID): Organization identifier.
+        jurisdiction_id (UUID): Jurisdiction identifier.
+        db (AsyncSession): Database session.
+        skip (int): Pagination offset (default 0).
+        limit (int): Maximum records to return (default 100, max 500).
+        is_active (Optional[bool]): Filter by active status.
+
+    Returns:
+        JSONResponse: Standard success response with list of sources.
+
+    Raises:
+        HTTPException: 404 if jurisdiction not found.
+    """
+    logger.info(
+        f"User retrieving sources for jurisdiction: {jurisdiction_id} "
+        f"(skip={skip}, limit={limit}, is_active={is_active})"
+    )
+
+    # Verify jurisdiction exists and belongs to organization
+    jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id, organization_id)
+    if not jurisdiction:
+        logger.info("Jurisdiction not found: id=%s", jurisdiction_id)
+        return error_response(status_code=404, message="Jurisdiction not found")
+
+    # Get sources for the jurisdiction
+    source_service = SourceService()
+    sources = await source_service.get_sources(
+        db=db,
+        skip=skip,
+        limit=limit,
+        jurisdiction_id=jurisdiction_id,
+        is_active=is_active,
+    )
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Sources retrieved successfully",
+        data={"sources": [source.model_dump() for source in sources]},
     )
