@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
 
+import httpx
 import jwt
-import requests
 from jwt import PyJWKClient, decode
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -68,7 +69,7 @@ class AppleAuthClient:
             return client_secret.decode("utf-8")
         return client_secret
 
-    def exchange_code_for_tokens(self, code: str, redirect_uri: str) -> Dict[str, str]:
+    async def exchange_code_for_tokens(self, code: str, redirect_uri: str) -> Dict[str, str]:
         """Exchange authorization code for Apple tokens."""
         client_secret = self.generate_apple_client_secret()
         payload = {
@@ -78,9 +79,10 @@ class AppleAuthClient:
             "grant_type": "authorization_code",
             "redirect_uri": redirect_uri,
         }
-        response = requests.post(APPLE_TOKEN_URL, data=payload)
-        response.raise_for_status()
-        return response.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.post(APPLE_TOKEN_URL, data=payload)
+            response.raise_for_status()
+            return response.json()
 
     def mock_exchange_code_for_tokens(self, code: str, redirect_uri: str) -> Dict[str, str]:
         """MOCK FOR TESTING: return fake token instead of calling Apple."""
@@ -95,11 +97,13 @@ class AppleAuthClient:
         logger.info(f"Mock verify_id_token called with id_token={id_token}")
         return {"sub": "apple-user-123", "email": "testuser@apple.com", "name": "Test User"}
 
-    def verify_id_token(self, id_token: str) -> Dict:
+    async def verify_id_token(self, id_token: str) -> Dict:
         """Verify Apple ID token and extract user info."""
         jwks_client = PyJWKClient(APPLE_JWKS_URL)
-        signing_key = jwks_client.get_signing_key_from_jwt(id_token)
-        data = decode(id_token, signing_key.key, audience=self.client_id, algorithms=["ES256"])
+        signing_key = await asyncio.to_thread(jwks_client.get_signing_key_from_jwt, id_token)
+        data = await asyncio.to_thread(
+            decode, id_token, signing_key.key, audience=self.client_id, algorithms=[self.algorithm]
+        )
         return data
 
     async def get_or_create_user(self, user_info: Dict) -> Tuple[User, bool]:
@@ -145,13 +149,13 @@ class AppleAuthClient:
         - Issue app JWT
         """
         # tokens = self.mock_exchange_code_for_tokens(code, redirect_uri)
-        tokens = self.exchange_code_for_tokens(code, redirect_uri)
+        tokens = await self.exchange_code_for_tokens(code, redirect_uri)
         id_token = tokens.get("id_token")
         if not id_token:
             raise ValueError("No id_token returned from Apple")
 
         # user_info = self.mock_verify_id_token(id_token)
-        user_info = self.verify_id_token(id_token)
+        user_info = await self.verify_id_token(id_token)
         user, is_new_user = await self.get_or_create_user(user_info)
 
         access_token = create_access_token(
