@@ -13,7 +13,7 @@ logger = logging.getLogger("app")
 async def send_email(
     template_name: str, subject: str, recipient: str, context: Dict[str, Any]
 ) -> bool:
-    from main import email_templates
+    from app.api.core.dependencies.email.mailer_templates import email_templates
 
     try:
         sender_email = settings.MAIL_USERNAME
