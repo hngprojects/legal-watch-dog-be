@@ -6,7 +6,7 @@ Defines request and response models for source CRUD operations.
 
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -102,3 +102,72 @@ class SourceRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SourceBulkCreate(BaseModel):
+    """
+    Schema for bulk creating multiple sources.
+
+    Attributes:
+        sources (List[SourceCreate]): List of source creation payloads.
+    """
+
+    sources: List[SourceCreate] = Field(..., min_items=1, max_items=50)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "sources": [
+                    {
+                        "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "name": "Supreme Court Opinions",
+                        "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
+                        "source_type": "web",
+                        "scrape_frequency": "DAILY",
+                    },
+                    {
+                        "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "name": "Federal Register",
+                        "url": "https://www.federalregister.gov/",
+                        "source_type": "web",
+                        "scrape_frequency": "HOURLY",
+                    },
+                ]
+            }
+        }
+
+
+class SourceAccept(BaseModel):
+    """
+    Schema for accepting AI-suggested sources and converting them to sources.
+
+    Combines suggested source data with required creation fields.
+    """
+
+    suggested_sources: List[dict] = Field(
+        ...,
+        description="List of suggested sources from AI, "
+        "each containing title, url, snippet, confidence_reason, is_official",
+    )
+    jurisdiction_id: uuid.UUID = Field(..., description="Parent jurisdiction UUID for all sources")
+    source_type: SourceType = Field(default=SourceType.WEB, description="Type of source")
+    scrape_frequency: str = Field(default="DAILY", description="Scraping frequency")
+    scraping_rules: Optional[Dict] = Field(default={}, description="Custom extraction rules")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "suggested_sources": [
+                    {
+                        "title": "Supreme Court Opinions",
+                        "url": "https://www.supremecourt.gov/opinions/slipopinion.aspx",
+                        "snippet": "Official opinions from the Supreme Court",
+                        "confidence_reason": "Official government domain",
+                        "is_official": True,
+                    }
+                ],
+                "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
+                "source_type": "web",
+                "scrape_frequency": "DAILY",
+            }
+        }

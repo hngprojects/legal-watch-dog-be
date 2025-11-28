@@ -1,10 +1,20 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.dependencies.auth import TenantGuard, get_current_user
+from app.api.db.database import get_db
+from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
 from app.api.modules.v1.scraping.schemas.source_discovery_schema import SuggestionRequest
+from app.api.modules.v1.scraping.schemas.source_service import SourceAccept, SourceCreate
 from app.api.modules.v1.scraping.service.source_discovery_service import SourceDiscoveryService
+from app.api.modules.v1.scraping.service.source_service import SourceService
+from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import error_response, success_response
 
-router = APIRouter(tags=["AI Source Discovery"])
+router = APIRouter(
+    tags=["AI Source Discovery"],
+    dependencies=[Depends(TenantGuard), Depends(OrgResourceGuard)],
+)
 
 
 @router.post("/sources/suggest", summary="Suggest official sources using AI Researcher")
@@ -47,5 +57,68 @@ async def suggest_sources(payload: SuggestionRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Discovery Agent failed",
             error="DISCOVERY_AGENT_FAILED",
+            errors={"details": str(e)},
+        )
+
+
+@router.post("/sources/accept-suggestions", summary="Accept AI-suggested sources and create them")
+async def accept_suggested_sources(
+    payload: SourceAccept,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Accept AI-suggested sources and convert them to active sources.
+
+    This endpoint takes the output from the AI suggestion endpoint and creates
+    actual source records in the database. It combines the suggested source data
+    with required creation parameters.
+
+    Args:
+        payload (SourceAccept): The acceptance payload containing suggested sources
+            and creation parameters.
+        db (AsyncSession): Database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        JSONResponse: Success response with created sources or error response.
+    """
+    try:
+        sources_to_create = []
+        for suggested in payload.suggested_sources:
+            source_create = SourceCreate(
+                jurisdiction_id=payload.jurisdiction_id,
+                name=suggested.get("title", ""),
+                url=suggested.get("url", ""),
+                source_type=payload.source_type,
+                scrape_frequency=payload.scrape_frequency,
+                scraping_rules=payload.scraping_rules,
+                auth_details=None,
+            )
+            sources_to_create.append(source_create)
+
+        service = SourceService()
+        sources = await service.bulk_create_sources(db, sources_to_create)
+
+        return success_response(
+            status_code=status.HTTP_201_CREATED,
+            message="Suggested sources accepted and created successfully",
+            data={
+                "sources": [source.model_dump() for source in sources],
+                "count": len(sources),
+            },
+        )
+
+    except ValueError as ve:
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="Invalid suggestion data",
+            error="INVALID_SUGGESTION_DATA",
+            errors={"details": str(ve)},
+        )
+    except Exception as e:
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to accept suggested sources",
+            error="ACCEPT_SUGGESTIONS_FAILED",
             errors={"details": str(e)},
         )

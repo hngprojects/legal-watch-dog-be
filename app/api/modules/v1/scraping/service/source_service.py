@@ -111,6 +111,86 @@ class SourceService:
                 detail="Failed to create source",
             )
 
+    async def bulk_create_sources(
+        self,
+        db: AsyncSession,
+        sources_data: List["SourceCreate"],
+    ) -> List[SourceRead]:
+        """
+        Create multiple sources in a single transaction.
+
+        Args:
+            db (AsyncSession): Database session.
+            sources_data (List[SourceCreate]): List of source creation data.
+
+        Returns:
+            List[SourceRead]: List of created sources with sanitized fields.
+
+        Raises:
+            HTTPException: 400 if any URL already exists, 500 if creation fails.
+
+        Examples:
+            >>> sources = await service.bulk_create_sources(db, sources_data)
+            >>> print(f"Created {len(sources)} sources")
+            Created 3 sources
+        """
+        if not sources_data:
+            return []
+
+        try:
+            created_sources = []
+            urls_to_check = [str(source.url) for source in sources_data]
+
+            existing_sources = await db.execute(
+                select(Source.url).where(Source.url.in_(urls_to_check))
+            )
+            existing_urls = {row[0] for row in existing_sources}
+
+            duplicates = [url for url in urls_to_check if url in existing_urls]
+            if duplicates:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Source URLs already exist: {', '.join(duplicates)}",
+                )
+
+            for source_data in sources_data:
+                encrypted_auth = None
+                if source_data.auth_details:
+                    encrypted_auth = encrypt_auth_details(source_data.auth_details)
+                    logger.info(f"Encrypted auth details for source: {source_data.name}")
+
+                db_source = Source(
+                    jurisdiction_id=source_data.jurisdiction_id,
+                    name=source_data.name,
+                    url=str(source_data.url),
+                    source_type=source_data.source_type,
+                    scrape_frequency=source_data.scrape_frequency,
+                    scraping_rules=source_data.scraping_rules or {},
+                    auth_details_encrypted=encrypted_auth,
+                )
+
+                db.add(db_source)
+                created_sources.append(db_source)
+
+            await db.commit()
+
+            for source in created_sources:
+                await db.refresh(source)
+
+            logger.info(f"Successfully created {len(created_sources)} sources in bulk")
+
+            return [self._to_read_schema(source) for source in created_sources]
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Failed to bulk create sources: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create sources",
+            )
+
     async def get_source(
         self,
         db: AsyncSession,
