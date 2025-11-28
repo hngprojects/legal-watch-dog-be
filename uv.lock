@@ -1250,7 +1250,6 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.14.5" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
-    { name = "stripe", specifier = ">=5.0.0" },
     { name = "stripe", specifier = ">=14.0.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0" },
 ]

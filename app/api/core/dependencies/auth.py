@@ -1,8 +1,7 @@
 import logging
-from uuid import UUID
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -175,110 +174,6 @@ def require_any_permission(*permissions: Permission):
         return user
 
     return permission_checker
-
-
-async def get_current_user_with_org_role(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> tuple[User, Role]:
-    """
-    Resolve the current user’s membership and role for the organization
-    identified in the request path.
-
-    This expects routes to be nested under:
-        /organizations/{organization_id}/...
-
-    Args:
-        request: Incoming FastAPI request (used to read organization_id from path).
-        current_user: Authenticated user from `get_current_user`.
-        db: Async SQLAlchemy session.
-
-    Raises:
-        HTTPException: 400 if organization_id is missing or invalid.
-        HTTPException: 403 if the user is not a member of the organization.
-        HTTPException: 500 if the membership has no associated role.
-
-    Returns:
-        Tuple[User, Role]: The authenticated user and their role within
-        the organization from the URL.
-    """
-    organization_id_str = request.path_params.get("organization_id")
-    if not organization_id_str:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Organization context not found in path",
-        )
-
-    try:
-        organization_id = UUID(organization_id_str)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid organization id in path",
-        )
-
-    membership = await db.scalar(
-        select(UserOrganization)
-        .where(UserOrganization.user_id == current_user.id)
-        .where(UserOrganization.organization_id == organization_id)
-        .where(UserOrganization.is_active)
-    )
-
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not a member of this organization",
-        )
-
-    role = await db.scalar(select(Role).where(Role.id == membership.role_id))
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Role not found for membership",
-        )
-
-    return current_user, role
-
-
-async def require_billing_admin(
-    user_role: tuple[User, Role] = Depends(get_current_user_with_org_role),
-) -> User:
-    """
-    Ensure the current user has billing admin permission within the
-    organization from the request path.
-
-    Args:
-        user_role: Tuple of (User, Role) injected from
-            `get_current_user_with_org_role`.
-
-    Raises:
-        HTTPException: 403 if the user does not have MANAGE_BILLING permission
-        for the organization.
-
-    Returns:
-        User: The authenticated user, guaranteed to be allowed to manage
-        billing for the current organization.
-    """
-    user, role = user_role
-
-    if not role.permissions.get(Permission.MANAGE_BILLING.value, False):
-        logger.warning(
-            "Permission denied: %s lacks %s",
-            user.email,
-            Permission.MANAGE_BILLING.value,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not allowed to manage billing for this organisation.",
-        )
-
-    logger.info(
-        "Permission granted: %s has %s",
-        user.email,
-        Permission.MANAGE_BILLING.value,
-    )
-    return user
 
 
 async def verify_organization_access(
