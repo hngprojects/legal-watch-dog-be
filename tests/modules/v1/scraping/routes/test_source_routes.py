@@ -185,6 +185,58 @@ async def test_create_source_invalid_url(
 
 
 @pytest.mark.asyncio
+async def test_create_source_duplicate_url_in_jurisdiction(
+    client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
+):
+    """Test that duplicate URLs in the same jurisdiction are rejected."""
+
+    # First, create a source
+    payload1 = {
+        "jurisdiction_id": str(sample_jurisdiction_id),
+        "name": "First Source",
+        "url": "https://duplicate.example.com",
+        "source_type": "web",
+        "scrape_frequency": "DAILY",
+    }
+
+    async def override_get_db():
+        yield pg_async_session
+
+    async def override_get_current_user():
+        return sample_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response1 = await client.post(
+        "/api/v1/sources",
+        json=payload1,
+        headers=auth_headers,
+    )
+    assert response1.status_code == status.HTTP_201_CREATED
+
+    # Try to create another source with the same URL in the same jurisdiction
+    payload2 = {
+        "jurisdiction_id": str(sample_jurisdiction_id),
+        "name": "Second Source",
+        "url": "https://duplicate.example.com",
+        "source_type": "web",
+        "scrape_frequency": "HOURLY",
+    }
+
+    response2 = await client.post(
+        "/api/v1/sources",
+        json=payload2,
+        headers=auth_headers,
+    )
+
+    assert response2.status_code == status.HTTP_400_BAD_REQUEST
+    data = response2.json()
+    assert data["status_code"] == 400
+    assert "Source with this URL already exists in the jurisdiction" in data["message"]
+
+
+@pytest.mark.asyncio
 async def test_create_source_unauthorized(client, pg_async_session, sample_jurisdiction_id):
     """Test that unauthenticated requests are rejected."""
 

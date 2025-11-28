@@ -160,6 +160,25 @@ create_source_responses = {
             }
         },
     },
+    400: {
+        "description": "Bad Request - Duplicate URL in Jurisdiction",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "duplicate_url": {
+                        "summary": "Duplicate URL in Jurisdiction",
+                        "value": {
+                            "status": "error",
+                            "status_code": 400,
+                            "message": "Source with this URL already exists in the jurisdiction",
+                            "error_code": "DUPLICATE_URL",
+                            "errors": {},
+                        },
+                    }
+                }
+            }
+        },
+    },
     422: {
         "description": "Unprocessable Entity - Validation Failed",
         "content": {
@@ -206,7 +225,7 @@ create_source_responses = {
     },
 }
 
-create_source_custom_errors = ["422", "500"]
+create_source_custom_errors = ["400", "422", "500"]
 create_source_custom_success = {
     "status_code": 201,
     "description": "Source created successfully with provided configuration.",

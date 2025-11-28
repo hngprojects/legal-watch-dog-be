@@ -94,7 +94,7 @@ async def create_source(
         JSONResponse: Standard success response with created source data.
 
     Raises:
-        HTTPException: 500 if creation fails.
+        HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
 
     Examples:
         ```
