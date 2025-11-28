@@ -25,6 +25,7 @@ class User(SQLModel, table=True):
     )  # 'local', 'oidc', 'saml'
 
     name: str = Field(index=True, max_length=255)
+    provider_user_id: Optional[str] = Field(default=None, index=True)
 
     avatar_url: Optional[str] = Field(None, max_length=500, description="User avatar image URL")
 
