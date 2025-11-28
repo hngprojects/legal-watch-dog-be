@@ -30,7 +30,7 @@ async def test_hire_specialist_success():
         company_name="TechCorp Solutions",
         company_email="contact@techcorp.com",
         industry="Immigration & Global Mobility",
-        brief_description="We need assistance with EU travel compliance monitoring"
+        brief_description="We need assistance with EU travel compliance monitoring",
     )
 
     mock_db = AsyncMock()
@@ -40,7 +40,7 @@ async def test_hire_specialist_success():
         company_email=request_data.company_email,
         industry=request_data.industry,
         brief_description=request_data.brief_description,
-        created_at="2025-01-15T10:30:00"
+        created_at="2025-01-15T10:30:00",
     )
 
     mock_db.add.return_value = None
@@ -87,7 +87,7 @@ async def test_hire_specialist_failure():
         company_name="FailCorp",
         company_email="fail@corp.com",
         industry="Test Industry",
-        brief_description="This will fail"
+        brief_description="This will fail",
     )
 
     mock_db = AsyncMock()

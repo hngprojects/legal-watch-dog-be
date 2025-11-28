@@ -17,28 +17,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 router = APIRouter(prefix="/specialists", tags=["specialists"])
 
 
-@router.post(
-    "/hire",
-    response_model=SpecialistHireResponse,
-    status_code=status.HTTP_201_CREATED
-)
-async def hire_specialist(
-    request: SpecialistHireRequest,
-    db: AsyncSession = Depends(get_db)
-):
+@router.post("/hire", response_model=SpecialistHireResponse, status_code=status.HTTP_201_CREATED)
+async def hire_specialist(request: SpecialistHireRequest, db: AsyncSession = Depends(get_db)):
     """
     Create a new specialist hire request.
-    
+
     Accepts company information and specialist requirements,
     stores them in the database, and returns a success confirmation.
-    
+
     Args:
         request: Specialist hire request data
         db: Database session dependency
-        
+
     Returns:
         SpecialistHireResponse with success message and hire details
-        
+
     Raises:
         HTTPException: If database operation fails
     """
@@ -49,7 +42,7 @@ async def hire_specialist(
             company_name=request.company_name,
             company_email=request.company_email,
             industry=request.industry,
-            brief_description=request.brief_description
+            brief_description=request.brief_description,
         )
 
         db.add(new_hire)
@@ -66,8 +59,8 @@ async def hire_specialist(
                 "company_name": new_hire.company_name,
                 "company_email": new_hire.company_email,
                 "industry": new_hire.industry,
-                "created_at": new_hire.created_at.isoformat()
-            }
+                "created_at": new_hire.created_at.isoformat(),
+            },
         )
 
     except Exception as e:
@@ -75,5 +68,5 @@ async def hire_specialist(
         logger.error("Failed to process hire request: %s", str(e), exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process hire request: {str(e)}"
+            detail=f"Failed to process hire request: {str(e)}",
         )

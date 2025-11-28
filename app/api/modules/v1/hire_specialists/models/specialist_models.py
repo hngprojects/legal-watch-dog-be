@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -24,6 +23,4 @@ class SpecialistHire(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     def __repr__(self):
-        return (
-            f"<SpecialistHire(company={self.company_name}, industry={self.industry})>"
-        )
+        return f"<SpecialistHire(company={self.company_name}, industry={self.industry})>"

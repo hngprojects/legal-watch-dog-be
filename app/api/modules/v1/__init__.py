@@ -18,7 +18,7 @@ from app.api.modules.v1.search.routes import data_revision_search_router
 from app.api.modules.v1.users.routes.users_route import router as users_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
-router = APIRouter(prefix="/v1")    
+router = APIRouter(prefix="/v1")
 router.include_router(specialist_router)
 router.include_router(waitlist_router)
 router.include_router(contact_us_router)
