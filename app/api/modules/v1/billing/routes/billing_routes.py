@@ -2,7 +2,7 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
@@ -13,12 +13,16 @@ from app.api.modules.v1.billing.schemas.billing_schema import (
     BillingAccountCreateRequest,
     BillingAccountResponse,
     BillingPlan,
+    BillingPlanInfo,
     CheckoutSessionCreateRequest,
     CheckoutSessionResponse,
     InvoiceCreateRequest,
     InvoiceResponse,
     PaymentMethodCreateRequest,
     PaymentMethodResponse,
+    SubscriptionCancelRequest,
+    SubscriptionChangePlanRequest,
+    SubscriptionStatusResponse,
 )
 from app.api.modules.v1.billing.service.billing_service import BillingService, get_billing_service
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
@@ -33,7 +37,11 @@ from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/organizations/{organization_id}/billing", tags=["Billing"])
+router = APIRouter(
+    prefix="/organizations/{organization_id}/billing",
+    tags=["Billing"],
+    dependencies=[Depends(require_billing_admin)],
+)
 
 
 @router.post(
@@ -168,6 +176,200 @@ async def create_checkout_session(
         )
 
 
+@router.get(
+    "/subscription",
+    status_code=status.HTTP_200_OK,
+    response_model=SubscriptionStatusResponse,
+    summary="Get current subscription status for organisation",
+)
+async def get_subscription_status(
+    organization_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        billing_service: BillingService = get_billing_service(db)
+        account = await billing_service.get_billing_account_by_org(organization_id)
+        if not account:
+            return error_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Billing account not found",
+            )
+
+        data = SubscriptionStatusResponse(
+            billing_account_id=account.id,
+            stripe_customer_id=account.stripe_customer_id,
+            stripe_subscription_id=account.stripe_subscription_id,
+            status=account.status,
+            cancel_at_period_end=account.cancel_at_period_end or False,
+            trial_starts_at=account.trial_starts_at,
+            trial_ends_at=account.trial_ends_at,
+            current_period_start=account.current_period_start,
+            current_period_end=account.current_period_end,
+            next_billing_at=account.next_billing_at,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Subscription status retrieved",
+            data=data,
+        )
+    except Exception as e:
+        logger.exception("Failed to get subscription status: %s", str(e))
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to get subscription status",
+        )
+
+
+@router.post(
+    "/subscription/change-plan",
+    status_code=status.HTTP_200_OK,
+    response_model=SubscriptionStatusResponse,
+    summary="Change subscription plan (monthly/yearly, etc)",
+)
+async def change_subscription_plan(
+    organization_id: UUID,
+    payload: SubscriptionChangePlanRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        billing_service: BillingService = get_billing_service(db)
+        account = await billing_service.get_billing_account_by_org(organization_id)
+        if not account:
+            return error_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Billing account not found",
+            )
+
+        if not account.stripe_subscription_id:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="No active subscription to change",
+            )
+
+        if payload.plan == BillingPlan.MONTHLY:
+            new_price_id = settings.STRIPE_MONTHLY_PRICE_ID
+        elif payload.plan == BillingPlan.YEARLY:
+            new_price_id = settings.STRIPE_YEARLY_PRICE_ID
+        else:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Unsupported billing plan",
+            )
+
+        if not new_price_id:
+            logger.error("Stripe price id not configured for plan=%s", payload.plan)
+            return error_response(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="Billing is not correctly configured. Please contact support.",
+            )
+
+        updated = await billing_service.update_subscription_price_for_account(
+            account=account,
+            new_price_id=new_price_id,
+        )
+
+        data = SubscriptionStatusResponse(
+            billing_account_id=updated.id,
+            stripe_customer_id=updated.stripe_customer_id,
+            stripe_subscription_id=updated.stripe_subscription_id,
+            status=updated.status,
+            cancel_at_period_end=updated.cancel_at_period_end or False,
+            trial_starts_at=updated.trial_starts_at,
+            trial_ends_at=updated.trial_ends_at,
+            current_period_start=updated.current_period_start,
+            current_period_end=updated.current_period_end,
+            next_billing_at=updated.next_billing_at,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=f"Subscription plan changed to {payload.plan.value}",
+            data=data,
+        )
+    except ValueError as ve:
+        logger.warning("Change plan validation failed: %s", str(ve))
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(ve),
+        )
+    except Exception as e:
+        logger.exception("Failed to change subscription plan: %s", str(e))
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to change subscription plan",
+        )
+
+
+@router.post(
+    "/subscription/cancel",
+    status_code=status.HTTP_200_OK,
+    response_model=SubscriptionStatusResponse,
+    summary="Cancel subscription (stop renewal or immediate)",
+)
+async def cancel_subscription(
+    organization_id: UUID,
+    payload: SubscriptionCancelRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        billing_service: BillingService = get_billing_service(db)
+        account = await billing_service.get_billing_account_by_org(organization_id)
+        if not account:
+            return error_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Billing account not found",
+            )
+
+        if not account.stripe_subscription_id:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="No active subscription to cancel",
+            )
+
+        updated = await billing_service.cancel_subscription_for_account(
+            account=account,
+            cancel_at_period_end=payload.cancel_at_period_end,
+        )
+
+        data = SubscriptionStatusResponse(
+            billing_account_id=updated.id,
+            stripe_customer_id=updated.stripe_customer_id,
+            stripe_subscription_id=updated.stripe_subscription_id,
+            status=updated.status,
+            cancel_at_period_end=updated.cancel_at_period_end or False,
+            trial_starts_at=updated.trial_starts_at,
+            trial_ends_at=updated.trial_ends_at,
+            current_period_start=updated.current_period_start,
+            current_period_end=updated.current_period_end,
+            next_billing_at=updated.next_billing_at,
+        )
+
+        msg = (
+            "Subscription set to cancel at period end"
+            if payload.cancel_at_period_end
+            else "Subscription cancelled immediately"
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=msg,
+            data=data,
+        )
+    except ValueError as ve:
+        logger.warning("Cancel subscription validation failed: %s", str(ve))
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(ve),
+        )
+    except Exception as e:
+        logger.exception("Failed to cancel subscription: %s", str(e))
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to cancel subscription",
+        )
+
+
 @router.post(
     "/accounts",
     status_code=status.HTTP_201_CREATED,
@@ -283,7 +485,6 @@ async def get_billing_account(
 async def add_payment_method(
     organization_id: UUID,
     payload: PaymentMethodCreateRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_billing_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -293,7 +494,6 @@ async def add_payment_method(
     Args:
         organization_id (UUID): The UUID of the organisation.
         payload (PaymentMethodCreateRequest): The payment method details provided by the client.
-        background_tasks (BackgroundTasks): FastAPI background tasks manager.
         current_user (Depends(require_billing_admin)): The authenticated user object
         db (AsyncSession, Depends(get_db)): Asynchronous database session
 
@@ -484,6 +684,47 @@ async def delete_payment_method(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to delete payment method",
         )
+
+
+@router.get(
+    "/plans",
+    status_code=status.HTTP_200_OK,
+    response_model=List[BillingPlanInfo],
+    summary="List available subscription plans",
+)
+async def list_plans(
+    organization_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return the available subscription plans with pricing and Stripe metadata.
+    """
+    plans: List[BillingPlanInfo] = [
+        BillingPlanInfo(
+            code=BillingPlan.MONTHLY,
+            label="Pro Monthly",
+            price_id=settings.STRIPE_MONTHLY_PRICE_ID,
+            product_id=settings.STRIPE_MONTHLY_PRODUCT_ID,
+            interval="month",
+            currency="USD",
+            amount=settings.MONTHLY_PRICE,
+        ),
+        BillingPlanInfo(
+            code=BillingPlan.YEARLY,
+            label="Pro Yearly",
+            price_id=settings.STRIPE_YEARLY_PRICE_ID,
+            product_id=settings.STRIPE_YEARLY_PRODUCT_ID,
+            interval="year",
+            currency="USD",
+            amount=settings.YEARLY_PRICE,
+        ),
+    ]
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Plans retrieved",
+        data=plans,
+    )
 
 
 @router.post(

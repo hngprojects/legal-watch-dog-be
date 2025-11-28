@@ -1,10 +1,12 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
+
+from app.api.modules.v1.billing.models.billing_account import BillingStatus
 
 _CURRENCY_RE = re.compile(r"^[A-Za-z]{3}$")
 
@@ -172,3 +174,37 @@ class CheckoutSessionResponse(BaseModel):
 
     checkout_url: AnyHttpUrl
     session_id: str
+
+
+class SubscriptionStatusResponse(BaseModel):
+    billing_account_id: UUID
+    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
+
+    status: BillingStatus
+    cancel_at_period_end: bool = False
+
+    trial_starts_at: Optional[datetime] = None
+    trial_ends_at: Optional[datetime] = None
+
+    current_period_start: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    next_billing_at: Optional[datetime] = None
+
+
+class SubscriptionCancelRequest(BaseModel):
+    cancel_at_period_end: bool = True
+
+
+class SubscriptionChangePlanRequest(BaseModel):
+    plan: BillingPlan
+
+
+class BillingPlanInfo(BaseModel):
+    code: BillingPlan
+    label: str
+    price_id: str
+    product_id: str
+    interval: Literal["month", "year"]
+    currency: str
+    amount: int

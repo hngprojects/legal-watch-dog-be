@@ -112,6 +112,8 @@ class Settings(BaseSettings):
     STRIPE_RETRY_COUNT: int = config("STRIPE_RETRY_COUNT", default=3, cast=int)
     STRIPE_RETRY_BACKOFF: float = config("STRIPE_RETRY_BACKOFF", default=0.5, cast=float)
 
+    MONTHLY_PRICE: int = config("MONTHLY_PRICE", default=100, cast=int)
+    YEARLY_PRICE: int = config("YEARLY_PRICE", default=1000, cast=int)
     STRIPE_MONTHLY_PRODUCT_ID: str = config("STRIPE_MONTHLY_PRODUCT_ID", default="prod_monthly_123")
     STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="price_monthly_id")
     STRIPE_YEARLY_PRODUCT_ID: str = config("STRIPE_YEARLY_PRODUCT_ID", default="prod_yearly_123")
