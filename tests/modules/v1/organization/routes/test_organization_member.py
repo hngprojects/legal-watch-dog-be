@@ -1,0 +1,139 @@
+"""Tests for organization member routes."""
+
+import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import status
+
+from app.api.modules.v1.organization.routes.organization_route import update_member_details
+from app.api.modules.v1.organization.schemas.member_schema import UpdateMemberRequest
+from app.api.modules.v1.users.models.users_model import User
+
+
+@pytest.mark.asyncio
+async def test_update_member_details_success():
+    """Test successful member details update."""
+    # Mock dependencies
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+
+    org_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+
+    # Mock payload
+    payload = UpdateMemberRequest(
+        name="New Name", email="new@example.com", department="Engineering", title="Senior Engineer"
+    )
+
+    # Mock return values
+    updated_user = MagicMock(spec=User)
+    updated_user.id = user_id
+    updated_user.name = payload.name
+    updated_user.email = payload.email
+
+    updated_membership = MagicMock()
+    updated_membership.department = payload.department
+    updated_membership.title = payload.title
+
+    with patch(
+        "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
+        new_callable=AsyncMock,
+    ) as mock_check_perm:
+        mock_check_perm.return_value = True
+
+        with patch(
+            "app.api.modules.v1.organization.routes.organization_route.UserOrganizationCRUD.update_member_details",
+            new_callable=AsyncMock,
+        ) as mock_update:
+            mock_update.return_value = (updated_user, updated_membership)
+
+            # Call endpoint
+            response = await update_member_details(
+                organization_id=org_id,
+                user_id=user_id,
+                payload=payload,
+                current_user=mock_current_user,
+                db=mock_db,
+            )
+
+            # Verify response
+            import json
+
+            body = json.loads(response.body)
+            assert body["status"] == "SUCCESS"
+            assert body["message"] == "Member details updated successfully"
+            assert body["data"]["name"] == "New Name"
+            assert body["data"]["email"] == "new@example.com"
+            assert body["data"]["department"] == "Engineering"
+            assert body["data"]["title"] == "Senior Engineer"
+
+            # Verify service call
+            mock_update.assert_called_once()
+            call_args = mock_update.call_args[1]
+            assert call_args["organization_id"] == org_id
+            assert call_args["user_id"] == user_id
+            assert call_args["user_updates"] == {"name": "New Name", "email": "new@example.com"}
+            assert call_args["membership_updates"] == {
+                "department": "Engineering",
+                "title": "Senior Engineer",
+            }
+
+
+@pytest.mark.asyncio
+async def test_update_member_details_permission_denied():
+    """Test update member details without permission."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+
+    org_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    payload = UpdateMemberRequest(name="New Name")
+
+    with patch(
+        "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
+        new_callable=AsyncMock,
+    ) as mock_check_perm:
+        mock_check_perm.return_value = False
+
+        response = await update_member_details(
+            organization_id=org_id,
+            user_id=user_id,
+            payload=payload,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "do not have permission" in response.body.decode()
+
+
+@pytest.mark.asyncio
+async def test_update_member_details_no_fields():
+    """Test update with no fields provided."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+
+    org_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    payload = UpdateMemberRequest()  # No fields set
+
+    with patch(
+        "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
+        new_callable=AsyncMock,
+    ) as mock_check_perm:
+        mock_check_perm.return_value = True
+
+        response = await update_member_details(
+            organization_id=org_id,
+            user_id=user_id,
+            payload=payload,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "No fields provided" in response.body.decode()

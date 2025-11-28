@@ -21,6 +21,7 @@ from app.api.modules.v1.organization.schemas.invitation_schema import (
     InvitationCreate,
     InvitationResponse,
 )
+from app.api.modules.v1.organization.schemas.member_schema import UpdateMemberRequest
 from app.api.modules.v1.organization.schemas.organization_schema import (
     CreateOrganizationRequest,
     CreateOrganizationResponse,
@@ -460,6 +461,118 @@ async def update_member_role(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to updaterole. Please try again later.",
+        )
+
+
+@router.patch(
+    "/{organization_id}/members/{user_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+)
+async def update_member_details(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: UpdateMemberRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update a member's details within an organization.
+
+    This endpoint allows an admin to update a member's:
+    - Name
+    - Email (if not verified)
+    - Department
+    - Job Title
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member to update
+        payload: Request body containing fields to update
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        dict: Success message with updated details
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden, 404 for not found
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to manage users in this organization")
+
+        # Prepare update dictionaries
+        user_updates = {}
+        if payload.name is not None:
+            user_updates["name"] = payload.name
+        if payload.email is not None:
+            user_updates["email"] = payload.email
+
+        membership_updates = {}
+        if payload.department is not None:
+            membership_updates["department"] = payload.department
+        if payload.title is not None:
+            membership_updates["title"] = payload.title
+
+        if not user_updates and not membership_updates:
+            raise ValueError("No fields provided for update")
+
+        updated_user, updated_membership = await UserOrganizationCRUD.update_member_details(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+            user_updates=user_updates,
+            membership_updates=membership_updates,
+        )
+        await db.commit()
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Member details updated successfully",
+            data={
+                "user_id": str(updated_user.id),
+                "name": updated_user.name,
+                "email": updated_user.email,
+                "department": updated_membership.department,
+                "title": updated_membership.title,
+            },
+        )
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed update details for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error updating details for user_id={user_id} in org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to update member details. Please try again later.",
         )
 
 
