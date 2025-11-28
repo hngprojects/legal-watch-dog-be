@@ -190,7 +190,6 @@ async def test_create_source_duplicate_url_in_jurisdiction(
 ):
     """Test that duplicate URLs in the same jurisdiction are rejected."""
 
-    # First, create a source
     payload1 = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "First Source",
@@ -215,7 +214,6 @@ async def test_create_source_duplicate_url_in_jurisdiction(
     )
     assert response1.status_code == status.HTTP_201_CREATED
 
-    # Try to create another source with the same URL in the same jurisdiction
     payload2 = {
         "jurisdiction_id": str(sample_jurisdiction_id),
         "name": "Second Source",
@@ -595,9 +593,6 @@ class TestDeleteSourceEndpoint:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-# Revision History Tests
-
-
 @pytest_asyncio.fixture
 async def test_source_for_revisions(pg_async_session):
     """Create a test source for revision tests."""
@@ -605,13 +600,11 @@ async def test_source_for_revisions(pg_async_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    # Create organization
     organization = Organization(name="Test Revision Org", email="revisions@test.com")
     pg_async_session.add(organization)
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
 
-    # Create project
     project = Project(
         org_id=organization.id,
         title="Test Revision Project",
@@ -621,7 +614,6 @@ async def test_source_for_revisions(pg_async_session):
     await pg_async_session.commit()
     await pg_async_session.refresh(project)
 
-    # Create jurisdiction
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Revision Jurisdiction",
@@ -631,7 +623,6 @@ async def test_source_for_revisions(pg_async_session):
     await pg_async_session.commit()
     await pg_async_session.refresh(jurisdiction)
 
-    # Create source
     source = Source(
         id=uuid.uuid4(),
         jurisdiction_id=jurisdiction.id,
@@ -862,7 +853,6 @@ class TestGetRevisionsEndpoint:
         assert "id" in revision
         assert "source_id" in revision
 
-        # Verify pagination structure
         assert "pagination" in data
         assert "total" in data["pagination"]
         assert "page" in data["pagination"]
