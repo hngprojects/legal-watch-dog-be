@@ -12,7 +12,7 @@ celery_app = Celery(
         "app.api.modules.v1.scraping.service.tasks",
         "app.api.modules.v1.billing.tasks",
     ],
-    include=["app.api.modules.v1.scraping.service.tasks"],
+    
 )
 
 celery_app.conf.beat_schedule = {
