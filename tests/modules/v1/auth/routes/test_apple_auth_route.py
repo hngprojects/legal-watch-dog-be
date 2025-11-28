@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import Response
 
 from app.api.modules.v1.auth.routes.apple_auth_route import apple_login
 from app.api.modules.v1.auth.schemas.apple_auth import AppleAuthRequest
@@ -27,10 +28,10 @@ async def test_apple_login_success():
             return fake_result
 
     with patch("app.api.modules.v1.auth.routes.apple_auth_route.AppleAuthClient", DummyClient):
-        resp = await apple_login(req, db=fake_db)
+        response_obj = Response()
+        resp = await apple_login(req, response=response_obj, db=fake_db)
 
     assert resp is not None
-    import json
 
     data = json.loads(resp.body.decode())
     assert data["status"] == "SUCCESS"
@@ -50,13 +51,14 @@ async def test_apple_login_failure_returns_error():
             raise ValueError("Invalid token")
 
     with patch("app.api.modules.v1.auth.routes.apple_auth_route.AppleAuthClient", DummyClientBad):
-        resp = await apple_login(req, db=fake_db)
+        response_obj = Response()
+        resp = await apple_login(req, response=response_obj, db=fake_db)
 
     assert resp is not None
 
     data = json.loads(resp.body.decode())
     assert (
-        "invalid" in data["error"].lower()
-        or "invalid" in data["message"].lower()
-        or "token" in data["error"].lower()
+        "invalid" in data.get("error", "").lower()
+        or "invalid" in data.get("message", "").lower()
+        or "token" in data.get("error", "").lower()
     )

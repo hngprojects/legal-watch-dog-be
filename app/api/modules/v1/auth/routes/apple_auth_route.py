@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
@@ -14,7 +14,9 @@ logger = logging.getLogger("app")
 
 
 @router.post("/signin")
-async def apple_login(req: AppleAuthRequest, db: AsyncSession = Depends(get_db)):
+async def apple_login(
+    req: AppleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)
+):
     """
     Handle Apple sign-in.
 
@@ -26,6 +28,16 @@ async def apple_login(req: AppleAuthRequest, db: AsyncSession = Depends(get_db))
     try:
         result = await apple_client.complete_oauth_flow(
             code=req.code, redirect_uri=req.redirect_uri or settings.APPLE_REDIRECT_URI
+        )
+
+        response.set_cookie(
+            key="access_token",
+            value=result["access_token"],
+            httponly=True,
+            max_age=3600,
+            secure=settings.ENVIRONMENT != "dev",
+            samesite="lax",
+            path="/",
         )
 
         return auth_response(
@@ -52,7 +64,9 @@ async def apple_login(req: AppleAuthRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/callback")
-async def apple_callback(code: str = Form(...), db: AsyncSession = Depends(get_db)):
+async def apple_callback(
+    response: Response, db: AsyncSession = Depends(get_db), code: str = Form(...)
+):
     """
     Callback endpoint for Apple OAuth.
 
@@ -63,6 +77,15 @@ async def apple_callback(code: str = Form(...), db: AsyncSession = Depends(get_d
     try:
         result = await apple_client.complete_oauth_flow(
             code=code, redirect_uri=settings.APPLE_REDIRECT_URI
+        )
+        response.set_cookie(
+            key="access_token",
+            value=result["access_token"],
+            httponly=True,
+            max_age=3600,
+            secure=settings.ENVIRONMENT != "dev",
+            samesite="lax",
+            path="/",
         )
         return success_response(status_code=200, message="Login successful", data=result)
     except ValueError as e:
