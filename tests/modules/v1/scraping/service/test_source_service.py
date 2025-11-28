@@ -148,7 +148,6 @@ class TestSourceServiceCreate:
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
-        # Mock existing source with same URL in same jurisdiction
         existing_source = Source(
             id=uuid.uuid4(),
             jurisdiction_id=sample_jurisdiction_id,
@@ -173,7 +172,6 @@ class TestSourceServiceCreate:
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
-        # Mock no existing source (different jurisdiction)
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()

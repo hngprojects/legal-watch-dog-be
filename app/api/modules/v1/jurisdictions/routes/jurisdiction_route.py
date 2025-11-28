@@ -696,13 +696,11 @@ async def get_sources_for_jurisdiction(
         f"(skip={skip}, limit={limit}, is_active={is_active})"
     )
 
-    # Verify jurisdiction exists and belongs to organization
     jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id, organization_id)
     if not jurisdiction:
         logger.info("Jurisdiction not found: id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found")
 
-    # Get sources for the jurisdiction
     source_service = SourceService()
     sources = await source_service.get_sources(
         db=db,
