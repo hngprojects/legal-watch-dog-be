@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}We Received Your Message - Legal Watchdog{% endblock %}
+
+{% block preheader %}Thanks for reaching out. We'll get back to you soon.{% endblock %}
+
+{% block header_image_alt %}Message received confirmation{% endblock %}
+
+{% block main_heading %}We Received Your Message{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      Hello {{ full_name }},
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Thanks for contacting Legal Watchdog. Your message has been received and we'll get back to you as soon as possible.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Our team typically responds within 24-48 hours during business days. We'll review your inquiry and provide you with the information you need.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 30px;">
+    <table style="width: 100%; border-collapse: collapse; background-color: #F9F8F7; border-radius: 8px; padding: 20px;">
+      <tr>
+        <td style="padding: 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Your Message
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #706C69; white-space: pre-wrap; line-height: 24px;">
+            {{ message }}
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      In the meantime, if you have any additional questions or urgent concerns, feel free to reply directly to this email.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td>
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      We appreciate your interest in Legal Watchdog and look forward to connecting with you.
+    </p>
+  </td>
+</tr>
+{% endblock %}
