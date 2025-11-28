@@ -295,7 +295,6 @@ async def test_get_sources_for_jurisdiction_success(monkeypatch):
     """Test successful retrieval of sources for a jurisdiction."""
     from app.api.modules.v1.scraping.schemas.source_service import SourceRead
 
-    # Mock jurisdiction exists
     fake_jurisdiction = SimpleNamespace(id=uuid4(), name="Test Jurisdiction")
 
     async def fake_get_jurisdiction(*args, **kwargs):
@@ -303,7 +302,6 @@ async def test_get_sources_for_jurisdiction_success(monkeypatch):
 
     monkeypatch.setattr(routes.service, "get_jurisdiction_by_id", fake_get_jurisdiction)
 
-    # Mock sources
     fake_sources = [
         SourceRead(
             id=uuid4(),

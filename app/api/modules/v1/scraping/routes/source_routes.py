@@ -69,7 +69,7 @@ router = APIRouter(
 logger = logging.getLogger("app")
 
 
-@router.post("", status_code=HTTP_201_CREATED, responses=create_source_responses)
+@router.post("", status_code=status.HTTP_201_CREATED, responses=create_source_responses)
 async def create_source(
     source_data: SourceCreate,
     db: AsyncSession = Depends(get_db),

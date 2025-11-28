@@ -65,7 +65,6 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
-            #
             existing_source = await db.scalar(
                 select(Source).where(
                     Source.url == str(source_data.url),
@@ -362,7 +361,7 @@ class SourceService:
             >>> print(f"Found {total} revisions, showing {len(revisions)}")
             Found 150 revisions, showing 50
         """
-        # Verify source exists
+
         source = await db.get(Source, source_id)
         if not source:
             logger.warning(f"Cannot fetch revisions - source not found: {source_id}")
@@ -371,7 +370,6 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Query revisions for this source
         query = (
             select(DataRevision)
             .where(DataRevision.source_id == source_id)
@@ -383,7 +381,6 @@ class SourceService:
         result = await db.execute(query)
         revisions = result.scalars().all()
 
-        # Get total count for pagination metadata
         count_query = select(func.count()).where(DataRevision.source_id == source_id)
         count_result = await db.execute(count_query)
         total = count_result.scalar_one()
