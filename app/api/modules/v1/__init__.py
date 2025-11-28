@@ -7,6 +7,7 @@ from app.api.modules.v1.auth.routes.reset_password import (
     router as password_reset_router,
 )
 from app.api.modules.v1.contact_us.routes.contact_us import router as contact_us_router
+from app.api.modules.v1.hire_specialists.routes.specialist_routes import router as specialist_router
 from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
@@ -17,7 +18,8 @@ from app.api.modules.v1.search.routes import data_revision_search_router
 from app.api.modules.v1.users.routes.users_route import router as users_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
-router = APIRouter(prefix="/v1")
+router = APIRouter(prefix="/v1")    
+router.include_router(specialist_router)
 router.include_router(waitlist_router)
 router.include_router(contact_us_router)
 router.include_router(register_router)
