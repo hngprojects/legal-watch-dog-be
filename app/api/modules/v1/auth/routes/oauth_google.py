@@ -27,36 +27,31 @@ def get_cookie_settings(request: Request):
     origin = request.headers.get("origin", "")
     referer = request.headers.get("referer", "")
 
-
     source_url = origin if origin else referer
 
     logger.info(f"Determining cookie settings for origin: {origin}, referer: {referer}")
 
-    
     is_local = "localhost" in source_url or "127.0.0.1" in source_url
 
     if is_local:
-
         return {
-            "domain": None,  
-            "secure": False,  
-            "samesite": "lax",  
+            "domain": None,
+            "secure": False,
+            "samesite": "lax",
             "frontend_url": settings.DEV_URL,
         }
     else:
-        
         parsed = urlparse(settings.APP_URL)
 
         if parsed.netloc:
-           
             domain = f".{parsed.netloc}" if not parsed.netloc.startswith(".") else parsed.netloc
         else:
             domain = None
 
         return {
             "domain": domain,
-            "secure": True, 
-            "samesite": "none", 
+            "secure": True,
+            "samesite": "none",
             "frontend_url": settings.APP_URL,
         }
 
@@ -133,7 +128,6 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         refresh_token_jti = get_token_jti(refresh_token)
         await _store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
 
-
         cookie_settings = get_cookie_settings(request)
 
         logger.info(
@@ -144,30 +138,27 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             f"frontend_url={cookie_settings['frontend_url']}"
         )
 
-    
         response = RedirectResponse(
             url=f"{cookie_settings['frontend_url']}/dashboard/projects", status_code=302
         )
 
-        
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
             secure=cookie_settings["secure"],
-            max_age=30 * 24 * 60 * 60,  
+            max_age=30 * 24 * 60 * 60,
             domain=cookie_settings["domain"],
             path="/",
             samesite=cookie_settings["samesite"],
         )
 
-        
         response.set_cookie(
             key="access_token",
             value=access_token,
-            httponly=False, 
+            httponly=False,
             secure=cookie_settings["secure"],
-            max_age=24 * 60 * 60,  
+            max_age=24 * 60 * 60,
             domain=cookie_settings["domain"],
             path="/",
             samesite=cookie_settings["samesite"],
@@ -177,18 +168,15 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         return response
 
     except HTTPException as he:
-        
         raise he
 
     except Exception as e:
         logger.error("Google login failed: %s", str(e), exc_info=True)
 
-        
         try:
             cookie_settings = get_cookie_settings(request)
             frontend_url = cookie_settings["frontend_url"]
         except Exception:
-            
             frontend_url = settings.APP_URL
 
         return RedirectResponse(
