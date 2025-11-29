@@ -138,7 +138,7 @@ jobs:
           MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
           MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
-          MICROSOFT_SCOPES=${{ vars.MICROSOFT_SCOPES || '["https://graph.microsoft.com/User.Read", "openid", "email", "profile"]' }}
+          MICROSOFT_SCOPES='${{ vars.MICROSOFT_SCOPES || "[\"https://graph.microsoft.com/User.Read\", \"openid\", \"email\", \"profile\"]" }}'
           MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
           MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
           MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
@@ -358,7 +358,7 @@ jobs:
           MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
           MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
-          MICROSOFT_SCOPES=${{ vars.MICROSOFT_SCOPES || '["https://graph.microsoft.com/User.Read", "openid", "email", "profile"]' }}
+          MICROSOFT_SCOPES='${{ vars.MICROSOFT_SCOPES || "[\"https://graph.microsoft.com/User.Read\", \"openid\", \"email\", \"profile\"]" }}'
           MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
           MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
           MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
