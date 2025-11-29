@@ -14,7 +14,6 @@ from app.api.modules.v1.users.schemas.user_profile_schema import UpdateUserProfi
 @pytest.mark.asyncio
 async def test_update_user_profile_success():
     """Test successful user profile update."""
-    # Mock dependencies
     mock_db = AsyncMock()
     mock_current_user = MagicMock(spec=User)
     mock_current_user.id = uuid.uuid4()
@@ -22,10 +21,8 @@ async def test_update_user_profile_success():
     mock_current_user.name = "Old Name"
     mock_current_user.avatar_url = None
 
-    # Mock payload
     payload = UpdateUserProfileRequest(name="New Name", avatar_url="https://example.com/avatar.png")
 
-    # Mock UserCRUD.update_user
     updated_user = MagicMock(spec=User)
     updated_user.id = mock_current_user.id
     updated_user.email = mock_current_user.email

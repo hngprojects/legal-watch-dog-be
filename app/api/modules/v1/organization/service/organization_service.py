@@ -202,9 +202,6 @@ class OrganizationService:
             if not membership or not membership.is_active:
                 raise ValueError("You do not have access to this organization")
 
-            # role = await self.db.get(Role, membership.role_id)
-
-            # Count active (non-deleted) projects in this organization
             projects_count_query = (
                 select(func.count())
                 .select_from(Project)

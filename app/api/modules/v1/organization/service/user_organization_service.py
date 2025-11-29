@@ -403,14 +403,12 @@ class UserOrganizationCRUD:
             Exception: If database operation fails
         """
         try:
-            # Get user
             user_result = await db.execute(select(User).where(User.id == user_id))
             user = user_result.scalar_one_or_none()
 
             if not user:
                 raise ValueError(f"User {user_id} not found")
 
-            # Get membership
             membership = await UserOrganizationCRUD.get_user_organization(
                 db, user_id, organization_id
             )
@@ -420,14 +418,12 @@ class UserOrganizationCRUD:
                     f"User {user_id} is not a member of organization {organization_id}"
                 )
 
-            # Update user fields
             if user_updates:
                 for key, value in user_updates.items():
                     setattr(user, key, value)
                 user.updated_at = datetime.now(timezone.utc)
                 db.add(user)
 
-            # Update membership fields
             if membership_updates:
                 for key, value in membership_updates.items():
                     setattr(membership, key, value)

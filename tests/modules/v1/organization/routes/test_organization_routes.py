@@ -106,7 +106,6 @@ async def test_update_organization_success():
         "app.api.modules.v1.organization.routes.organization_route.OrganizationService",
     ) as mock_org_service:
         mock_instance = mock_org_service.return_value
-        # Ensure the method we await is an AsyncMock
         mock_instance.update_organization = AsyncMock(return_value=mock_updated_org_data)
 
         response = await update_organization(

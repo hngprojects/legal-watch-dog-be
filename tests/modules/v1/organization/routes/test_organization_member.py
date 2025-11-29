@@ -18,7 +18,7 @@ from app.api.modules.v1.users.models.users_model import User
 @pytest.mark.asyncio
 async def test_update_member_details_success():
     """Test successful member details update."""
-    # Mock dependencies
+
     mock_db = AsyncMock()
     mock_current_user = MagicMock(spec=User)
     mock_current_user.id = uuid.uuid4()
@@ -26,7 +26,6 @@ async def test_update_member_details_success():
     org_id = uuid.uuid4()
     user_id = uuid.uuid4()
 
-    # Mock payload
     payload = UpdateMemberRequest(
         name="New Name",
         email="new@example.com",
@@ -34,7 +33,6 @@ async def test_update_member_details_success():
         title="Senior Engineer",
     )
 
-    # Mock return values
     updated_user = MagicMock(spec=User)
     updated_user.id = user_id
     updated_user.name = payload.name
@@ -56,7 +54,6 @@ async def test_update_member_details_success():
         ) as mock_update:
             mock_update.return_value = (updated_user, updated_membership)
 
-            # Call endpoint
             response = await update_member_details(
                 organization_id=org_id,
                 user_id=user_id,
@@ -65,7 +62,6 @@ async def test_update_member_details_success():
                 db=mock_db,
             )
 
-            # Verify response
             body = json.loads(response.body)
             assert body["status"] == "SUCCESS"
             assert body["message"] == "Member details updated successfully"
@@ -74,7 +70,6 @@ async def test_update_member_details_success():
             assert body["data"]["department"] == "Engineering"
             assert body["data"]["title"] == "Senior Engineer"
 
-            # Verify service call
             mock_update.assert_called_once()
             call_args = mock_update.call_args[1]
             assert call_args["organization_id"] == org_id
@@ -124,7 +119,7 @@ async def test_update_member_details_no_fields():
 
     org_id = uuid.uuid4()
     user_id = uuid.uuid4()
-    payload = UpdateMemberRequest()  # No fields set
+    payload = UpdateMemberRequest()
 
     with patch(
         "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
@@ -218,7 +213,7 @@ async def test_delete_member_self_deletion():
 
         response = await delete_member(
             organization_id=org_id,
-            user_id=mock_current_user.id,  # Same as current user
+            user_id=mock_current_user.id,
             current_user=mock_current_user,
             db=mock_db,
         )
