@@ -463,7 +463,7 @@ jobs:
   # -------------------------
   notify_slack:
     name: Notify Slack
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     needs:
       - deploy_production
       - deploy_staging
