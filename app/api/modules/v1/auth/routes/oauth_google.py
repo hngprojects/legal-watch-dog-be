@@ -1,145 +1,110 @@
 import logging
-from datetime import timedelta
-from urllib.parse import urlparse
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
-from app.api.core.dependencies.redis_service import get_redis_client
 from app.api.core.oauth import oauth
 from app.api.db.database import get_db
-from app.api.modules.v1.users.service.user import UserCRUD
-from app.api.utils.jwt import create_access_token, get_token_jti
+from app.api.modules.v1.auth.service.google_oauth_service import GoogleOAuthService
+from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/oauth/google", tags=["Social Auth"])
 
 
-def get_cookie_settings(request: Request):
-    """
-    Dynamically determine cookie settings based on the request origin.
-    Uses existing config variables (APP_URL, DEV_URL) to determine environment.
-    """
-    origin = request.headers.get("origin", "")
-    referer = request.headers.get("referer", "")
-
-    source_url = origin if origin else referer
-
-    logger.info(f"Determining cookie settings for origin: {origin}, referer: {referer}")
-
-    is_local = "localhost" in source_url or "127.0.0.1" in source_url
-
-    if is_local:
-        return {
-            "domain": None,
-            "secure": False,
-            "samesite": "lax",
-            "frontend_url": settings.DEV_URL,
-        }
-    else:
-        parsed = urlparse(settings.APP_URL)
-
-        if parsed.netloc:
-            domain = f".{parsed.netloc}" if not parsed.netloc.startswith(".") else parsed.netloc
-        else:
-            domain = None
-
-        return {
-            "domain": domain,
-            "secure": True,
-            "samesite": "none",
-            "frontend_url": settings.APP_URL,
-        }
-
-
 @router.get("/login")
 async def google_login(request: Request):
     """
-    Redirect the user to Google's OAuth consent screen.
-    Uses GOOGLE_REDIRECT_URI from settings.
+    Initiate Google OAuth2 login flow.
+
+    Generates CSRF state token and redirects to Google's OAuth consent screen.
+    The state token prevents CSRF attacks by ensuring the callback comes from
+    the same user who initiated the request.
+
+    Args:
+        request: HTTP request object
+
+    Returns:
+        RedirectResponse to Google OAuth endpoint
+
+    Raises:
+        HTTPException: If state generation fails
     """
-    redirect_uri = settings.GOOGLE_REDIRECT_URI
-    logger.info(f"Initiating Google login with redirect_uri: {redirect_uri}")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    try:
+        service = GoogleOAuthService(db=None, request=request)
+        state = await service.generate_oauth_state()
+
+        redirect_uri = settings.GOOGLE_REDIRECT_URI
+        logger.info(f"Initiating Google OAuth login with state from IP {service.client_ip}")
+
+        return await oauth.google.authorize_redirect(request, redirect_uri, state=state)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to initiate Google login: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login initiation failed",
+        )
 
 
 @router.get("/callback")
-async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
+async def google_callback(
+    request: Request,
+    code: str = Query(...),
+    state: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Handle Google OAuth callback:
-    - Verify token
-    - Create user if not exists
-    - Generate JWT tokens
-    - Set cookies dynamically based on environment (APP_URL or DEV_URL)
-    - Redirect to appropriate frontend dashboard
+    Handle Google OAuth2 callback.
+
+    Processes OAuth callback with:
+    - CSRF state validation
+    - ID token verification
+    - User creation/retrieval
+    - JWT token generation
+    - Profile data storage
+    - Bearer token pattern (Authorization header, not cookies for access token)
+
+    Args:
+        request: HTTP request
+        code: Authorization code from Google
+        state: CSRF state parameter
+        db: Database session
+
+    Returns:
+        RedirectResponse with tokens in URL fragment or error redirect
+
+    Raises:
+        HTTPException: On authentication errors
     """
     try:
-        # Exchange authorization code for tokens
+        service = GoogleOAuthService(db=db, request=request)
+
+        await service.validate_oauth_state(state)
+
         token = await oauth.google.authorize_access_token(request)
-        id_token_str = token.get("id_token")
 
-        if not id_token_str:
-            raise HTTPException(status_code=400, detail="No id_token in token")
+        result = await service.complete_oauth_flow(token)
 
-        user_info = id_token.verify_oauth2_token(
-            id_token_str, google_requests.Request(), audience=settings.GOOGLE_CLIENT_ID
-        )
+        cookie_settings = GoogleOAuthService.get_cookie_settings(request)
 
-        email = user_info.get("email")
-        if not email:
-            raise HTTPException(status_code=400, detail="Email not found in token")
-
-        logger.info(f"Google OAuth callback for email: {email}")
-
-        user = await UserCRUD.get_by_email(db, email)
-        if not user:
-            user = await UserCRUD.create_google_user(
-                db=db, email=email, name=user_info.get("name", email.split("@")[0])
-            )
-
-            await db.commit()
-            await db.refresh(user)
-            logger.info(f"Created new user via Google OAuth: {email}")
-
-        if not user.is_active:
-            logger.warning(f"Google login blocked: inactive account {email}")
-            cookie_settings = get_cookie_settings(request)
-            return RedirectResponse(
-                url=f"{cookie_settings['frontend_url']}/login?error=account_inactive",
-                status_code=302,
-            )
-
-        access_token = create_access_token(
-            user_id=str(user.id),
-            organization_id=None,
-            role_id=None,
-        )
-        refresh_token = create_access_token(
-            user_id=str(user.id),
-            organization_id=None,
-            role_id=None,
-            expires_delta=timedelta(days=30),
-        )
-
-        refresh_token_jti = get_token_jti(refresh_token)
-        await _store_refresh_token(str(user.id), refresh_token_jti, ttl_days=30)
-
-        cookie_settings = get_cookie_settings(request)
+        frontend_url = cookie_settings["frontend_url"]
+        access_token = result["access_token"]
+        refresh_token = result["refresh_token"]
+        is_new_user = result["is_new_user"]
 
         logger.info(
-            f"Setting cookies for user {email}: "
-            f"domain={cookie_settings['domain']}, "
-            f"secure={cookie_settings['secure']}, "
-            f"samesite={cookie_settings['samesite']}, "
-            f"frontend_url={cookie_settings['frontend_url']}"
+            f"Successful Google OAuth for user (new={is_new_user}) from IP {service.client_ip}"
         )
 
         response = RedirectResponse(
-            url=f"{cookie_settings['frontend_url']}/dashboard/projects", status_code=302
+            url=f"{frontend_url}/auth/google/callback?is_new_user={str(is_new_user).lower()}#access_token={access_token}&refresh_token={refresh_token}&token_type=bearer",
+            status_code=302,
         )
 
         response.set_cookie(
@@ -153,47 +118,82 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             samesite=cookie_settings["samesite"],
         )
 
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=False,
-            secure=cookie_settings["secure"],
-            max_age=24 * 60 * 60,
-            domain=cookie_settings["domain"],
-            path="/",
-            samesite=cookie_settings["samesite"],
+        logger.debug(
+            f"Set refresh_token cookie with domain={cookie_settings['domain']}, "
+            f"secure={cookie_settings['secure']}, samesite={cookie_settings['samesite']}"
         )
 
-        logger.info(f"User {email} successfully logged in via Google OAuth")
         return response
 
     except HTTPException as he:
         raise he
 
     except Exception as e:
-        logger.error("Google login failed: %s", str(e), exc_info=True)
+        logger.error(f"Google OAuth callback error: {str(e)}", exc_info=True)
 
         try:
-            cookie_settings = get_cookie_settings(request)
+            cookie_settings = GoogleOAuthService.get_cookie_settings(request)
             frontend_url = cookie_settings["frontend_url"]
-        except Exception:
+        except Exception as url_error:
+            logger.error(f"Failed to get cookie settings: {str(url_error)}")
             frontend_url = settings.APP_URL
 
+        error_code = str(uuid.uuid4())
+        logger.error(f"OAuth error {error_code}: {str(e)}")
+
         return RedirectResponse(
-            url=f"{frontend_url}/login?error=google_auth_failed&message={str(e)}", status_code=302
+            url=f"{frontend_url}/login?error=auth_failed&code={error_code}",
+            status_code=302,
         )
 
 
-async def _store_refresh_token(user_id: str, refresh_token_jti: str, ttl_days: int = 30) -> bool:
+@router.get("/profile")
+async def get_oauth_profile(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Store refresh token in Redis for token rotation.
+    Fetch current Google OAuth profile information.
+
+    This endpoint is called by the frontend to retrieve the current user's
+    profile data including picture and provider metadata.
+
+    Args:
+        request: HTTP request
+        db: Database session
+
+    Returns:
+        Success response with user profile and OAuth metadata
     """
     try:
-        redis_client = await get_redis_client()
-        key = f"refresh_token:{user_id}:{refresh_token_jti}"
-        await redis_client.setex(key, ttl_days * 24 * 3600, "valid")
-        logger.info(f"Stored refresh token for user {user_id} (Google OAuth)")
-        return True
+        from app.api.core.dependencies.auth import get_current_user
+
+        current_user = await get_current_user(credentials=None, db=db)
+
+        profile_data = {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "name": current_user.name,
+            "profile_picture_url": current_user.profile_picture_url,
+            "auth_provider": current_user.auth_provider,
+            "provider_user_id": current_user.provider_user_id,
+            "provider_profile_data": current_user.provider_profile_data,
+            "is_verified": current_user.is_verified,
+            "created_at": current_user.created_at.isoformat(),
+        }
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Profile retrieved successfully",
+            data=profile_data,
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to store refresh token: {str(e)}")
-        return False
+        logger.error(f"Failed to fetch OAuth profile: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve profile",
+            error="PROFILE_FETCH_ERROR",
+        )
