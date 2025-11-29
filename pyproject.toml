@@ -106,7 +106,6 @@ indent-style = "space"
 env_override_existing_values = 1
 env_files = [".env.test"]
 asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "session"
 
 [tool.poetry.dependencies]
 aio-pika = "^8.3.0"
