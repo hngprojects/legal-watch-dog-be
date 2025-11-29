@@ -56,7 +56,7 @@ class SourceService:
             SourceRead: The created source with sanitized fields.
 
         Raises:
-            HTTPException: 400 if source URL already exists, 500 if creation fails.
+            HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
 
         Examples:
             >>> service = SourceService()
@@ -65,23 +65,24 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
-            # Check if source URL already exists
             existing_source = await db.scalar(
-                select(Source).where(Source.url == str(source_data.url))
+                select(Source).where(
+                    Source.url == str(source_data.url),
+                    Source.jurisdiction_id == source_data.jurisdiction_id,
+                    ~Source.is_deleted,
+                )
             )
             if existing_source:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Source with this URL already exists",
+                    detail="Source with this URL already exists in the jurisdiction",
                 )
 
-            # Handle encryption of auth details
             encrypted_auth = None
             if source_data.auth_details:
                 encrypted_auth = encrypt_auth_details(source_data.auth_details)
                 logger.info(f"Encrypted auth details for source: {source_data.name}")
 
-            # Create database object
             db_source = Source(
                 jurisdiction_id=source_data.jurisdiction_id,
                 name=source_data.name,
@@ -98,7 +99,6 @@ class SourceService:
 
             logger.info(f"Successfully created source: {db_source.id} - {db_source.name}")
 
-            # Return sanitized response
             return self._to_read_schema(db_source)
 
         except HTTPException:
@@ -226,7 +226,6 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Allow access to soft-deleted sources for recovery purposes
         if source.is_deleted and not include_deleted:
             logger.warning(f"Source is deleted and cannot be accessed: {source_id}")
             raise HTTPException(
@@ -267,17 +266,14 @@ class SourceService:
         """
         query = select(Source)
 
-        # Apply filters
         if jurisdiction_id:
             query = query.where(Source.jurisdiction_id == jurisdiction_id)
         if is_active is not None:
             query = query.where(Source.is_active == is_active)
 
-        # Exclude soft-deleted sources by default
         if not include_deleted:
             query = query.where(~Source.is_deleted)
 
-        # Apply pagination
         query = query.offset(skip).limit(limit)
 
         result = await db.execute(query)
@@ -319,14 +315,11 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Allow updating soft-deleted sources (for undo delete)
         logger.debug(f"Updating source {source_id}, is_deleted={source.is_deleted}")
 
         try:
-            # Update fields (excluding unset values)
             update_data = source_data.model_dump(exclude_unset=True)
 
-            # Handle auth_details encryption if provided
             if "auth_details" in update_data:
                 auth_details = update_data.pop("auth_details")
                 if auth_details:
@@ -335,7 +328,6 @@ class SourceService:
                 else:
                     source.auth_details_encrypted = None
 
-            # Update other fields
             for field, value in update_data.items():
                 if field == "url" and value:
                     value = str(value)
@@ -394,7 +386,6 @@ class SourceService:
 
         try:
             if permanent:
-                # Hard delete: remove from database
                 await db.delete(source)
                 await db.commit()
                 logger.info(f"Permanently deleted source: {source_id}")
@@ -403,7 +394,6 @@ class SourceService:
                     "source_id": str(source_id),
                 }
             else:
-                # Soft delete: mark as deleted
                 source.is_deleted = True
                 await db.commit()
                 await db.refresh(source)
@@ -451,7 +441,7 @@ class SourceService:
             >>> print(f"Found {total} revisions, showing {len(revisions)}")
             Found 150 revisions, showing 50
         """
-        # Verify source exists
+
         source = await db.get(Source, source_id)
         if not source:
             logger.warning(f"Cannot fetch revisions - source not found: {source_id}")
@@ -460,7 +450,6 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Query revisions for this source
         query = (
             select(DataRevision)
             .where(DataRevision.source_id == source_id)
@@ -472,7 +461,6 @@ class SourceService:
         result = await db.execute(query)
         revisions = result.scalars().all()
 
-        # Get total count for pagination metadata
         count_query = select(func.count()).where(DataRevision.source_id == source_id)
         count_result = await db.execute(count_query)
         total = count_result.scalar_one()

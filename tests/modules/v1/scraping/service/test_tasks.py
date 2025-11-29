@@ -90,7 +90,9 @@ def test_scrape_source_success(sync_session: Session):
 
     with (
         patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
-        patch("asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "app.api.modules.v1.scraping.service.scraper_service.ScraperService"
+        ) as mock_scraper_cls,
     ):
         mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
@@ -108,6 +110,16 @@ def test_scrape_source_success(sync_session: Session):
 
         mock_db.execute.side_effect = mock_execute
 
+        mock_scraper_instance = MagicMock()
+        mock_scraper_instance.execute_scrape_job = AsyncMock(
+            return_value={
+                "status": "success",
+                "change_detected": False,
+                "change_summary": "No material changes detected",
+            }
+        )
+        mock_scraper_cls.return_value = mock_scraper_instance
+
         mock_context = MagicMock()
         mock_context.retries = 0
         scrape_source.push_request(mock_context)
@@ -124,6 +136,7 @@ def test_scrape_source_success(sync_session: Session):
         next_scrape_time = next_scrape_time.replace(tzinfo=timezone.utc)
 
     assert "scraped successfully" in result
+    assert "no changes" in result
     assert next_scrape_time > datetime.now(timezone.utc)
 
 
@@ -192,11 +205,32 @@ def test_scrape_source_dlq_on_max_retries(sync_session: Session):
     with (
         patch("app.api.modules.v1.scraping.service.tasks.AsyncSessionLocal") as mock_session_cls,
         patch("app.api.modules.v1.scraping.service.tasks.redis.Redis") as mock_redis_cls,
-        patch("asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "app.api.modules.v1.scraping.service.scraper_service.ScraperService"
+        ) as mock_scraper_cls,
     ):
         mock_db = MagicMock()
         mock_session_cls.return_value.__aenter__.return_value = mock_db
-        mock_db.execute = AsyncMock(side_effect=Exception("Simulated scraping failure"))
+        mock_db.execute = AsyncMock()
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+        mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
+
+        async def mock_execute(stmt):
+            result = MagicMock()
+            result.scalars.return_value.first.return_value = (
+                sync_session.execute(stmt).scalars().first()
+            )
+            return result
+
+        mock_db.execute.side_effect = mock_execute
+
+        # Mock ScraperService to raise an exception (simulating scraping failure)
+        mock_scraper_instance = MagicMock()
+        mock_scraper_instance.execute_scrape_job = AsyncMock(
+            side_effect=Exception("Simulated scraping failure")
+        )
+        mock_scraper_cls.return_value = mock_scraper_instance
 
         mock_redis_client = MagicMock()
         mock_redis_cls.return_value = mock_redis_client

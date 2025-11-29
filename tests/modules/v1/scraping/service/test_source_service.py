@@ -140,6 +140,49 @@ class TestSourceServiceCreate:
         assert "Failed to create source" in exc_info.value.detail
         mock_db.rollback.assert_awaited_once()
 
+    @pytest.mark.asyncio
+    async def test_duplicate_url_same_jurisdiction(
+        self, sample_source_create, sample_jurisdiction_id
+    ):
+        """Test that creating source with duplicate URL in same jurisdiction raises error."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        existing_source = Source(
+            id=uuid.uuid4(),
+            jurisdiction_id=sample_jurisdiction_id,
+            name="Existing Source",
+            url=str(sample_source_create.url),
+            source_type=SourceType.WEB,
+            scrape_frequency="DAILY",
+            is_deleted=False,
+        )
+
+        mock_db.scalar = AsyncMock(return_value=existing_source)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 400
+        assert "Source with this URL already exists in the jurisdiction" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_duplicate_url_different_jurisdiction(self, sample_source_create):
+        """Test that creating source with duplicate URL in different jurisdiction is allowed."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        mock_db.scalar = AsyncMock(return_value=None)
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        result = await service.create_source(mock_db, sample_source_create)
+
+        assert isinstance(result, SourceRead)
+        mock_db.add.assert_called_once()
+        mock_db.commit.assert_awaited_once()
+
 
 class TestSourceServiceGet:
     """Tests for SourceService.get_source()"""
