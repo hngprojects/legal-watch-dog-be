@@ -80,6 +80,7 @@ jobs:
 
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          MODEL_NAME=${{ vars.MODEL_NAME || 'gemini-2.0-flash-lite' }}
 
           # Billing Configuration
           TRIAL_DURATION_DAYS=${{ vars.TRIAL_DURATION_DAYS || '14' }}
@@ -299,6 +300,7 @@ jobs:
 
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          MODEL_NAME=${{ vars.MODEL_NAME || 'gemini-2.0-flash-lite' }}
 
           # Billing Configuration
           TRIAL_DURATION_DAYS=${{ vars.TRIAL_DURATION_DAYS || '14' }}
