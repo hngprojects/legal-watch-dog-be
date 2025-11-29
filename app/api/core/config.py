@@ -91,7 +91,8 @@ class Settings(BaseSettings):
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
-    MODEL_NAME: str = "gemini-2.5-flash"
+    TAVILY_API_KEY: str = config("TAVILY_API_KEY", default="your-tavily-api-key")
+    MODEL_NAME: str = config("MODEL_NAME", default="gemini-2.0-flash-lite")
 
     # LLM Configuration
     LLM_API_KEY: str = config("LLM_API_KEY", default="your-llm-api-key")

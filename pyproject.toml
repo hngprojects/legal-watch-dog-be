@@ -65,6 +65,7 @@ dependencies = [
     "google-auth-oauthlib>=1.2.2",
     "itsdangerous>=2.2.0",
     "authlib>=1.6.5",
+    "tavily-python>=0.7.13",
 ]
 
 
