@@ -17,15 +17,15 @@ suggest_sources_responses = {
                                     {
                                         "title": "Federal Court Opinions",
                                         "url": "https://www.uscourts.gov/opinions/",
-                                        "snippet": "Official repository of U.S. Federal Court opinions and decisions",
-                                        "confidence_reason": "Official government source with high authority",
+                                        "snippet": "Official U.S. Federal Court opinions repo",
+                                        "confidence_reason": "Official gov source",
                                         "is_official": True,
                                     },
                                     {
                                         "title": "Court Rules and Procedures",
                                         "url": "https://www.uscourts.gov/rules-policies/",
-                                        "snippet": "Federal court rules, procedures, and administrative policies",
-                                        "confidence_reason": "Official source for procedural guidelines",
+                                        "snippet": "Federal court rules and procedures",
+                                        "confidence_reason": "Official source for guidelines",
                                         "is_official": True,
                                     },
                                 ]

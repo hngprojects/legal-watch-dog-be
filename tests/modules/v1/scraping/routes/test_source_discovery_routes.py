@@ -221,7 +221,7 @@ class TestAcceptSuggestedSourcesEndpoint:
             f"Expected 400, got {response.status_code}: {response.json()}"
         )
         data = response.json()
-        # Error responses use 'error' key, check for the duplicate URL message
+
         assert "already exist" in data.get("message", "").lower()
 
     @pytest.mark.asyncio
@@ -233,8 +233,8 @@ class TestAcceptSuggestedSourcesEndpoint:
         payload = {
             "suggested_sources": [
                 {
-                    "title": "",  # Invalid: empty title
-                    "url": "not-a-valid-url",  # Invalid URL
+                    "title": "",
+                    "url": "not-a-valid-url",
                     "snippet": "Test",
                     "confidence_reason": "Test",
                     "is_official": True,
@@ -260,7 +260,6 @@ class TestAcceptSuggestedSourcesEndpoint:
             headers=auth_headers,
         )
 
-        # Should fail due to invalid URL format (returns 400 for bad URL)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     @pytest.mark.asyncio

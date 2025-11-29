@@ -5,11 +5,7 @@ from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
 from app.api.modules.v1.scraping.routes.docs.source_discovery_docs import (
-    accept_sources_custom_errors,
-    accept_sources_custom_success,
     accept_sources_responses,
-    suggest_sources_custom_errors,
-    suggest_sources_custom_success,
     suggest_sources_responses,
 )
 from app.api.modules.v1.scraping.schemas.source_discovery_schema import SuggestionRequest
@@ -25,7 +21,11 @@ router = APIRouter(
 )
 
 
-@router.post("/sources/suggest", summary="Suggest official sources using AI Researcher", responses=suggest_sources_responses)
+@router.post(
+    "/sources/suggest",
+    summary="Suggest official sources using AI",
+    responses=suggest_sources_responses,
+)
 async def suggest_sources(payload: SuggestionRequest):
     """Triggers the AI Researcher Agent to find valid sources.
 
@@ -45,33 +45,6 @@ async def suggest_sources(payload: SuggestionRequest):
     Raises:
         HTTPException: 500 if configuration error or discovery agent fails.
 
-    Examples:
-        ```
-        POST /sources/suggest
-        {
-            "jurisdiction_name": "Federal Courts",
-            "jurisdiction_description": "United States Federal Court System",
-            "project_description": "Monitor federal court opinions and rulings"
-        }
-
-        Response (200 OK):
-        {
-            "status": "success",
-            "status_code": 200,
-            "message": "Sources suggested successfully",
-            "data": {
-                "sources": [
-                    {
-                        "title": "Federal Court Opinions",
-                        "url": "https://www.uscourts.gov/opinions/",
-                        "snippet": "Official repository of U.S. Federal Court opinions",
-                        "confidence_reason": "Official government source with high authority",
-                        "is_official": true
-                    }
-                ]
-            }
-        }
-        ```
     """
     try:
         service = SourceDiscoveryService()
@@ -103,7 +76,11 @@ async def suggest_sources(payload: SuggestionRequest):
         )
 
 
-@router.post("/sources/accept-suggestions", summary="Accept AI-suggested sources and create them", responses=accept_sources_responses)
+@router.post(
+    "/sources/accept-suggestions",
+    summary="Accept AI-suggested sources",
+    responses=accept_sources_responses,
+)
 async def accept_suggested_sources(
     payload: SourceAccept,
     db: AsyncSession = Depends(get_db),
@@ -136,46 +113,6 @@ async def accept_suggested_sources(
     Raises:
         HTTPException: 400 if duplicate URLs exist or invalid data, 422 if validation fails.
 
-    Examples:
-        ```
-        POST /sources/accept-suggestions
-        {
-            "suggested_sources": [
-                {
-                    "title": "Federal Court Opinions",
-                    "url": "https://www.uscourts.gov/opinions/",
-                    "snippet": "Official repository of U.S. Federal Court opinions",
-                    "confidence_reason": "Official government source",
-                    "is_official": true
-                }
-            ],
-            "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-            "source_type": "web",
-            "scrape_frequency": "DAILY"
-        }
-
-        Response (201 Created):
-        {
-            "status": "success",
-            "status_code": 201,
-            "message": "Suggested sources accepted and created successfully",
-            "data": {
-                "sources": [
-                    {
-                        "id": "123e4567-e89b-12d3-a456-426614174000",
-                        "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
-                        "name": "Federal Court Opinions",
-                        "url": "https://www.uscourts.gov/opinions/",
-                        "source_type": "web",
-                        "scrape_frequency": "DAILY",
-                        "is_active": true,
-                        "created_at": "2025-11-29T10:30:00Z"
-                    }
-                ],
-                "count": 1
-            }
-        }
-        ```
     """
     try:
         sources_to_create = []
