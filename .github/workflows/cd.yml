@@ -152,7 +152,9 @@ jobs:
           APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
           APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
           APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
-
+          
+          # Tavily configuration
+          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
@@ -369,6 +371,9 @@ jobs:
           APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
           APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
           APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
+          
+          # Tavily configuration
+          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
 
           EOF
 
