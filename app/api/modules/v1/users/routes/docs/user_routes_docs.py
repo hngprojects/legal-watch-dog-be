@@ -5,20 +5,30 @@ get_user_profile_responses = {
             "application/json": {
                 "examples": {
                     "success": {
-                        "summary": "User Profile",
+                        "summary": "User Profile with OAuth Data",
                         "value": {
                             "status": "SUCCESS",
                             "status_code": 200,
                             "message": "User profile retrieved successfully",
                             "data": {
-                                "id": "123e4567-e89b-12d3-a456-426614174000",
-                                "email": "user@example.com",
-                                "first_name": "John",
-                                "last_name": "Doe",
-                                "is_verified": True,
-                                "is_active": True,
-                                "created_at": "2024-01-15T10:30:00Z",
-                                "updated_at": "2024-01-15T10:30:00Z",
+                                "user": {
+                                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                                    "email": "user@example.com",
+                                    "name": "John Doe",
+                                    "auth_provider": "google",
+                                    "profile_picture_url": "https://lh3.googleusercontent.com/...",
+                                    "provider_user_id": "107563041634719...",
+                                    "provider_profile_data": {
+                                        "name": "John Doe",
+                                        "picture": "https://lh3.googleusercontent.com/...",
+                                        "email_verified": True,
+                                        "locale": "en",
+                                    },
+                                    "is_verified": True,
+                                    "is_active": True,
+                                    "created_at": "2024-01-15T10:30:00Z",
+                                    "updated_at": "2024-01-15T10:30:00Z",
+                                },
                                 "organizations": [
                                     {
                                         "organization_id": "456e7890-e89b-12d3-a456-426614174001",
@@ -28,6 +38,11 @@ get_user_profile_responses = {
                                         "is_active": True,
                                     }
                                 ],
+                                "statistics": {
+                                    "total_organizations": 1,
+                                    "active_memberships": 1,
+                                    "admin_roles": 1,
+                                },
                             },
                         },
                     }
