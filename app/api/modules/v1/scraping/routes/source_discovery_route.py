@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
@@ -108,6 +108,8 @@ async def accept_suggested_sources(
             },
         )
 
+    except HTTPException:
+        raise
     except ValueError as ve:
         return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,

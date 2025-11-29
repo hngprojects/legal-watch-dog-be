@@ -144,7 +144,7 @@ class SourceService:
             existing_sources = await db.execute(
                 select(Source.url).where(Source.url.in_(urls_to_check))
             )
-            existing_urls = {row[0] for row in existing_sources}
+            existing_urls = set(existing_sources.scalars().all())
 
             duplicates = [url for url in urls_to_check if url in existing_urls]
             if duplicates:
