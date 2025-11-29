@@ -31,7 +31,7 @@ jobs:
 
           # Application URLs
           APP_URL=${{ secrets.APP_URL }}
-          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+          DEV_URL=${{ vars.DEV_URL || 'http://localhost:3000' }}
 
           # Database configuration
           DB_TYPE=${{ vars.DB_TYPE || 'postgresql' }}
@@ -80,6 +80,41 @@ jobs:
 
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          MODEL_NAME=${{ vars.MODEL_NAME || 'gemini-2.0-flash-lite' }}
+
+          # Billing Configuration
+          TRIAL_DURATION_DAYS=${{ vars.TRIAL_DURATION_DAYS || '14' }}
+
+          # Frontend URL (for Stripe redirects)
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+
+          # Stripe Configuration
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+          STRIPE_API_TIMEOUT=${{ vars.STRIPE_API_TIMEOUT || '10' }}
+          STRIPE_RETRY_COUNT=${{ vars.STRIPE_RETRY_COUNT || '3' }}
+          STRIPE_RETRY_BACKOFF=${{ vars.STRIPE_RETRY_BACKOFF || '0.5' }}
+
+          MONTHLY_PRICE=${{ vars.MONTHLY_PRICE || '100' }}
+          YEARLY_PRICE=${{ vars.YEARLY_PRICE || '1000' }}
+
+          STRIPE_YEARLY_PRODUCT_ID=${{ secrets.STRIPE_YEARLY_PRODUCT_ID }}
+          STRIPE_YEARLY_PRICE_ID=${{ secrets.STRIPE_YEARLY_PRICE_ID }}
+
+          STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }}
+          STRIPE_MONTHLY_PRODUCT_ID=${{ secrets.STRIPE_MONTHLY_PRODUCT_ID }}
+
+          STRIPE_ONE_OFF_YEAR_PROD_ID=${{ secrets.STRIPE_ONE_OFF_YEAR_PROD_ID }}
+          STRIPE_ONE_OFF_YEAR_PRICE_ID=${{ secrets.STRIPE_ONE_OFF_YEAR_PRICE_ID }}
+
+          STRIPE_ONE_OFF_MONTH_PROD_ID=${{ secrets.STRIPE_ONE_OFF_MONTH_PROD_ID }}
+          STRIPE_ONE_OFF_MONTH_PRICE_ID=${{ secrets.STRIPE_ONE_OFF_MONTH_PRICE_ID }}
+
+          STRIPE_INVOICE_DURATION_DAYS=${{ vars.STRIPE_INVOICE_DURATION_DAYS || '3' }}
+          STRIPE_CHECKOUT_SUCCESS_PATH=${{ vars.STRIPE_CHECKOUT_SUCCESS_PATH || '/billing/success' }}
+          STRIPE_CHECKOUT_CANCEL_PATH=${{ vars.STRIPE_CHECKOUT_CANCEL_PATH || '/billing/cancel' }}
 
           # MinIO
           MINIO_ENDPOINT=${{ vars.MINIO_ENDPOINT || 'localhost:9000' }}
@@ -97,6 +132,30 @@ jobs:
           # Invitation expiration
           INVITATION_TOKEN_EXPIRE_MINUTES=${{ vars.INVITATION_TOKEN_EXPIRE_MINUTES || '1440' }}
 
+          # Microsoft OAuth
+          MICROSOFT_REDIRECT_URI=${{ secrets.MICROSOFT_REDIRECT_URI }}
+          MICROSOFT_TENANT_ID=${{ secrets.MICROSOFT_TENANT_ID }}
+          MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
+          MICROSOFT_SCOPES=${{ vars.MICROSOFT_SCOPES || '["https://graph.microsoft.com/User.Read", "openid", "email", "profile"]' }}
+          MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
+          MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
+          MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
+
+          # Contact Us
+          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || vars.ADMIN_EMAIL }}
+
+          # Apple Auth
+          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
+          APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
+          
+          # Tavily configuration
+          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
@@ -192,7 +251,7 @@ jobs:
 
           # Application URLs
           APP_URL=${{ secrets.APP_URL }}
-          DEV_URL="${{ vars.DEV_URL || 'http://localhost:3000' }}"
+          DEV_URL=${{ vars.DEV_URL || 'http://localhost:3000' }}
 
           # Database configuration
           DB_TYPE=${{ vars.DB_TYPE || 'postgresql' }}
@@ -241,6 +300,41 @@ jobs:
 
           # Gemini API Key (explicit)
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          MODEL_NAME=${{ vars.MODEL_NAME || 'gemini-2.0-flash-lite' }}
+
+          # Billing Configuration
+          TRIAL_DURATION_DAYS=${{ vars.TRIAL_DURATION_DAYS || '14' }}
+
+          # Frontend URL (for Stripe redirects)
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+
+          # Stripe Configuration
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+          STRIPE_API_TIMEOUT=${{ vars.STRIPE_API_TIMEOUT || '10' }}
+          STRIPE_RETRY_COUNT=${{ vars.STRIPE_RETRY_COUNT || '3' }}
+          STRIPE_RETRY_BACKOFF=${{ vars.STRIPE_RETRY_BACKOFF || '0.5' }}
+
+          MONTHLY_PRICE=${{ vars.MONTHLY_PRICE || '100' }}
+          YEARLY_PRICE=${{ vars.YEARLY_PRICE || '1000' }}
+
+          STRIPE_YEARLY_PRODUCT_ID=${{ secrets.STRIPE_YEARLY_PRODUCT_ID }}
+          STRIPE_YEARLY_PRICE_ID=${{ secrets.STRIPE_YEARLY_PRICE_ID }}
+
+          STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }}
+          STRIPE_MONTHLY_PRODUCT_ID=${{ secrets.STRIPE_MONTHLY_PRODUCT_ID }}
+
+          STRIPE_ONE_OFF_YEAR_PROD_ID=${{ secrets.STRIPE_ONE_OFF_YEAR_PROD_ID }}
+          STRIPE_ONE_OFF_YEAR_PRICE_ID=${{ secrets.STRIPE_ONE_OFF_YEAR_PRICE_ID }}
+
+          STRIPE_ONE_OFF_MONTH_PROD_ID=${{ secrets.STRIPE_ONE_OFF_MONTH_PROD_ID }}
+          STRIPE_ONE_OFF_MONTH_PRICE_ID=${{ secrets.STRIPE_ONE_OFF_MONTH_PRICE_ID }}
+
+          STRIPE_INVOICE_DURATION_DAYS=${{ vars.STRIPE_INVOICE_DURATION_DAYS || '3' }}
+          STRIPE_CHECKOUT_SUCCESS_PATH=${{ vars.STRIPE_CHECKOUT_SUCCESS_PATH || '/billing/success' }}
+          STRIPE_CHECKOUT_CANCEL_PATH=${{ vars.STRIPE_CHECKOUT_CANCEL_PATH || '/billing/cancel' }}
 
           # MinIO
           MINIO_ENDPOINT=${{ vars.MINIO_ENDPOINT || 'localhost:9000' }}
@@ -257,6 +351,31 @@ jobs:
 
           # Invitation expiration
           INVITATION_TOKEN_EXPIRE_MINUTES=${{ vars.INVITATION_TOKEN_EXPIRE_MINUTES || '1440' }}
+
+          # Microsoft OAuth
+          MICROSOFT_REDIRECT_URI=${{ secrets.MICROSOFT_REDIRECT_URI }}
+          MICROSOFT_TENANT_ID=${{ secrets.MICROSOFT_TENANT_ID }}
+          MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
+          MICROSOFT_SCOPES=${{ vars.MICROSOFT_SCOPES || '["https://graph.microsoft.com/User.Read", "openid", "email", "profile"]' }}
+          MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
+          MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
+          MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
+
+          # Contact Us
+          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || vars.ADMIN_EMAIL }}
+
+          # Apple Auth
+          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
+          APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
+          
+          # Tavily configuration
+          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
 
           EOF
 
