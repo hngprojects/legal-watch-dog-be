@@ -7,7 +7,10 @@ import pytest
 from fastapi import status
 
 from app.api.modules.v1.users.models.users_model import User
-from app.api.modules.v1.users.routes.users_route import update_user_profile
+from app.api.modules.v1.users.routes.users_route import (
+    update_user_profile,
+    upload_user_profile_picture,
+)
 from app.api.modules.v1.users.schemas.user_profile_schema import UpdateUserProfileRequest
 
 
@@ -73,3 +76,51 @@ async def test_update_user_profile_no_fields():
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "No fields to update" in response.body.decode()
+
+
+@pytest.mark.asyncio
+async def test_upload_user_profile_picture_success():
+    """Test successful profile picture upload."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+
+    # Mock file upload
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.content_type = "image/jpeg"
+    mock_file.read = AsyncMock(return_value=b"fake image data")
+
+    with (
+        patch("app.api.modules.v1.users.routes.users_route.upload_profile_picture") as mock_upload,
+        patch(
+            "app.api.modules.v1.users.routes.users_route.UserCRUD.update_user",
+            new_callable=AsyncMock,
+        ) as mock_update,
+        patch("app.api.modules.v1.users.routes.users_route.settings") as mock_settings,
+        patch("app.api.modules.v1.users.routes.users_route.uuid.uuid4") as mock_uuid,
+    ):
+        mock_settings.MINIO_PROFILE_BUCKET = "profile-pictures"
+        mock_settings.MINIO_ENDPOINT = "localhost:9001"
+        mock_settings.MINIO_SECURE = False
+        mock_uuid.return_value = uuid.UUID("12345678-1234-5678-9012-123456789012")
+
+        mock_upload.return_value = (
+            f"{mock_current_user.id}/12345678-1234-5678-9012-123456789012.jpg"
+        )
+        mock_update.return_value = mock_current_user
+
+        response = await upload_user_profile_picture(
+            file=mock_file, current_user=mock_current_user, db=mock_db
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.body.decode()
+        assert "Profile picture uploaded successfully" in data
+        assert "profile_picture_url" in data
+
+        mock_upload.assert_called_once()
+        expected_url = f"http://localhost:9001/profile-pictures/{mock_current_user.id}/12345678-1234-5678-9012-123456789012.jpg"
+        mock_update.assert_called_once_with(
+            db=mock_db, user_id=mock_current_user.id, profile_picture_url=expected_url
+        )
