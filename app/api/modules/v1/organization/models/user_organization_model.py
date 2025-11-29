@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
@@ -37,6 +37,16 @@ class UserOrganization(SQLModel, table=True):
         default=True, nullable=False, description="Whether this membership is active"
     )
 
+    title: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="User's job title in this organization (e.g., 'Administrative Officer')",
+    )
+
+    department: Optional[str] = Field(
+        None, max_length=100, description="User's department (e.g., 'Compliance team')"
+    )
+
     joined_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
@@ -51,6 +61,14 @@ class UserOrganization(SQLModel, table=True):
     updated_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+    is_deleted: bool = Field(default=False, nullable=False, description="Soft delete flag")
+
+    deleted_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+        description="When the membership was soft deleted",
     )
 
     user: "User" = Relationship(

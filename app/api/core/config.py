@@ -88,10 +88,12 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     MINIO_USE_SSL: bool = False
+    MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
-    MODEL_NAME: str = "gemini-2.5-flash"
+    TAVILY_API_KEY: str = config("TAVILY_API_KEY", default="your-tavily-api-key")
+    MODEL_NAME: str = config("MODEL_NAME", default="gemini-2.0-flash-lite")
 
     # LLM Configuration
     LLM_API_KEY: str = config("LLM_API_KEY", default="your-llm-api-key")
@@ -172,6 +174,13 @@ class Settings(BaseSettings):
         "MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL", default="https://minamoto.emerj.net/dashboard"
     )
     MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="your-google-client-id")
+    GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="your-google-client-secret")
+    GOOGLE_REDIRECT_URI: str = config(
+        "GOOGLE_REDIRECT_URI", default="https://minamoto.emerj.net/api/v1/oauth/google/callback"
+    )
 
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
 

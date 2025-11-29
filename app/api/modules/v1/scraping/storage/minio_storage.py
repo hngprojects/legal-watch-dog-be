@@ -112,3 +112,65 @@ def fetch_raw_content_from_minio(
     except Exception as e:
         logger.error(f"Failed to fetch object {object_name} from MinIO: {e}")
         return None
+
+
+def upload_profile_picture(
+    file_data: bytes, bucket_name: str, object_name: str, content_type: str = "image/jpeg"
+) -> str:
+    """
+    Uploads profile picture data to the specified MinIO bucket.
+
+    Args:
+        file_data (bytes): The image data to upload.
+        bucket_name (str): The target bucket (e.g., 'profile-pictures').
+        object_name (str): The unique key (e.g., 'user_id/uuid.jpg').
+        content_type (str): MIME type of the image.
+
+    Returns:
+        str: The object_name (key) if successful.
+
+    Raises:
+        Exception: If upload fails.
+    """
+    if not _HAS_MINIO:
+        raise Exception(
+            "Missing optional dependency: `minio` package is not installed. Run `pip install minio`"
+            "to enable storage operations."
+        )
+    if not minio_client:
+        raise Exception("MinIO client is not initialized. Check configuration.")
+
+    try:
+        try:
+            if not minio_client.bucket_exists(bucket_name=bucket_name):
+                logger.info(f"Bucket '{bucket_name}' does not exist. Creating it...")
+                minio_client.make_bucket(bucket_name=bucket_name)
+        except Exception as e:
+            logger.warning(f"Bucket existence check failed (may already exist): {e}")
+            try:
+                minio_client.make_bucket(bucket_name=bucket_name)
+            except Exception as create_err:
+                if "BucketAlreadyExists" not in str(
+                    create_err
+                ) and "BucketAlreadyOwnedByYou" not in str(create_err):
+                    raise create_err
+
+        data_stream = io.BytesIO(file_data)
+
+        minio_client.put_object(
+            bucket_name=bucket_name,
+            object_name=object_name,
+            data=data_stream,
+            length=len(file_data),
+            content_type=content_type,
+        )
+
+        logger.info(f"Successfully uploaded profile picture to MinIO: {bucket_name}/{object_name}")
+        return object_name
+
+    except S3Error as e:
+        logger.error(f"MinIO S3 Error during profile picture upload: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error uploading profile picture to MinIO: {e}")
+        raise e
