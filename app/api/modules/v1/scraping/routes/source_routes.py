@@ -52,6 +52,7 @@ from app.api.modules.v1.scraping.schemas.data_revision_schema import (
     PaginationMetadata,
 )
 from app.api.modules.v1.scraping.schemas.source_service import (
+    SourceBulkCreate,
     SourceCreate,
     SourceUpdate,
 )
@@ -143,6 +144,47 @@ async def create_source(
         status_code=status.HTTP_201_CREATED,
         message="Source created successfully",
         data={"source": source.model_dump()},
+    )
+
+
+@router.post("/bulk", status_code=status.HTTP_201_CREATED)
+async def bulk_create_sources(
+    sources_data: SourceBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create multiple sources in a single request.
+
+    This endpoint allows bulk creation of sources with transaction safety.
+    If any source fails validation (e.g., duplicate URL), the entire operation
+    is rolled back and no sources are created.
+
+    Args:
+        sources_data (SourceBulkCreate): Bulk source creation payload with list of sources.
+        db (AsyncSession): Database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        JSONResponse: Standard success response with list of created sources.
+
+    Raises:
+        HTTPException: 400 if any URL already exists, 500 if creation fails.
+
+
+    """
+    logger.info(f"User {current_user.id} bulk creating {len(sources_data.sources)} sources")
+
+    service = SourceService()
+    sources = await service.bulk_create_sources(db, sources_data.sources)
+
+    return success_response(
+        status_code=status.HTTP_201_CREATED,
+        message="Sources created successfully",
+        data={
+            "sources": [source.model_dump() for source in sources],
+            "count": len(sources),
+        },
     )
 
 

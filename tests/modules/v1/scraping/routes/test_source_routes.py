@@ -38,7 +38,7 @@ async def sample_jurisdiction_id(pg_async_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    organization = Organization(name="Test Organization")
+    organization = Organization(name="Test Organization", is_active=True)
     pg_async_session.add(organization)
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
@@ -249,8 +249,165 @@ async def test_create_source_unauthorized(client, pg_async_session, sample_juris
     response = await client.post("/api/v1/sources", json=payload)
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    """Tests for GET /sources"""
 
+
+class TestBulkCreateSourceEndpoint:
+    """Tests for POST /sources/bulk"""
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_success(
+        self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
+    ):
+        """Test successful bulk creation of sources."""
+
+        payload = {
+            "sources": [
+                {
+                    "jurisdiction_id": str(sample_jurisdiction_id),
+                    "name": "Bulk Source 1",
+                    "url": "https://bulk1.example.com",
+                    "source_type": "web",
+                    "scrape_frequency": "DAILY",
+                },
+                {
+                    "jurisdiction_id": str(sample_jurisdiction_id),
+                    "name": "Bulk Source 2",
+                    "url": "https://bulk2.example.com",
+                    "source_type": "web",
+                    "scrape_frequency": "HOURLY",
+                },
+            ]
+        }
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.post(
+            "/api/v1/sources/bulk",
+            json=payload,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["status_code"] == 201
+        assert data["message"] == "Sources created successfully"
+        assert "sources" in data["data"]
+        assert data["data"]["count"] == 2
+        assert len(data["data"]["sources"]) == 2
+        assert data["data"]["sources"][0]["name"] == "Bulk Source 1"
+        assert data["data"]["sources"][1]["name"] == "Bulk Source 2"
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_empty_list(
+        self, client, pg_async_session, auth_headers, sample_user
+    ):
+        """Test bulk creation with empty sources list fails validation."""
+
+        payload = {"sources": []}
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.post(
+            "/api/v1/sources/bulk",
+            json=payload,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_duplicate_url(
+        self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
+    ):
+        """Test bulk creation fails when duplicate URLs exist."""
+
+        # First create a source with the normalized URL (with trailing slash as Pydantic does)
+        from pydantic import HttpUrl
+
+        existing_source = Source(
+            id=uuid.uuid4(),
+            jurisdiction_id=sample_jurisdiction_id,
+            name="Existing Source",
+            url=str(HttpUrl("https://duplicate.example.com")),
+            source_type=SourceType.WEB,
+            scrape_frequency="DAILY",
+        )
+        pg_async_session.add(existing_source)
+        await pg_async_session.commit()
+
+        payload = {
+            "sources": [
+                {
+                    "jurisdiction_id": str(sample_jurisdiction_id),
+                    "name": "New Source",
+                    "url": "https://duplicate.example.com",  # Duplicate URL
+                    "source_type": "web",
+                    "scrape_frequency": "DAILY",
+                }
+            ]
+        }
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.post(
+            "/api/v1/sources/bulk",
+            json=payload,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, (
+            f"Expected 400, got {response.status_code}: {response.json()}"
+        )
+        data = response.json()
+        # Error responses use 'error' key, check for the duplicate URL message
+        assert "already exist" in data.get("message", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_unauthorized(self, client, pg_async_session):
+        """Test that unauthenticated bulk create requests are rejected."""
+
+        payload = {
+            "sources": [
+                {
+                    "jurisdiction_id": str(uuid.uuid4()),
+                    "name": "Test Source",
+                    "url": "https://example.com",
+                    "source_type": "web",
+                    "scrape_frequency": "DAILY",
+                }
+            ]
+        }
+
+        app.dependency_overrides.clear()
+
+        response = await client.post("/api/v1/sources/bulk", json=payload)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestGetSourcesListEndpoint:
     @pytest.mark.asyncio
     async def test_get_sources_success(
         self, client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
@@ -600,7 +757,8 @@ async def test_source_for_revisions(pg_async_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    organization = Organization(name="Test Revision Org", email="revisions@test.com")
+    # Create organization
+    organization = Organization(name="Test Revision Org", is_active=True)
     pg_async_session.add(organization)
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
