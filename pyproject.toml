@@ -44,24 +44,28 @@ dependencies = [
     "pyyaml>=6.0.3",
     "readability-lxml>=0.8.4.1",
     "redis>=5.0.0",
+    "stripe>=5.0.0",   
     "sqlalchemy>=2.0.44",
     "sqlmodel>=0.0.27",
     "uvicorn[standard]>=0.38.0",
     "pre-commit>=4.4.0",
-
-
+    "msal>=1.34.0",
+    "phonenumbers>=9.0.19",
     "pytest-asyncio>=1.3.0",
     "aiosmtplib>=5.0.0",
     "ruff>=0.14.5",
     "aio-pika>=8.3.0",
     "google-generativeai>=0.3.0",
-
     "cloudscraper>=1.2.71",
     "pdfplumber>=0.11.8",
     "playwright>=1.56.0",
-
     "uvicorn[standard]>=0.38.0",
-    "stripe>=14.0.1"
+    "stripe>=14.0.1",
+    "google-auth>=2.43.0",
+    "google-auth-oauthlib>=1.2.2",
+    "itsdangerous>=2.2.0",
+    "authlib>=1.6.5",
+    "tavily-python>=0.7.13",
 ]
 
 
@@ -74,6 +78,7 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
     "pytest-env>=1.1.3",
+    "pytest-xdist>=3.6.1",
     "ruff==0.14.5",
     "tox>=4.32.0"
 ]

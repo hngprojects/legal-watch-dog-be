@@ -6,6 +6,10 @@ from alembic import context
 from app.api.core.config import BASE_DIR, settings
 from app.api.db.database import Base
 from app.api.modules.v1.auth.models.otp_model import OTP
+from app.api.modules.v1.auth.models.oauth_models import RefreshTokenMetadata, OAuthLoginEvent
+from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
+from app.api.modules.v1.billing.models.payment_method import PaymentMethod
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -16,6 +20,8 @@ from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
+from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
+from app.api.modules.v1.notifications.models.revision_notification import Notification
 
 
 # this is the Alembic Config object, which provides

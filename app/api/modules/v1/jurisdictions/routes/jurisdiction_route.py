@@ -1,12 +1,10 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, cast
+from typing import List, Optional, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard
 from app.api.db.database import get_db
@@ -21,6 +19,8 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
     OrgResourceGuard,
     get_descendant_ids,
 )
+from app.api.modules.v1.scraping.schemas.source_service import SourceRead
+from app.api.modules.v1.scraping.service.source_service import SourceService
 from app.api.utils.pagination import calculate_pagination
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -38,7 +38,7 @@ service = JurisdictionService()
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=JurisdictionResponseSchema)
 async def create_jurisdiction(
-    payload: JurisdictionCreateSchema, db: AsyncSession = Depends(get_db)
+    organization_id: UUID, payload: JurisdictionCreateSchema, db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new Jurisdiction within a project.
@@ -80,7 +80,7 @@ async def create_jurisdiction(
     logger.debug("Creating jurisdiction with payload: %s", payload.model_dump())
 
     try:
-        created = await service.create(db, jurisdiction)
+        created = await service.create(db, jurisdiction, organization_id)
 
         logger.info("Jurisdiction created successfully %s", created)
         return success_response(
@@ -96,6 +96,7 @@ async def create_jurisdiction(
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[JurisdictionResponseSchema])
 async def get_all_jurisdictions(
+    organization_id: UUID,
     db: AsyncSession = Depends(get_db),
     page: int = 1,
     page_size: int = 10,
@@ -124,21 +125,25 @@ async def get_all_jurisdictions(
     if page_size < 1:
         page_size = 10
 
-    stmt_total = select(func.count(Jurisdiction.id))  # type: ignore
-    result_total = await db.execute(stmt_total)
-    total = result_total.scalar() or 0
+    jurisdictions = await service.get_all_jurisdictions(db, organization_id=organization_id)
 
+    total = len(jurisdictions)
     if total == 0:
-        logger.info("No jurisdictions found")
+        logger.info("No jurisdictions found for organization_id=%s", organization_id)
         return error_response(status_code=404, message="No jurisdictions found")
 
-    stmt_page = select(Jurisdiction).offset((page - 1) * page_size).limit(page_size)
-    result_page = await db.execute(stmt_page)
-    page_items = result_page.scalars().all()
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = jurisdictions[start:end]
 
     pagination = calculate_pagination(total=total, page=page, limit=page_size)
 
-    logger.info("Retrieved %d jurisdictions for page %d", len(page_items), page)
+    logger.info(
+        "Retrieved %d jurisdictions for organization_id=%s, page %d",
+        len(page_items),
+        organization_id,
+        page,
+    )
 
     def _jid(j):
         try:
@@ -161,6 +166,7 @@ async def get_all_jurisdictions(
     response_model=List[JurisdictionResponseSchema],
 )
 async def get_jurisdictions_by_project(
+    organization_id: UUID,
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
     page: int = 1,
@@ -179,7 +185,7 @@ async def get_jurisdictions_by_project(
         List[JurisdictionResponseSchema]: A paginated list of jurisdiction records.
     """
 
-    jurisdictions = await service.get_jurisdictions_by_project(db, project_id)
+    jurisdictions = await service.get_jurisdictions_by_project(db, project_id, organization_id)
     logger.debug("Retrieved %d jurisdictions", len(jurisdictions) if jurisdictions else 0)
 
     if not jurisdictions:
@@ -223,6 +229,7 @@ async def get_jurisdictions_by_project(
 
 @router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def soft_delete_jurisdictions_by_project(
+    organization_id: UUID,
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
@@ -240,7 +247,7 @@ async def soft_delete_jurisdictions_by_project(
         "This will also archive all nested child jurisdictions.",
         project_id,
     )
-    deleted = await service.soft_delete(db, project_id=project_id)
+    deleted = await service.soft_delete(organization_id, db, project_id=project_id)
     logger.debug("Deleted result: %s", deleted)
 
     if not deleted:
@@ -267,6 +274,7 @@ async def soft_delete_jurisdictions_by_project(
     response_model=JurisdictionResponseSchema,
 )
 async def get_jurisdiction(
+    organization_id: UUID,
     jurisdiction_id: UUID,
     db: AsyncSession = Depends(get_db),
     page: int = 1,
@@ -280,7 +288,7 @@ async def get_jurisdiction(
     logger.debug(
         "Fetching jurisdiction with id=%s (page=%s, page_size=%s)", jurisdiction_id, page, page_size
     )
-    jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id)
+    jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id, organization_id)
     if not jurisdiction:
         logger.info("jurisdiction not found: id=%s", jurisdiction_id)
         return error_response(status_code=404, message="Jurisdiction not found")
@@ -359,6 +367,7 @@ async def get_jurisdiction(
     response_model=JurisdictionResponseSchema,
 )
 async def update_jurisdiction(
+    organization_id: UUID,
     jurisdiction_id: UUID,
     payload: JurisdictionUpdateSchema,
     db: AsyncSession = Depends(get_db),
@@ -405,7 +414,9 @@ async def update_jurisdiction(
 
         if "is_deleted" in incoming and incoming.get("is_deleted") is True:
             logger.debug("Archiving jurisdiction via PATCH: id=%s", jurisdiction_id)
-            deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
+            deleted = await service.soft_delete(
+                organization_id, db, jurisdiction_id=jurisdiction_id
+            )
             if not deleted:
                 logger.info("Jurisdiction not found with id=%s", jurisdiction_id)
                 return error_response(status_code=404, message="Jurisdiction not found")
@@ -418,7 +429,9 @@ async def update_jurisdiction(
 
         if "is_deleted" in incoming and incoming.get("is_deleted") is False:
             logger.debug("Restoring jurisdiction via PATCH: id=%s", jurisdiction_id)
-            restored = await service.restore_jurisdiction_and_children(db, jurisdiction_id)
+            restored = await service.restore_jurisdiction_and_children(
+                db, jurisdiction_id, organization_id
+            )
             if not restored:
                 return error_response(
                     status_code=404, message="Jurisdiction not found or not deleted"
@@ -455,7 +468,7 @@ async def update_jurisdiction(
                 datetime.now(timezone.utc) if incoming.get("is_deleted") else None
             )
 
-        updated = await service.update(db, jurisdiction)
+        updated = await service.update(db, jurisdiction, organization_id)
 
         logger.info(
             "Jurisdiction updated successfully: id=%s, project_id=%s",
@@ -475,6 +488,7 @@ async def update_jurisdiction(
 
 @router.delete("/{jurisdiction_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def soft_delete_jurisdiction(
+    organization_id: UUID,
     jurisdiction_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
@@ -488,7 +502,7 @@ async def soft_delete_jurisdiction(
            Archived ids
     """
     logger.debug("Soft deleting jurisdiction with id=%s", jurisdiction_id)
-    deleted = await service.soft_delete(db, jurisdiction_id=jurisdiction_id)
+    deleted = await service.soft_delete(organization_id, db, jurisdiction_id=jurisdiction_id)
     logger.debug("Deleted result: %s", deleted)
 
     if not deleted:
@@ -507,7 +521,9 @@ async def soft_delete_jurisdiction(
     status_code=status.HTTP_200_OK,
     response_model=JurisdictionResponseSchema,
 )
-async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)):
+async def restore_jurisdiction(
+    organization_id: UUID, jurisdiction_id: UUID, db: AsyncSession = Depends(get_db)
+):
     """
     Restore a previously archived (soft-deleted) jurisdiction
     whether flat or nested.
@@ -532,14 +548,16 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     logger.debug("Attempting to restore jurisdiction with id=%s", jurisdiction_id)
 
     try:
-        restored = await service.restore_jurisdiction_and_children(db, jurisdiction_id)
+        restored = await service.restore_jurisdiction_and_children(
+            db, jurisdiction_id, organization_id
+        )
     except Exception as exc:
         logger.debug(
             "restore_jurisdiction_and_children failed, falling back to legacy restore flow: %s", exc
         )
         try:
             jurisdiction = await service.get_jurisdiction_for_restoration(
-                db, jurisdiction_id, restore_nested=True
+                db, organization_id, jurisdiction_id, restore_nested=True
             )
             if not jurisdiction:
                 restored = None
@@ -549,7 +567,7 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
                     jurisdiction.deleted_at = None
                 except Exception:
                     pass
-                updated = await service.update(db, jurisdiction)
+                updated = await service.update(db, jurisdiction, organization_id)
                 if isinstance(updated, dict):
                     restored = updated
                 else:
@@ -593,7 +611,9 @@ async def restore_jurisdiction(jurisdiction_id: UUID, db: AsyncSession = Depends
     status_code=status.HTTP_200_OK,
     response_model=List[JurisdictionResponseSchema],
 )
-async def restore_jurisdictions_by_project_id(project_id: UUID, db: AsyncSession = Depends(get_db)):
+async def restore_jurisdictions_by_project_id(
+    project_id: UUID, organization_id: UUID, db: AsyncSession = Depends(get_db)
+):
     """Restore all archived jurisdictions (whether flat or nested)
     for a project and return them.
        Args:
@@ -610,7 +630,9 @@ async def restore_jurisdictions_by_project_id(project_id: UUID, db: AsyncSession
         or if a database error occurs during the restoration process.
     """
     logger.debug("Restoring all archived jurisdictions for project_id=%s", project_id)
-    restored_jurisdictions = await service.restore_all_archived_jurisdictions(db, project_id)
+    restored_jurisdictions = await service.restore_all_archived_jurisdictions(
+        db, organization_id, project_id
+    )
     logger.debug("Restored result: %s", restored_jurisdictions)
 
     if not restored_jurisdictions:
@@ -636,4 +658,60 @@ async def restore_jurisdictions_by_project_id(project_id: UUID, db: AsyncSession
         status_code=200,
         message=f"Restored {len(restored_jurisdictions)} jurisdiction(s)",
         data={"jurisdictions": restored_jurisdictions},
+    )
+
+
+@router.get(
+    "/{jurisdiction_id}/sources",
+    status_code=status.HTTP_200_OK,
+    response_model=List[SourceRead],
+)
+async def get_sources_for_jurisdiction(
+    organization_id: UUID,
+    jurisdiction_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+):
+    """
+    Retrieve sources for a specific jurisdiction with optional filtering and pagination.
+
+    Args:
+        organization_id (UUID): Organization identifier.
+        jurisdiction_id (UUID): Jurisdiction identifier.
+        db (AsyncSession): Database session.
+        skip (int): Pagination offset (default 0).
+        limit (int): Maximum records to return (default 100, max 500).
+        is_active (Optional[bool]): Filter by active status.
+
+    Returns:
+        JSONResponse: Standard success response with list of sources.
+
+    Raises:
+        HTTPException: 404 if jurisdiction not found.
+    """
+    logger.info(
+        f"User retrieving sources for jurisdiction: {jurisdiction_id} "
+        f"(skip={skip}, limit={limit}, is_active={is_active})"
+    )
+
+    jurisdiction = await service.get_jurisdiction_by_id(db, jurisdiction_id, organization_id)
+    if not jurisdiction:
+        logger.info("Jurisdiction not found: id=%s", jurisdiction_id)
+        return error_response(status_code=404, message="Jurisdiction not found")
+
+    source_service = SourceService()
+    sources = await source_service.get_sources(
+        db=db,
+        skip=skip,
+        limit=limit,
+        jurisdiction_id=jurisdiction_id,
+        is_active=is_active,
+    )
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Sources retrieved successfully",
+        data={"sources": [source.model_dump() for source in sources]},
     )

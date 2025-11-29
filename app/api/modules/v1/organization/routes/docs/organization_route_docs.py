@@ -453,3 +453,96 @@ update_organization_custom_success = {
     "status_code": 200,
     "description": "Organization updated successfully.",
 }
+
+delete_organization_responses = {
+    204: {
+        "description": "Organization Deleted Successfully",
+    },
+    400: {
+        "description": "Bad Request - Cannot Delete Organization",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "active_members": {
+                        "summary": "Organization Has Active Members",
+                        "value": {
+                            "status": "ERROR",
+                            "message": "Cannot delete org with active members. Deactivate first",
+                            "status_code": 400,
+                            "errors": {},
+                        },
+                    },
+                    "already_deleted": {
+                        "summary": "Organization Already Deleted",
+                        "value": {
+                            "status": "ERROR",
+                            "message": "Organization is already deleted",
+                            "status_code": 400,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+    403: {
+        "description": "Forbidden - Admin Access Required",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "not_admin": {
+                        "summary": "User Not Organization Admin",
+                        "value": {
+                            "status": "ERROR",
+                            "message": "Only organization admins can delete organizations",
+                            "status_code": 403,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+    404: {
+        "description": "Not Found - Organization Not Found",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "organization_not_found": {
+                        "summary": "Organization Not Found",
+                        "value": {
+                            "status": "ERROR",
+                            "message": "Organization not found",
+                            "status_code": 404,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "server_error": {
+                        "summary": "Server Error",
+                        "value": {
+                            "status": "ERROR",
+                            "message": "Failed to delete organization",
+                            "status_code": 500,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+}
+
+delete_organization_custom_errors = ["400", "403", "404", "500"]
+delete_organization_custom_success = {
+    "status_code": 204,
+    "description": "Organization deleted successfully.",
+}

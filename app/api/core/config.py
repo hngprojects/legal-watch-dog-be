@@ -3,6 +3,7 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "main.py").exists())
@@ -87,10 +88,12 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     MINIO_USE_SSL: bool = False
+    MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
-    MODEL_NAME: str = "gemini-2.5-flash"
+    TAVILY_API_KEY: str = config("TAVILY_API_KEY", default="your-tavily-api-key")
+    MODEL_NAME: str = config("MODEL_NAME", default="gemini-2.0-flash-lite")
 
     # LLM Configuration
     LLM_API_KEY: str = config("LLM_API_KEY", default="your-llm-api-key")
@@ -101,6 +104,97 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = config("LLM_MAX_TOKENS", default=1000, cast=int)
     LLM_SYSTEM_PROMPT: str = config(
         "LLM_SYSTEM_PROMPT", default="You are a data extraction specialist..."
+    )
+
+    # Stripe configuration
+    STRIPE_SECRET_KEY: str = config("STRIPE_SECRET_KEY", default="sk_test_...")
+    STRIPE_PUBLISHABLE_KEY: str = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_...")
+    STRIPE_WEBHOOK_SECRET: str = config("STRIPE_WEBHOOK_SECRET", default="whsec_...")
+    STRIPE_API_TIMEOUT: int = config("STRIPE_API_TIMEOUT", default=30, cast=int)
+    STRIPE_RETRY_COUNT: int = config("STRIPE_RETRY_COUNT", default=3, cast=int)
+    STRIPE_RETRY_BACKOFF: float = config("STRIPE_RETRY_BACKOFF", default=0.5, cast=float)
+
+    MONTHLY_PRICE: int = config("MONTHLY_PRICE", default=100, cast=int)
+    YEARLY_PRICE: int = config("YEARLY_PRICE", default=1000, cast=int)
+    STRIPE_MONTHLY_PRODUCT_ID: str = config("STRIPE_MONTHLY_PRODUCT_ID", default="prod_monthly_123")
+    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="price_monthly_id")
+    STRIPE_YEARLY_PRODUCT_ID: str = config("STRIPE_YEARLY_PRODUCT_ID", default="prod_yearly_123")
+    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="price_yearly_id")
+    STRIPE_ONE_OFF_YEAR_PROD_ID: str = config(
+        "STRIPE_ONE_OFF_YEAR_PROD_ID", default="prod_oneoff_year_123"
+    )
+    STRIPE_ONE_OFF_YEAR_PRICE_ID: str = config(
+        "STRIPE_ONE_OFF_YEAR_PRICE_ID", default="price_oneoff_year_id"
+    )
+    STRIPE_ONE_OFF_MONTH_PROD_ID: str = config(
+        "STRIPE_ONE_OFF_MONTH_PROD_ID", default="prod_oneoff_month_123"
+    )
+    STRIPE_ONE_OFF_MONTH_PRICE_ID: str = config(
+        "STRIPE_ONE_OFF_MONTH_PRICE_ID", default="price_oneoff_month_id"
+    )
+    STRIPE_INVOICE_DURATION_DAYS: int = config("STRIPE_INVOICE_DURATION_DAYS", default=3, cast=int)
+    STRIPE_CHECKOUT_SUCCESS_PATH: str = config(
+        "STRIPE_CHECKOUT_SUCCESS_PATH", default="/billing/success"
+    )
+    STRIPE_CHECKOUT_CANCEL_PATH: str = config(
+        "STRIPE_CHECKOUT_CANCEL_PATH", default="/billing/cancel"
+    )
+
+    # Frontend URL (for Stripe redirects)
+    @property
+    def FRONTEND_URL(self) -> str:
+        return os.getenv("FRONTEND_URL") or (self.DEV_URL if self.DEBUG else self.APP_URL)
+
+    @property
+    def STRIPE_CHECKOUT_SUCCESS_URL(self) -> str:
+        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_SUCCESS_PATH}"
+
+    @property
+    def STRIPE_CHECKOUT_CANCEL_URL(self) -> str:
+        return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_CANCEL_PATH}"
+
+    # Billing Configuration
+    TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
+    MICROSOFT_REDIRECT_URI: str = config(
+        "MICROSOFT_REDIRECT_URI", default="https://minamoto.emerj.net"
+    )
+    MICROSOFT_TENANT_ID: str = config("MICROSOFT_TENANT_ID", default="tenant-id")
+    MICROSOFT_CLIENT_SECRET: str = config("MICROSOFT_CLIENT_SECRET", default="client-secret")
+    MICROSOFT_CLIENT_ID: str = config("MICROSOFT_CLIENT_ID", default="client-id")
+    MICROSOFT_USERINFO_ENDPOINT: str = config("MICROSOFT_USERINFO_ENDPOINT", default="user-info")
+
+    MICROSOFT_SCOPES: list[str] = Field(
+        default_factory=lambda: ["https://graph.microsoft.com/User.Read"]
+    )
+
+    MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL: str = config(
+        "MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL", default="https://minamoto.emerj.net/dashboard"
+    )
+    MICROSOFT_OAUTH_STATE_TTL: int = config("MICROSOFT_OAUTH_STATE_TTL", default=900, cast=int)
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="your-google-client-id")
+    GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="your-google-client-secret")
+    GOOGLE_REDIRECT_URI: str = config(
+        "GOOGLE_REDIRECT_URI", default="https://minamoto.emerj.net/api/v1/oauth/google/callback"
+    )
+
+    ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
+
+    APPLE_TEAM_ID: str = config("APPLE_TEAM_ID", default="your-apple-developer-team-id")
+    APPLE_CLIENT_ID: str = config("APPLE_CLIENT_ID", default="your-apple-developer-client-id")
+    APPLE_KEY_ID: str = config("APPLE_KEY_ID", default="your-apple-developer-key-identifier")
+    APPLE_PRIVATE_KEY: str = config(
+        "APPLE_PRIVATE_KEY", default="your-app-private-key-apple-developer"
+    )
+    APPLE_CLIENT_SECRET_LIFETIME: int = config(
+        "APPLE_CLIENT_SECRET_LIFETIME", default=21600, cast=int
+    )
+    APPLE_REDIRECT_URI: str = config(
+        "APPLE_REDIRECT_URI", default="http://localhost:8000/auth/apple/callback"
     )
 
     model_config = SettingsConfigDict(extra="allow")

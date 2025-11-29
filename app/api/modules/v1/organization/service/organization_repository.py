@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,8 +61,19 @@ class OrganizationCRUD:
         Returns:
             Organization or None if not found
         """
-        result = await db.execute(select(Organization).where(Organization.id == organization_id))
-        return result.scalar_one_or_none()
+        result = await db.execute(
+            select(Organization).where(
+                Organization.id == organization_id, Organization.deleted_at.is_(None)
+            )
+        )
+        organization = result.scalar_one_or_none()
+
+        if organization:
+            logger.info(f"org {organization_id}:{organization.name},del{organization.deleted_at}")
+        else:
+            logger.info(f"no org {organization_id}")
+
+        return organization
 
     @staticmethod
     async def get_by_name(db: AsyncSession, name: str) -> Optional[Organization]:
@@ -139,3 +151,84 @@ class OrganizationCRUD:
                 exc_info=True,
             )
             raise Exception("Failed to update organization")
+
+    @staticmethod
+    async def get_user_org_by_name(
+        db: AsyncSession, user_id: uuid.UUID, name: str
+    ) -> Optional[Organization]:
+        """
+        Get an organization by name belonging to a specific user.
+        """
+        from app.api.modules.v1.organization.service.user_organization_service import (
+            UserOrganizationCRUD,
+        )
+
+        memberships = await UserOrganizationCRUD.get_user_organizations(db, user_id)
+
+        if not memberships:
+            return None
+
+        org_ids = [m.organization_id for m in memberships]
+
+        if not org_ids:
+            return None
+
+        result = await db.execute(
+            select(Organization).where(Organization.id.in_(org_ids), Organization.name == name)
+        )
+
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def delete_organization(
+        db: AsyncSession,
+        organization_id: uuid.UUID,
+    ) -> dict:
+        """
+        Delete an organization and all its associated data.
+
+        Args:
+            db: Database session
+            organization_id: Organization UUID to delete
+
+        Returns:
+            dict: Dictionary with deletion confirmation
+
+        Raises:
+            Exception: If database operation fails
+        """
+        try:
+            organization = await OrganizationCRUD.get_by_id(db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            logger.info(
+                "Deleting organization: id=%s, name=%s",
+                organization.id,
+                organization.name,
+            )
+
+            organization.deleted_at = datetime.now(timezone.utc)
+            organization.is_active = False
+            await db.flush()
+
+            logger.info(
+                "Successfully deleted organization: id=%s, name=%s",
+                organization_id,
+                organization.name,
+            )
+
+            return {
+                "organization_id": str(organization_id),
+                "organization_name": organization.name,
+                "deleted_at": organization.deleted_at.isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(
+                "Failed to delete organization with id=%s: %s",
+                organization_id,
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("Failed to delete organization")

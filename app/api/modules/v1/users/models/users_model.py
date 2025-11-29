@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -18,13 +18,26 @@ class User(SQLModel, table=True):
 
     email: str = Field(max_length=255, nullable=False, unique=True, index=True)
 
-    hashed_password: str = Field(max_length=255, nullable=False)
+    hashed_password: Optional[str] = Field(default=None, max_length=255, nullable=True)
 
     auth_provider: str = Field(
         default="local", max_length=20, nullable=False
     )  # 'local', 'oidc', 'saml'
 
     name: str = Field(index=True, max_length=255)
+    provider_user_id: Optional[str] = Field(default=None, index=True)
+    profile_picture_url: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="URL to user's profile picture from OAuth provider",
+    )
+    provider_profile_data: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="Raw OAuth provider profile data (name, picture, etc.)",
+    )
+
+    avatar_url: Optional[str] = Field(None, max_length=500, description="User avatar image URL")
 
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(

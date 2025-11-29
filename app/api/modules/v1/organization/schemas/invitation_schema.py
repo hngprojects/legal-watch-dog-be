@@ -16,6 +16,7 @@ class InvitationCreate(SQLModel):
 class InvitationResponse(SQLModel):
     id: uuid.UUID
     organization_id: uuid.UUID
+    organization_name: str
     invited_email: EmailStr
     inviter_id: uuid.UUID
     token: str

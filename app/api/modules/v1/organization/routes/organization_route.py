@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -10,6 +10,9 @@ from app.api.modules.v1.organization.routes.docs.organization_route_docs import 
     create_organization_custom_errors,
     create_organization_custom_success,
     create_organization_responses,
+    delete_organization_custom_errors,
+    delete_organization_custom_success,
+    delete_organization_responses,
     update_organization_custom_errors,
     update_organization_custom_success,
     update_organization_responses,
@@ -18,6 +21,7 @@ from app.api.modules.v1.organization.schemas.invitation_schema import (
     InvitationCreate,
     InvitationResponse,
 )
+from app.api.modules.v1.organization.schemas.member_schema import UpdateMemberRequest
 from app.api.modules.v1.organization.schemas.organization_schema import (
     CreateOrganizationRequest,
     CreateOrganizationResponse,
@@ -460,6 +464,260 @@ async def update_member_role(
         )
 
 
+@router.patch(
+    "/{organization_id}/members/{user_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+)
+async def update_member_details(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: UpdateMemberRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update a member's details within an organization.
+
+    This endpoint allows an admin to update a member's:
+    - Name
+    - Email (if not verified)
+    - Department
+    - Job Title
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member to update
+        payload: Request body containing fields to update
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        dict: Success message with updated details
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden, 404 for not found
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to manage users in this organization")
+
+        # Prepare update dictionaries
+        user_updates = {}
+        if payload.name is not None:
+            user_updates["name"] = payload.name
+        if payload.email is not None:
+            user_updates["email"] = payload.email
+
+        membership_updates = {}
+        if payload.department is not None:
+            membership_updates["department"] = payload.department
+        if payload.title is not None:
+            membership_updates["title"] = payload.title
+
+        if not user_updates and not membership_updates:
+            raise ValueError("No fields provided for update")
+
+        updated_user, updated_membership = await UserOrganizationCRUD.update_member_details(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+            user_updates=user_updates,
+            membership_updates=membership_updates,
+        )
+        await db.commit()
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Member details updated successfully",
+            data={
+                "user_id": str(updated_user.id),
+                "name": updated_user.name,
+                "email": updated_user.email,
+                "department": updated_membership.department,
+                "title": updated_membership.title,
+            },
+        )
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed update details for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error updating details for user_id={user_id} in org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to update member details. Please try again later.",
+        )
+
+
+@router.delete(
+    "/{organization_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_member(
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Soft delete a member from an organization.
+
+    This endpoint allows admin users to remove members from the organization
+    using soft delete (membership record is kept but marked as deleted).
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' permission in the organization
+    - Cannot delete yourself
+
+    Args:
+        organization_id: UUID of the organization
+        user_id: UUID of the member to delete
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden, 404 for not found
+    """
+    try:
+        has_permission = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        if not has_permission:
+            raise ValueError("You do not have permission to manage users in this organization")
+
+        if current_user.id == user_id:
+            raise ValueError("You cannot delete yourself from the organization")
+
+        await UserOrganizationCRUD.soft_delete_member(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        await db.commit()
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except ValueError as e:
+        logger.warning(
+            f"Failed to delete member user_id={user_id} from org_id={organization_id}: {str(e)}"
+        )
+        error_message = str(e)
+
+        if "not found" in error_message.lower() or "not a member" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        elif "cannot delete yourself" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error deleting member user_id={user_id} from org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to delete member. Please try again later.",
+        )
+
+
+@router.get(
+    "/{organization_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def get_organization(
+    organization_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get organization details.
+
+    Returns the details of a specific organization, including:
+    - Basic info (name, industry, etc.)
+    - Profile info (location, plan, logo_url)
+    - Projects count
+
+    Requirements:
+    - User must be a member of the organization
+    """
+    try:
+        service = OrganizationService(db)
+        org_details = await service.get_organization_details(
+            organization_id=organization_id, requesting_user_id=current_user.id
+        )
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organization details retrieved successfully",
+            data=OrganizationDetailResponse(**org_details),
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to get organization org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have access" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve organization org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organization details. Please try again later.",
+        )
+
+
 @router.get(
     "/{organization_id}/users",
     status_code=status.HTTP_200_OK,
@@ -538,3 +796,77 @@ async def get_all_users_in_organization(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to retrieve organization users. Please try again later.",
         )
+
+
+@router.delete(
+    "/{organization_id}",
+    status_code=status.HTTP_200_OK,
+    responses=delete_organization_responses,
+)
+async def delete_organization(
+    organization_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete an organization.
+
+    This endpoint allows organization admins to permanently delete their organization.
+    All associated data (memberships, invitations, roles, projects) will be cascaded.
+
+    Requirements:
+    - User must be authenticated
+    - User must be an admin of the organization
+    - Organization must have no active members besides the current user
+
+    Args:
+        organization_id: UUID of the organization to delete
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with deletion confirmation
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden,
+                      404 for not found, 500 for server errors
+    """
+    try:
+        service = OrganizationService(db)
+
+        await service.delete_organization(
+            organization_id=organization_id,
+            requesting_user_id=current_user.id,
+        )
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except ValueError as e:
+        logger.warning(f"Organization deletion failed for org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "admin" in error_message.lower() or "permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to delete organization org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to delete organization. Please try again later.",
+        )
+
+
+delete_organization._custom_errors = delete_organization_custom_errors
+delete_organization._custom_success = delete_organization_custom_success

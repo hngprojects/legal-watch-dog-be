@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.api.core.security import encrypt_auth_details
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
@@ -55,7 +56,7 @@ class SourceService:
             SourceRead: The created source with sanitized fields.
 
         Raises:
-            HTTPException: 400 if source URL already exists, 500 if creation fails.
+            HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
 
         Examples:
             >>> service = SourceService()
@@ -64,23 +65,24 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
-            # Check if source URL already exists
             existing_source = await db.scalar(
-                select(Source).where(Source.url == str(source_data.url))
+                select(Source).where(
+                    Source.url == str(source_data.url),
+                    Source.jurisdiction_id == source_data.jurisdiction_id,
+                    ~Source.is_deleted,
+                )
             )
             if existing_source:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Source with this URL already exists",
+                    detail="Source with this URL already exists in the jurisdiction",
                 )
 
-            # Handle encryption of auth details
             encrypted_auth = None
             if source_data.auth_details:
                 encrypted_auth = encrypt_auth_details(source_data.auth_details)
                 logger.info(f"Encrypted auth details for source: {source_data.name}")
 
-            # Create database object
             db_source = Source(
                 jurisdiction_id=source_data.jurisdiction_id,
                 name=source_data.name,
@@ -97,7 +99,6 @@ class SourceService:
 
             logger.info(f"Successfully created source: {db_source.id} - {db_source.name}")
 
-            # Return sanitized response
             return self._to_read_schema(db_source)
 
         except HTTPException:
@@ -108,6 +109,86 @@ class SourceService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create source",
+            )
+
+    async def bulk_create_sources(
+        self,
+        db: AsyncSession,
+        sources_data: List["SourceCreate"],
+    ) -> List[SourceRead]:
+        """
+        Create multiple sources in a single transaction.
+
+        Args:
+            db (AsyncSession): Database session.
+            sources_data (List[SourceCreate]): List of source creation data.
+
+        Returns:
+            List[SourceRead]: List of created sources with sanitized fields.
+
+        Raises:
+            HTTPException: 400 if any URL already exists, 500 if creation fails.
+
+        Examples:
+            >>> sources = await service.bulk_create_sources(db, sources_data)
+            >>> print(f"Created {len(sources)} sources")
+            Created 3 sources
+        """
+        if not sources_data:
+            return []
+
+        try:
+            created_sources = []
+            urls_to_check = [str(source.url) for source in sources_data]
+
+            existing_sources = await db.execute(
+                select(Source.url).where(Source.url.in_(urls_to_check))
+            )
+            existing_urls = set(existing_sources.scalars().all())
+
+            duplicates = [url for url in urls_to_check if url in existing_urls]
+            if duplicates:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Source URLs already exist: {', '.join(duplicates)}",
+                )
+
+            for source_data in sources_data:
+                encrypted_auth = None
+                if source_data.auth_details:
+                    encrypted_auth = encrypt_auth_details(source_data.auth_details)
+                    logger.info(f"Encrypted auth details for source: {source_data.name}")
+
+                db_source = Source(
+                    jurisdiction_id=source_data.jurisdiction_id,
+                    name=source_data.name,
+                    url=str(source_data.url),
+                    source_type=source_data.source_type,
+                    scrape_frequency=source_data.scrape_frequency,
+                    scraping_rules=source_data.scraping_rules or {},
+                    auth_details_encrypted=encrypted_auth,
+                )
+
+                db.add(db_source)
+                created_sources.append(db_source)
+
+            await db.commit()
+
+            for source in created_sources:
+                await db.refresh(source)
+
+            logger.info(f"Successfully created {len(created_sources)} sources in bulk")
+
+            return [self._to_read_schema(source) for source in created_sources]
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Failed to bulk create sources: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create sources",
             )
 
     async def get_source(
@@ -145,7 +226,6 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Allow access to soft-deleted sources for recovery purposes
         if source.is_deleted and not include_deleted:
             logger.warning(f"Source is deleted and cannot be accessed: {source_id}")
             raise HTTPException(
@@ -186,17 +266,14 @@ class SourceService:
         """
         query = select(Source)
 
-        # Apply filters
         if jurisdiction_id:
             query = query.where(Source.jurisdiction_id == jurisdiction_id)
         if is_active is not None:
             query = query.where(Source.is_active == is_active)
 
-        # Exclude soft-deleted sources by default
         if not include_deleted:
             query = query.where(~Source.is_deleted)
 
-        # Apply pagination
         query = query.offset(skip).limit(limit)
 
         result = await db.execute(query)
@@ -238,14 +315,11 @@ class SourceService:
                 detail="Source not found",
             )
 
-        # Allow updating soft-deleted sources (for undo delete)
         logger.debug(f"Updating source {source_id}, is_deleted={source.is_deleted}")
 
         try:
-            # Update fields (excluding unset values)
             update_data = source_data.model_dump(exclude_unset=True)
 
-            # Handle auth_details encryption if provided
             if "auth_details" in update_data:
                 auth_details = update_data.pop("auth_details")
                 if auth_details:
@@ -254,7 +328,6 @@ class SourceService:
                 else:
                     source.auth_details_encrypted = None
 
-            # Update other fields
             for field, value in update_data.items():
                 if field == "url" and value:
                     value = str(value)
@@ -313,7 +386,6 @@ class SourceService:
 
         try:
             if permanent:
-                # Hard delete: remove from database
                 await db.delete(source)
                 await db.commit()
                 logger.info(f"Permanently deleted source: {source_id}")
@@ -322,7 +394,6 @@ class SourceService:
                     "source_id": str(source_id),
                 }
             else:
-                # Soft delete: mark as deleted
                 source.is_deleted = True
                 await db.commit()
                 await db.refresh(source)
@@ -339,6 +410,63 @@ class SourceService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete source",
             )
+
+    async def get_source_revisions(
+        self,
+        db: AsyncSession,
+        source_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[List[DataRevision], int]:
+        """
+        Retrieve revision history for a specific source.
+
+        Fetches all data revisions associated with a source, ordered by most recent first.
+        Supports pagination for large revision histories.
+
+        Args:
+            db (AsyncSession): Database session.
+            source_id (uuid.UUID): The source UUID to get revisions for.
+            skip (int): Number of records to skip (pagination). Default: 0.
+            limit (int): Maximum number of records to return. Default: 50.
+
+        Returns:
+            tuple: (List[DataRevision], int) - List of revisions and total count.
+
+        Raises:
+            HTTPException: 404 if source not found.
+
+        Examples:
+            >>> revisions, total = await service.get_source_revisions(db, source_id)
+            >>> print(f"Found {total} revisions, showing {len(revisions)}")
+            Found 150 revisions, showing 50
+        """
+
+        source = await db.get(Source, source_id)
+        if not source:
+            logger.warning(f"Cannot fetch revisions - source not found: {source_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source not found",
+            )
+
+        query = (
+            select(DataRevision)
+            .where(DataRevision.source_id == source_id)
+            .order_by(DataRevision.scraped_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await db.execute(query)
+        revisions = result.scalars().all()
+
+        count_query = select(func.count()).where(DataRevision.source_id == source_id)
+        count_result = await db.execute(count_query)
+        total = count_result.scalar_one()
+
+        logger.info(f"Retrieved {len(revisions)} revisions for source {source_id} (total: {total})")
+        return revisions, total
 
     def _to_read_schema(self, source: Source) -> SourceRead:
         """

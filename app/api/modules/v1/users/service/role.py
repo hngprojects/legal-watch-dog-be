@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.permissions import ADMIN_PERMISSIONS, USER_PERMISSIONS
+from app.api.utils.permissions import ADMIN_PERMISSIONS, MANAGER_PERMISSIONS, USER_PERMISSIONS
 
 logger = logging.getLogger("app")
 
@@ -94,22 +94,18 @@ class RoleCRUD:
         """
 
         try:
-            existing_role = await db.execute(
-                select(Role).where(
-                    Role.organization_id == organization_id,
-                    Role.name == role_name,
-                )
+            existing_role = await RoleCRUD.get_role_by_name_and_organization(
+                db, role_name, organization_id
             )
-            role = existing_role.scalar_one_or_none()
 
-            if role:
+            if existing_role:
                 logger.info(
                     "Retrieved existing user role: id=%s, name=%s, organization_id=%s",
-                    role.id,
-                    role.name,
-                    role.organization_id,
+                    existing_role.id,
+                    existing_role.name,
+                    existing_role.organization_id,
                 )
-                return role
+                return existing_role
 
             role = Role(
                 name=role_name,
@@ -139,13 +135,75 @@ class RoleCRUD:
             raise Exception("Failed to get or create user role")
 
     @staticmethod
+    async def create_manager_role(
+        db: AsyncSession,
+        organization_id: uuid.UUID,
+        role_name: str = "Manager",
+        description: Optional[str] = "Team manager with elevated project management permissions",
+    ) -> Role:
+        """
+        Create a manager role for an organization.
+
+        Args:
+            db: Async database session
+            organization_id: UUID of the organization
+            role_name: Name of the role (default: "Manager")
+            description: Role description (optional)
+
+        Returns:
+            Role: Created role object
+
+        Raises:
+            Exception: If database operation fails
+        """
+        try:
+            existing_role = await RoleCRUD.get_role_by_name_and_organization(
+                db, role_name, organization_id
+            )
+            if existing_role:
+                logger.info(
+                    "Manager role already exists: id=%s, name=%s, organization_id=%s",
+                    existing_role.id,
+                    existing_role.name,
+                    existing_role.organization_id,
+                )
+                return existing_role
+
+            role = Role(
+                name=role_name,
+                organization_id=organization_id,
+                description=description,
+                permissions=MANAGER_PERMISSIONS,
+            )
+
+            db.add(role)
+            await db.flush()
+            await db.refresh(role)
+
+            logger.info(
+                "Created manager role: id=%s, name=%s, organization_id=%s",
+                role.id,
+                role.name,
+                role.organization_id,
+            )
+
+            return role
+
+        except Exception as e:
+            logger.error(
+                "Failed to create manager role for organization_id=%s: %s",
+                organization_id,
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("Failed to create manager role")
+
+    @staticmethod
     async def get_role_by_name_and_organization(
         db: AsyncSession, role_name: str, organization_id: uuid.UUID
     ) -> Optional[Role]:
         """Get role by name and organization."""
         try:
-            from sqlalchemy import select
-
             result = await db.execute(
                 select(Role).where(Role.name == role_name, Role.organization_id == organization_id)
             )

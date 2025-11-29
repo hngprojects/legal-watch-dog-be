@@ -9,7 +9,6 @@ from app.api.utils.response_payloads import auth_response
 
 def test_create_access_token_and_decode():
     token = jwt_utils.create_access_token("user-1", "org-1", "role-1")
-    # decode using same secret and algorithm
     payload = pyjwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
     assert payload["sub"] == "user-1"
     assert "jti" in payload

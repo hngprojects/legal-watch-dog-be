@@ -177,11 +177,16 @@ class UserOrganizationCRUD:
         organizations = []
         for membership in memberships:
             org_result = await db.execute(
-                select(Organization).where(Organization.id == membership.organization_id)
+                select(Organization).where(
+                    Organization.id == membership.organization_id, Organization.deleted_at.is_(None)
+                )
             )
             org = org_result.scalar_one_or_none()
 
             if not org:
+                logger.warning(
+                    f"Organization {membership.organization_id} not found for user {user_id}"
+                )
                 continue
 
             role = await db.get(Role, membership.role_id)
@@ -194,7 +199,7 @@ class UserOrganizationCRUD:
                     "is_active": org.is_active,
                     "user_role": role.name if role else None,
                     "created_at": org.created_at.isoformat(),
-                    "updated_at": org.updated_at.isoformat(),
+                    "updated_at": org.updated_at.isoformat() if org.updated_at else None,
                 }
             )
 
@@ -222,9 +227,23 @@ class UserOrganizationCRUD:
             Dictionary with users list and total count
         """
 
-        membership_query = select(UserOrganization).where(
+        all_memberships_query = select(UserOrganization).where(
             UserOrganization.organization_id == organization_id
         )
+        if active_only:
+            all_memberships_query = all_memberships_query.where(UserOrganization.is_active)
+
+        all_memberships_result = await db.execute(all_memberships_query)
+        all_memberships = list(all_memberships_result.scalars().all())
+
+        logger.info(f"DEBUG: Found {len(all_memberships)} total memberships in database")
+        for i, membership in enumerate(all_memberships):
+            logger.info(
+                f"Membership{i + 1}: user_id={membership.user_id}, is_active={membership.is_active}"
+            )
+            membership_query = select(UserOrganization).where(
+                UserOrganization.organization_id == organization_id
+            )
 
         if active_only:
             membership_query = membership_query.where(UserOrganization.is_active)
@@ -259,10 +278,13 @@ class UserOrganizationCRUD:
                     "user_id": str(user.id),
                     "email": user.email,
                     "name": user.name,
+                    "avatar_url": user.avatar_url,
                     "is_active": user.is_active,
                     "is_verified": user.is_verified,
                     "role": role.name if role else None,
                     "role_id": str(role.id) if role else None,
+                    "title": membership.title,
+                    "department": membership.department,
                     "membership_active": membership.is_active,
                     "joined_at": membership.joined_at.isoformat(),
                     "created_at": user.created_at.isoformat(),
@@ -356,31 +378,115 @@ class UserOrganizationCRUD:
         return membership
 
     @staticmethod
-    async def remove_user_from_organization(
+    async def update_member_details(
         db: AsyncSession,
-        user_id: uuid.UUID,
         organization_id: uuid.UUID,
-    ) -> None:
+        user_id: uuid.UUID,
+        user_updates: dict,
+        membership_updates: dict,
+    ) -> tuple[User, UserOrganization]:
         """
-        Remove a user from an organization (hard delete).
+        Update member details including user and membership info.
 
         Args:
             db: Database session
-            user_id: User UUID
             organization_id: Organization UUID
+            user_id: User UUID to update
+            user_updates: Dictionary of User fields to update
+            membership_updates: Dictionary of UserOrganization fields to update
+
+        Returns:
+            Tuple of (updated_user, updated_membership)
 
         Raises:
-            ValueError: If membership not found
+            ValueError: If user or membership not found
+            Exception: If database operation fails
         """
-        membership = await UserOrganizationCRUD.get_user_organization(db, user_id, organization_id)
-        if not membership:
-            raise ValueError("User membership not found in this organization")
+        try:
+            user_result = await db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalar_one_or_none()
 
-        await db.delete(membership)
-        await db.flush()
+            if not user:
+                raise ValueError(f"User {user_id} not found")
 
-        logger.info(
-            "Removed user %s from organization %s",
-            user_id,
-            organization_id,
-        )
+            membership = await UserOrganizationCRUD.get_user_organization(
+                db, user_id, organization_id
+            )
+
+            if not membership:
+                raise ValueError(
+                    f"User {user_id} is not a member of organization {organization_id}"
+                )
+
+            if user_updates:
+                for key, value in user_updates.items():
+                    setattr(user, key, value)
+                user.updated_at = datetime.now(timezone.utc)
+                db.add(user)
+
+            if membership_updates:
+                for key, value in membership_updates.items():
+                    setattr(membership, key, value)
+                membership.updated_at = datetime.now(timezone.utc)
+                db.add(membership)
+
+            await db.flush()
+            await db.refresh(user)
+            await db.refresh(membership)
+
+            logger.info(f"Updated member user_id={user_id} in org_id={organization_id}")
+
+            return user, membership
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to update member user_id={user_id} in org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to update member details")
+
+    @staticmethod
+    async def soft_delete_member(
+        db: AsyncSession,
+        organization_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> None:
+        """
+        Soft delete a user's membership in an organization.
+
+        Args:
+            db: Database session
+            organization_id: Organization UUID
+            user_id: User UUID to soft delete
+
+        Raises:
+            ValueError: If membership not found or already deleted
+        """
+        try:
+            membership = await UserOrganizationCRUD.get_user_organization(
+                db, user_id, organization_id
+            )
+
+            if not membership:
+                raise ValueError("User is not a member of this organization")
+
+            if membership.is_deleted:
+                raise ValueError("Membership is already deleted")
+
+            membership.is_deleted = True
+            membership.deleted_at = datetime.now(timezone.utc)
+            db.add(membership)
+            await db.flush()
+
+            logger.info(f"Soft deleted member user_id={user_id} from org_id={organization_id}")
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to delete member {user_id} from org {organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError("An error occurred while deleting the member")

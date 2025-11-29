@@ -1,6 +1,5 @@
 """
 Unit tests for SourceService.
-
 Tests all CRUD operations and business logic for source management.
 """
 
@@ -140,6 +139,49 @@ class TestSourceServiceCreate:
         assert exc_info.value.status_code == 500
         assert "Failed to create source" in exc_info.value.detail
         mock_db.rollback.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_duplicate_url_same_jurisdiction(
+        self, sample_source_create, sample_jurisdiction_id
+    ):
+        """Test that creating source with duplicate URL in same jurisdiction raises error."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        existing_source = Source(
+            id=uuid.uuid4(),
+            jurisdiction_id=sample_jurisdiction_id,
+            name="Existing Source",
+            url=str(sample_source_create.url),
+            source_type=SourceType.WEB,
+            scrape_frequency="DAILY",
+            is_deleted=False,
+        )
+
+        mock_db.scalar = AsyncMock(return_value=existing_source)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 400
+        assert "Source with this URL already exists in the jurisdiction" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_duplicate_url_different_jurisdiction(self, sample_source_create):
+        """Test that creating source with duplicate URL in different jurisdiction is allowed."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        mock_db.scalar = AsyncMock(return_value=None)
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        result = await service.create_source(mock_db, sample_source_create)
+
+        assert isinstance(result, SourceRead)
+        mock_db.add.assert_called_once()
+        mock_db.commit.assert_awaited_once()
 
 
 class TestSourceServiceGet:
@@ -381,4 +423,112 @@ class TestSourceServiceDelete:
 
         assert exc_info.value.status_code == 500
         assert "Failed to delete source" in exc_info.value.detail
+        mock_db.rollback.assert_awaited_once()
+
+
+class TestSourceServiceBulkCreate:
+    """Tests for SourceService.bulk_create_sources()"""
+
+    @pytest.fixture
+    def sample_bulk_sources(self, sample_jurisdiction_id):
+        """Fixture for bulk source creation data."""
+        sources = [
+            SourceCreate(
+                jurisdiction_id=sample_jurisdiction_id,
+                name="Source 1",
+                url="https://source1.example.com",
+                source_type=SourceType.WEB,
+                scrape_frequency="DAILY",
+            ),
+            SourceCreate(
+                jurisdiction_id=sample_jurisdiction_id,
+                name="Source 2",
+                url="https://source2.example.com",
+                source_type=SourceType.WEB,
+                scrape_frequency="HOURLY",
+            ),
+        ]
+        return sources
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_success(self, sample_bulk_sources, sample_jurisdiction_id):
+        """Test successful bulk creation of sources."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        # Mock execute to return empty list (no existing URLs)
+        async def mock_execute(query):
+            mock_result = MagicMock()
+            mock_result.scalars.return_value.all.return_value = []
+            return mock_result
+
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        result = await service.bulk_create_sources(mock_db, sample_bulk_sources)
+
+        assert len(result) == 2
+        assert all(isinstance(source, SourceRead) for source in result)
+        assert result[0].name == "Source 1"
+        assert result[1].name == "Source 2"
+        assert mock_db.add.call_count == 2
+        mock_db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_empty_list(self):
+        """Test bulk creation with empty list."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        result = await service.bulk_create_sources(mock_db, [])
+
+        assert result == []
+        mock_db.add.assert_not_called()
+        mock_db.commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_duplicate_url(self, sample_bulk_sources):
+        """Test bulk creation fails when duplicate URLs exist."""
+        mock_db = AsyncMock()
+        service = SourceService()
+
+        # Mock execute to return existing URLs with trailing slash (as Pydantic adds it)
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = ["https://source1.example.com/"]  # Note: trailing slash
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.bulk_create_sources(mock_db, sample_bulk_sources)
+
+        assert exc_info.value.status_code == 400
+        assert "already exist" in exc_info.value.detail
+        mock_db.add.assert_not_called()
+        mock_db.commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_bulk_create_sources_db_error(self, sample_bulk_sources):
+        """Test database errors during bulk creation are handled."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        # Mock no existing URLs
+        mock_db.execute = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = []
+        mock_db.execute.return_value = mock_result
+
+        mock_db.commit = AsyncMock(side_effect=Exception("DB Error"))
+        mock_db.rollback = AsyncMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.bulk_create_sources(mock_db, sample_bulk_sources)
+
+        assert exc_info.value.status_code == 500
+        assert "Failed to create sources" in exc_info.value.detail
         mock_db.rollback.assert_awaited_once()

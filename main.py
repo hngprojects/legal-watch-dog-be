@@ -1,4 +1,3 @@
-import os
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -6,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api import router as api_router
 from app.api.core.config import settings
@@ -43,11 +42,17 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_DIR = os.path.join(BASE_DIR, "app/api/core/dependencies/email/templates")
-email_templates = Jinja2Templates(directory=TEMPLATE_DIR)
+
 APP_URL = settings.APP_URL
 DEV_URL = settings.DEV_URL
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=3600,
+    same_site="lax",
+    https_only=False,  # must be true for same_site=None
+)
 
 app.add_middleware(
     CORSMiddleware,
