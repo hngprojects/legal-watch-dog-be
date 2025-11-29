@@ -185,6 +185,56 @@ async def test_create_source_invalid_url(
 
 
 @pytest.mark.asyncio
+async def test_create_source_duplicate_url_in_jurisdiction(
+    client, pg_async_session, auth_headers, sample_jurisdiction_id, sample_user
+):
+    """Test that duplicate URLs in the same jurisdiction are rejected."""
+
+    payload1 = {
+        "jurisdiction_id": str(sample_jurisdiction_id),
+        "name": "First Source",
+        "url": "https://duplicate.example.com",
+        "source_type": "web",
+        "scrape_frequency": "DAILY",
+    }
+
+    async def override_get_db():
+        yield pg_async_session
+
+    async def override_get_current_user():
+        return sample_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response1 = await client.post(
+        "/api/v1/sources",
+        json=payload1,
+        headers=auth_headers,
+    )
+    assert response1.status_code == status.HTTP_201_CREATED
+
+    payload2 = {
+        "jurisdiction_id": str(sample_jurisdiction_id),
+        "name": "Second Source",
+        "url": "https://duplicate.example.com",
+        "source_type": "web",
+        "scrape_frequency": "HOURLY",
+    }
+
+    response2 = await client.post(
+        "/api/v1/sources",
+        json=payload2,
+        headers=auth_headers,
+    )
+
+    assert response2.status_code == status.HTTP_400_BAD_REQUEST
+    data = response2.json()
+    assert data["status_code"] == 400
+    assert "Source with this URL already exists in the jurisdiction" in data["message"]
+
+
+@pytest.mark.asyncio
 async def test_create_source_unauthorized(client, pg_async_session, sample_jurisdiction_id):
     """Test that unauthenticated requests are rejected."""
 
@@ -543,9 +593,6 @@ class TestDeleteSourceEndpoint:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-# Revision History Tests
-
-
 @pytest_asyncio.fixture
 async def test_source_for_revisions(pg_async_session):
     """Create a test source for revision tests."""
@@ -553,13 +600,11 @@ async def test_source_for_revisions(pg_async_session):
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_model import Project
 
-    # Create organization
     organization = Organization(name="Test Revision Org", email="revisions@test.com")
     pg_async_session.add(organization)
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
 
-    # Create project
     project = Project(
         org_id=organization.id,
         title="Test Revision Project",
@@ -569,7 +614,6 @@ async def test_source_for_revisions(pg_async_session):
     await pg_async_session.commit()
     await pg_async_session.refresh(project)
 
-    # Create jurisdiction
     jurisdiction = Jurisdiction(
         project_id=project.id,
         name="Test Revision Jurisdiction",
@@ -579,7 +623,6 @@ async def test_source_for_revisions(pg_async_session):
     await pg_async_session.commit()
     await pg_async_session.refresh(jurisdiction)
 
-    # Create source
     source = Source(
         id=uuid.uuid4(),
         jurisdiction_id=jurisdiction.id,
@@ -810,7 +853,6 @@ class TestGetRevisionsEndpoint:
         assert "id" in revision
         assert "source_id" in revision
 
-        # Verify pagination structure
         assert "pagination" in data
         assert "total" in data["pagination"]
         assert "page" in data["pagination"]

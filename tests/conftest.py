@@ -212,13 +212,13 @@ async def pg_async_session(event_loop):
         # Add missing columns that exist in model but not auto-created
         await conn.execute(
             text("""
-            DO $$ 
+            DO $$
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns 
+                    SELECT 1 FROM information_schema.columns
                     WHERE table_name='projects' AND column_name='is_deleted'
                 ) THEN
-                    ALTER TABLE projects 
+                    ALTER TABLE projects
                     ADD COLUMN is_deleted BOOLEAN DEFAULT false NOT NULL,
                     ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE;
                 END IF;
@@ -230,11 +230,28 @@ async def pg_async_session(event_loop):
         yield session
         await session.rollback()
 
-    # Clean up data, not tables
+    # Clean up data - using TRUNCATE instead of DELETE (faster)
     async with async_session_maker_local() as session:
-        for table in reversed(SQLModel.metadata.sorted_tables):
-            await session.execute(table.delete())
-        await session.commit()
+        result = await session.execute(
+            text("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                AND table_name NOT LIKE 'alembic%'
+            """)
+        )
+        tables = [row[0] for row in result.fetchall()]
+
+        if tables:
+            # TRUNCATE is faster than DELETE and resets sequences
+            tables_str = ", ".join(f'"{t}"' for t in tables)
+            try:
+                await session.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
+                await session.commit()
+            except Exception:
+                # Fallback to original approach if TRUNCATE fails
+                for table in reversed(SQLModel.metadata.sorted_tables):
+                    await session.execute(table.delete())
+                await session.commit()
 
     await engine.dispose()
 
