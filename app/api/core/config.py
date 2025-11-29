@@ -91,7 +91,7 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str = config("SUPABASE_URL", default="https://fprkgtucovmnuxmxbvwq.supabase.co")
     SUPABASE_SERVICE_KEY: str = config(
-        "SUPABASE_SERVICE_KEY", default="your-service-role-key-to-bypass-rls"
+        "SUPABASE_SERVICE_KEY", default=""
     )
     SUPABASE_STORAGE_BUCKET_ID: str = config("SUPABASE_STORAGE_BUCKET_ID", default="lwd_scrape")
 
