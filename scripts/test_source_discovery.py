@@ -5,11 +5,10 @@ from pathlib import Path
 
 from app.api.modules.v1.scraping.service.source_discovery_service import SourceDiscoveryService
 
-# Add project root to path to ensure imports work
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Configure logging to see internal steps
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
