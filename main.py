@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-
 from app.api import router as api_router
 from app.api.core.config import settings
 from app.api.core.custom_openapi_docs import custom_openapi
