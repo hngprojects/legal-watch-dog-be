@@ -8,8 +8,6 @@ Create Date: 2025-11-29 10:23:59.708519
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
-import sqlmodel
 
 
 # revision identifiers, used by Alembic.
@@ -20,60 +18,66 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create OAuth audit table
-    op.create_table('oauth_login_events',
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=True),
-    sa.Column('provider', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
-    sa.Column('status', sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False),
-    sa.Column('failure_reason', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
-    sa.Column('error_code', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
-    sa.Column('ip_address', sqlmodel.sql.sqltypes.AutoString(length=45), nullable=True),
-    sa.Column('user_agent', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('timestamp', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_oauth_login_events_email'), 'oauth_login_events', ['email'], unique=False)
-    op.create_index(op.f('ix_oauth_login_events_id'), 'oauth_login_events', ['id'], unique=False)
-    op.create_index(op.f('ix_oauth_login_events_timestamp'), 'oauth_login_events', ['timestamp'], unique=False)
-    op.create_index(op.f('ix_oauth_login_events_user_id'), 'oauth_login_events', ['user_id'], unique=False)
-    op.create_table('refresh_token_metadata',
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=False),
-    sa.Column('jti', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('provider', sqlmodel.sql.sqltypes.AutoString(length=50), nullable=False),
-    sa.Column('provider_token_exp', sa.Integer(), nullable=True),
-    sa.Column('issued_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('ip_address', sqlmodel.sql.sqltypes.AutoString(length=45), nullable=True),
-    sa.Column('user_agent', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
-    sa.Column('is_revoked', sa.Boolean(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_refresh_token_metadata_id'), 'refresh_token_metadata', ['id'], unique=False)
-    op.create_index(op.f('ix_refresh_token_metadata_jti'), 'refresh_token_metadata', ['jti'], unique=True)
-    op.create_index(op.f('ix_refresh_token_metadata_user_id'), 'refresh_token_metadata', ['user_id'], unique=False)
-    op.add_column('users', sa.Column('profile_picture_url', sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True))
-    op.add_column('users', sa.Column('provider_profile_data', sa.JSON(), nullable=True))
-    # ### end Alembic commands ###
+    """Upgrade schema."""
+    # Create OAuth audit table with IF NOT EXISTS to handle production conflicts
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS oauth_login_events (
+            id UUID NOT NULL,
+            user_id UUID,
+            provider VARCHAR(50) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            failure_reason VARCHAR(500),
+            error_code VARCHAR(100),
+            ip_address VARCHAR(45),
+            user_agent VARCHAR(500),
+            email VARCHAR(255),
+            timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+            PRIMARY KEY (id),
+            FOREIGN KEY(user_id) REFERENCES users (id)
+        );
+    """)
+    
+    # Create indexes only if they don't exist
+    op.execute("CREATE INDEX IF NOT EXISTS ix_oauth_login_events_email ON oauth_login_events (email);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_oauth_login_events_id ON oauth_login_events (id);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_oauth_login_events_timestamp ON oauth_login_events (timestamp);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_oauth_login_events_user_id ON oauth_login_events (user_id);")
+    
+    # Create refresh token metadata table with IF NOT EXISTS
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS refresh_token_metadata (
+            id UUID NOT NULL,
+            user_id UUID NOT NULL,
+            jti VARCHAR(255) NOT NULL,
+            provider VARCHAR(50) NOT NULL,
+            provider_token_exp BIGINT,
+            ip_address VARCHAR(45),
+            user_agent VARCHAR(500),
+            expires_at TIMESTAMP WITH TIME ZONE,
+            is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            revoked_at TIMESTAMP WITH TIME ZONE,
+            PRIMARY KEY (id),
+            FOREIGN KEY(user_id) REFERENCES users (id)
+        );
+    """)
+    
+    # Create indexes for refresh_token_metadata
+    op.execute("CREATE INDEX IF NOT EXISTS ix_refresh_token_metadata_user_id ON refresh_token_metadata (user_id);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_refresh_token_metadata_jti ON refresh_token_metadata (jti);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_refresh_token_metadata_is_revoked ON refresh_token_metadata (is_revoked);")
+    
+    # Add user profile columns with IF NOT EXISTS
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url VARCHAR(500);")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_profile_data JSON;")
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_column('users', 'provider_profile_data')
-    op.drop_column('users', 'profile_picture_url')
-    op.drop_index(op.f('ix_refresh_token_metadata_user_id'), table_name='refresh_token_metadata')
-    op.drop_index(op.f('ix_refresh_token_metadata_jti'), table_name='refresh_token_metadata')
-    op.drop_index(op.f('ix_refresh_token_metadata_id'), table_name='refresh_token_metadata')
-    op.drop_table('refresh_token_metadata')
-    op.drop_index(op.f('ix_oauth_login_events_user_id'), table_name='oauth_login_events')
-    op.drop_index(op.f('ix_oauth_login_events_timestamp'), table_name='oauth_login_events')
-    op.drop_index(op.f('ix_oauth_login_events_id'), table_name='oauth_login_events')
-    op.drop_index(op.f('ix_oauth_login_events_email'), table_name='oauth_login_events')
-    op.drop_table('oauth_login_events')
-    # ### end Alembic commands ###
+    # Drop tables if they exist
+    op.execute("DROP TABLE IF EXISTS refresh_token_metadata;")
+    op.execute("DROP TABLE IF EXISTS oauth_login_events;")
+    
+    # Remove user columns if they exist
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS provider_profile_data;")
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS profile_picture_url;")
