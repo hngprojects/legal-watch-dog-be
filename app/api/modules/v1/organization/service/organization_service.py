@@ -408,7 +408,7 @@ class OrganizationService:
                 organization_id,
             )
 
-            invitation_link = f"{settings.APP_URL}/auth/invitations/{token}/accept"
+            invitation_link = f"{settings.APP_URL}/auth/accept-invite/{token}"
 
             logger.info("TESTING - Invitation link: %s", invitation_link)
 
