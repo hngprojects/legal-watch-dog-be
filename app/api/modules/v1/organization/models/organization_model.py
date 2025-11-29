@@ -13,6 +13,27 @@ if TYPE_CHECKING:
 
 
 class Organization(SQLModel, table=True):
+    """Organization model.
+
+    Attributes:
+        id: UUID of the organization
+        name: Name of the organization
+        industry: Industry type of the organization
+        location: Location of the organization
+        plan: Subscription plan of the organization
+        logo_url: URL of the organization logo
+        settings: Settings of the organization
+        billing_info: Billing information of the organization
+        is_active: Whether the organization is active
+        created_at: Timestamp of when the organization was created
+        updated_at: Timestamp of when the organization was updated
+        deleted_at: Timestamp of when the organization was deleted
+        user_memberships: List of user memberships in the organization
+        roles: List of roles in the organization
+        projects: List of projects in the organization
+        invitations: List of invitations to the organization
+    """
+
     __tablename__ = "organizations"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
@@ -20,6 +41,16 @@ class Organization(SQLModel, table=True):
     name: str = Field(max_length=255, nullable=False, index=True)
 
     industry: str = Field(max_length=100, nullable=True)
+
+    location: Optional[str] = Field(
+        None, max_length=255, description="Organization location (e.g., 'United Kingdom', 'Global')"
+    )
+
+    plan: Optional[str] = Field(
+        None, max_length=50, description="Subscription plan (e.g., 'Professional', 'Enterprise')"
+    )
+
+    logo_url: Optional[str] = Field(None, max_length=500, description="Organization logo URL")
 
     settings: dict = Field(
         default_factory=dict,

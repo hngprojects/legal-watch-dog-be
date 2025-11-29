@@ -40,6 +40,9 @@ class UpdateOrganizationRequest(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Organization name")
     industry: Optional[str] = Field(None, max_length=100, description="Industry type")
+    location: Optional[str] = Field(None, max_length=255, description="Organization location")
+    plan: Optional[str] = Field(None, max_length=50, description="Subscription plan")
+    logo_url: Optional[str] = Field(None, max_length=500, description="Organization logo URL")
     is_active: Optional[bool] = Field(None, description="Organization active status")
 
     class Config:
@@ -58,7 +61,11 @@ class OrganizationDetailResponse(BaseModel):
     id: str
     name: str
     industry: Optional[str]
+    location: Optional[str]
+    plan: Optional[str]
+    logo_url: Optional[str]
     is_active: bool
+    projects_count: int
     created_at: datetime
     updated_at: datetime
     settings: dict
@@ -70,7 +77,11 @@ class OrganizationDetailResponse(BaseModel):
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "Acme Corporation",
                 "industry": "Technology",
+                "location": "United Kingdom",
+                "plan": "Enterprise",
+                "logo_url": "https://example.com/logo.png",
                 "is_active": True,
+                "projects_count": 5,
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",
                 "settings": {},
@@ -103,10 +114,13 @@ class OrganizationUserItem(BaseModel):
     user_id: str
     email: str
     name: str
+    avatar_url: Optional[str]
     is_active: bool
     is_verified: bool
     role: str | None
     role_id: str | None
+    title: Optional[str]
+    department: Optional[str]
     membership_active: bool
     joined_at: str
     created_at: str

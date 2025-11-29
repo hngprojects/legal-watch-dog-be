@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api import router as api_router
 from app.api.core.config import settings
@@ -44,6 +45,14 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 APP_URL = settings.APP_URL
 DEV_URL = settings.DEV_URL
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=3600,
+    same_site="lax",
+    https_only=False,  # must be true for same_site=None
+)
 
 app.add_middleware(
     CORSMiddleware,

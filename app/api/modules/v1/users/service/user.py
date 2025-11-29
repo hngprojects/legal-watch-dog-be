@@ -70,6 +70,57 @@ class UserCRUD:
             raise Exception("Failed to create user")
 
     @staticmethod
+    async def create_google_user(
+        db: AsyncSession,
+        email: str,
+        name: str,
+    ) -> User:
+        """
+        Create a new Google OAuth user.
+
+        Args:
+            db: Async database session
+            email: User email address
+            name: User's full name
+
+        Returns:
+            User: Created Google-authenticated user object
+
+        Raises:
+            Exception: If database operation fails
+        """
+        try:
+            user = User(
+                email=email,
+                name=name,
+                hashed_password=None,
+                auth_provider="google",
+                is_active=True,
+                is_verified=True,
+            )
+
+            db.add(user)
+            await db.flush()
+            await db.refresh(user)
+
+            logger.info(
+                "Created Google OAuth user: id=%s, email=%s",
+                user.id,
+                user.email,
+            )
+
+            return user
+
+        except Exception as e:
+            logger.error(
+                "Failed to create Google OAuth user for email=%s: %s",
+                email,
+                str(e),
+                exc_info=True,
+            )
+            raise Exception("Failed to create Google user")
+
+    @staticmethod
     async def set_user_active_status(db: AsyncSession, user_id: uuid.UUID, is_active: bool) -> User:
         """
         Set a user's active status.
@@ -357,6 +408,9 @@ class UserCRUD:
                     "email": user.email,
                     "name": user.name,
                     "auth_provider": user.auth_provider,
+                    "profile_picture_url": user.profile_picture_url,
+                    "provider_user_id": user.provider_user_id,
+                    "provider_profile_data": user.provider_profile_data,
                     "is_active": user.is_active,
                     "is_verified": user.is_verified,
                     "created_at": user.created_at.isoformat(),
