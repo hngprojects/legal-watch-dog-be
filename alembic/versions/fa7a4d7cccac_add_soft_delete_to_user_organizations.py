@@ -1,7 +1,7 @@
 """add_soft_delete_to_user_organizations
 
 Revision ID: fa7a4d7cccac
-Revises: 1cdaa4ddd6e4
+Revises: c898c3a02ef8
 Create Date: 2025-11-28 21:32:20.587151
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'fa7a4d7cccac'
-down_revision: Union[str, Sequence[str], None] = '1cdaa4ddd6e4'
+down_revision: Union[str, Sequence[str], None] = 'c898c3a02ef8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

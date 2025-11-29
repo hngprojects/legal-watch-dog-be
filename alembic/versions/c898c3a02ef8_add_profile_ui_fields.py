@@ -1,7 +1,7 @@
 """add_profile_ui_fields
 
 Revision ID: c898c3a02ef8
-Revises: e40a68f35eaa
+Revises: 03db9267c449
 Create Date: 2025-11-28 16:33:52.100714
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "c898c3a02ef8"
-down_revision: Union[str, Sequence[str], None] = "e40a68f35eaa"
+down_revision: Union[str, Sequence[str], None] = "03db9267c449"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
