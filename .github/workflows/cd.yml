@@ -229,7 +229,7 @@ jobs:
 
   deploy_staging:
     name: CD - Backend Deploy (Staging)
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/staging'
     environment: staging
 
