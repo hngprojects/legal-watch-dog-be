@@ -37,6 +37,8 @@ class User(SQLModel, table=True):
         description="Raw OAuth provider profile data (name, picture, etc.)",
     )
 
+    avatar_url: Optional[str] = Field(None, max_length=500, description="User avatar image URL")
+
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(
         default=False, nullable=False, description="Email verification status"

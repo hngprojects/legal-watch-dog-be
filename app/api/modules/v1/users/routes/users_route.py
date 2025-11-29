@@ -26,6 +26,7 @@ from app.api.modules.v1.users.routes.docs.user_routes_docs import (
     get_user_profile_custom_success,
     get_user_profile_responses,
 )
+from app.api.modules.v1.users.schemas.user_profile_schema import UpdateUserProfileRequest
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -87,6 +88,80 @@ async def get_current_user_profile(
 
 get_current_user_profile._custom_errors = get_user_profile_custom_errors
 get_current_user_profile._custom_success = get_user_profile_custom_success
+
+
+@router.patch(
+    "/me",
+    status_code=status.HTTP_200_OK,
+    summary="Update current user's profile",
+)
+async def update_user_profile(
+    payload: UpdateUserProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update the authenticated user's profile information.
+
+    Allows users to update their:
+    - Name
+    - Avatar URL
+
+    Email cannot be changed via this endpoint for security reasons.
+
+    Requirements:
+    - User must be authenticated
+
+    Args:
+        payload: Profile update data
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with updated user profile
+
+    Raises:
+        HTTPException: 400 for validation errors, 500 for server errors
+    """
+    try:
+        # Build update dictionary (only include non-None values)
+        update_data = {}
+        if payload.name is not None:
+            update_data["name"] = payload.name
+        if payload.avatar_url is not None:
+            update_data["avatar_url"] = payload.avatar_url
+
+        if not update_data:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST, message="No fields to update"
+            )
+
+        updated_user = await UserCRUD.update_user(db=db, user_id=current_user.id, **update_data)
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Profile updated successfully",
+            data={
+                "id": str(updated_user.id),
+                "email": updated_user.email,
+                "name": updated_user.name,
+                "avatar_url": updated_user.avatar_url,
+                "is_active": updated_user.is_active,
+                "is_verified": updated_user.is_verified,
+                "created_at": updated_user.created_at.isoformat(),
+                "updated_at": updated_user.updated_at.isoformat(),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update profile for user_id={current_user.id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to update profile",
+        )
 
 
 @router.get(

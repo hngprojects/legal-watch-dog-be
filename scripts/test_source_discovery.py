@@ -3,6 +3,8 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
+
 from app.api.modules.v1.scraping.service.source_discovery_service import SourceDiscoveryService
 
 project_root = Path(__file__).parent.parent
@@ -13,6 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.asyncio
 async def test_discovery_agent():
     """
     Runs a manual test of the SourceDiscoveryService.

@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import func, select
 
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
@@ -11,6 +12,7 @@ from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.modules.v1.users.service.user import UserCRUD
@@ -200,20 +202,29 @@ class OrganizationService:
             if not membership or not membership.is_active:
                 raise ValueError("You do not have access to this organization")
 
-            role = await self.db.get(Role, membership.role_id)
+            projects_count_query = (
+                select(func.count())
+                .select_from(Project)
+                .where(Project.org_id == organization_id, ~Project.is_deleted)
+            )
+            projects_count_result = await self.db.execute(projects_count_query)
+            projects_count = projects_count_result.scalar() or 0
 
             logger.info(f"Successfully retrieved organization details for org_id={organization_id}")
 
             return {
-                "organization_id": str(organization.id),
+                "id": str(organization.id),
                 "name": organization.name,
                 "industry": organization.industry,
+                "location": organization.location,
+                "plan": organization.plan,
+                "logo_url": organization.logo_url,
                 "settings": organization.settings,
                 "billing_info": organization.billing_info,
                 "is_active": organization.is_active,
+                "projects_count": projects_count,
                 "created_at": organization.created_at.isoformat(),
                 "updated_at": organization.updated_at.isoformat(),
-                "user_role": role.name if role else None,
             }
 
         except ValueError as e:
