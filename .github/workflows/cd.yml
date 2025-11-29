@@ -10,7 +10,7 @@ on:
 jobs:
   deploy_production:
     name: CD - Backend Deploy (Prod)
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
 
