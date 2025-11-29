@@ -202,7 +202,7 @@ class OrganizationService:
             if not membership or not membership.is_active:
                 raise ValueError("You do not have access to this organization")
 
-            role = await self.db.get(Role, membership.role_id)
+            # role = await self.db.get(Role, membership.role_id)
 
             # Count active (non-deleted) projects in this organization
             projects_count_query = (
@@ -216,7 +216,7 @@ class OrganizationService:
             logger.info(f"Successfully retrieved organization details for org_id={organization_id}")
 
             return {
-                "organization_id": str(organization.id),
+                "id": str(organization.id),
                 "name": organization.name,
                 "industry": organization.industry,
                 "location": organization.location,
@@ -228,7 +228,6 @@ class OrganizationService:
                 "projects_count": projects_count,
                 "created_at": organization.created_at.isoformat(),
                 "updated_at": organization.updated_at.isoformat(),
-                "user_role": role.name if role else None,
             }
 
         except ValueError as e:

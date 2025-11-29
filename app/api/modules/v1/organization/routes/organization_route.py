@@ -680,15 +680,42 @@ async def get_organization(
     Requirements:
     - User must be a member of the organization
     """
-    # Check if user is a member
-    await check_user_permission(db, current_user.id, organization_id, "read")
+    try:
+        service = OrganizationService(db)
+        org_details = await service.get_organization_details(
+            organization_id=organization_id, requesting_user_id=current_user.id
+        )
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organization details retrieved successfully",
+            data=OrganizationDetailResponse(**org_details),
+        )
 
-    org_details = await OrganizationService.get_organization_details(db, organization_id)
-    return success_response(
-        status_code=status.HTTP_200_OK,
-        message="Organization details retrieved successfully",
-        data=OrganizationDetailResponse(**org_details),
-    )
+    except ValueError as e:
+        logger.warning(f"Failed to get organization org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "do not have access" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve organization org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organization details. Please try again later.",
+        )
 
 
 @router.get(
