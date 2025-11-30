@@ -83,7 +83,7 @@ async def _scrape_source_async(source_id: str) -> str:
     from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 
     logger.info(f"Running scrape for source {source_id}")
-    
+
     async with AsyncSessionLocal() as db:
         query = select(Source).where(Source.id == source_id)
         result = await db.execute(query)
@@ -109,7 +109,10 @@ async def _scrape_source_async(source_id: str) -> str:
             await db.refresh(source)
 
             change_status = "with changes" if scrape_result.get("change_detected") else "no changes"
-            msg = f"Source {source.id} scraped successfully ({change_status}). Next: {source.next_scrape_time}"
+            msg = (
+                f"Source {source.id} scraped successfully ({change_status}). "
+                f"Next: {source.next_scrape_time}"
+            )
             logger.info(msg)
             return msg
 

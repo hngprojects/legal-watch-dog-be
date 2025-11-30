@@ -15,6 +15,9 @@ from sqlmodel import desc, select
 
 from app.api.core.security import decrypt_auth_details
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.notifications.service.revision_notification_task import (
+    send_revision_notifications_task,
+)
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
@@ -23,7 +26,6 @@ from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
-from app.api.modules.v1.notifications.service.revision_notification_task import send_revision_notifications_task
 
 logger = logging.getLogger(__name__)
 
