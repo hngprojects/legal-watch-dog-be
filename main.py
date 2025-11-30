@@ -17,7 +17,8 @@ from app.api.core.exceptions import (
 )
 from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
-from app.api.db.database import Base, engine
+from app.api.db.database import AsyncSessionLocal, Base, engine
+from app.api.modules.v1.billing.seed.plan_seed import seed_billing_plans
 from app.api.utils.response_payloads import success_response
 
 setup_logging()
@@ -28,7 +29,12 @@ async def lifespan(app: FastAPI):
     """Initialize database on startup"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSessionLocal() as session:
+        await seed_billing_plans(session)
+
     yield
+
     await engine.dispose()
 
 
