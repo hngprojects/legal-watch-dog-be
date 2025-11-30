@@ -102,6 +102,11 @@ async def create_customer(
     """
     Create a Stripe Customer. Runs in executor and retries transient errors.
 
+    Args:
+        email: customer email
+        name: optional customer name
+        metadata: optional metadata dictionary
+
     Returns:
         stripe.Customer (as dict-like)
     Raises:

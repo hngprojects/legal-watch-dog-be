@@ -409,6 +409,20 @@ async def change_subscription_plan(
 ):
     """
     Change the organisation's current subscription to a different configured plan.
+    Args:
+        organization_id (UUID): The UUID of the organisation.
+        payload (SubscriptionChangePlanRequest): Payload containing the target plan_id to switch to.
+        db (AsyncSession, Depends(get_db)): Asynchronous database session injected by FastAPI.
+
+    Returns:
+        dict: Standard API response containing:
+            - status_code: HTTP status code.
+            - message: Human-readable message.
+            - data: SubscriptionStatusResponse with the updated subscription details on success.
+
+    Raises:
+        ValueError: If validation fails (e.g., no active subscription, invalid plan).
+        Exception: For unexpected errors while changing the subscription plan.
     """
     try:
         billing_service: BillingService = get_billing_service(db)
@@ -507,6 +521,23 @@ async def cancel_subscription(
     organization_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Schedule subscription cancellation at period end.
+
+    Args:
+        organization_id (UUID): The UUID of the organisation.
+        db (AsyncSession, Depends(get_db)): Asynchronous database session.
+
+    Returns:
+        dict: Standard API response containing:
+            - status_code: HTTP status code.
+            - message: Human-readable message.
+            - data: SubscriptionStatusResponse with the updated subscription details.
+
+    Raises:
+        ValueError: If validation fails (e.g., no active subscription).
+        Exception: For unexpected errors while cancelling the subscription.
+    """
     try:
         billing_service: BillingService = get_billing_service(db)
         account = await billing_service.get_billing_account_by_org(organization_id)
@@ -726,6 +757,13 @@ list_invoices._custom_success = list_invoices_custom_success
 
 
 def map_invoice_to_response(inv: InvoiceHistory) -> InvoiceResponse:
+    """
+    Args:
+        inv (InvoiceHistory): The invoice history record to map.
+
+    Returns:
+        InvoiceResponse: The mapped invoice response object for the API.
+    """
     meta = inv.metadata_ or {}
     return InvoiceResponse(
         id=inv.id,

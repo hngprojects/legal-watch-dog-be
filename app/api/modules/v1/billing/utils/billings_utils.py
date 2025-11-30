@@ -13,6 +13,16 @@ DEFAULT_CURRENCY = "USD"
 
 
 def parse_ts(value: Any, field_name: str) -> Optional[datetime]:
+    """
+    Parse a UNIX timestamp-like value into a timezone-aware UTC datetime.
+
+    Args:
+        value: The timestamp to parse.
+        field_name: The name of the field (used for logging on parse failure).
+
+    Returns:
+        Optional[datetime]: A timezone-aware datetime in UTC if parsing succeeds, otherwise None.
+    """
     if value in (None, "", 0):
         return None
     try:
@@ -23,6 +33,15 @@ def parse_ts(value: Any, field_name: str) -> Optional[datetime]:
 
 
 def map_stripe_status_to_billing_status(stripe_status: str) -> BillingStatus:
+    """
+    Map a Stripe subscription status string to our BillingStatus enum.
+
+    Args:
+        stripe_status: The status string returned by Stripe for a subscription
+
+    Returns:
+        BillingStatus: Corresponding internal BillingStatus value.
+    """
     if stripe_status == "trialing":
         return BillingStatus.TRIALING
     if stripe_status == "active":

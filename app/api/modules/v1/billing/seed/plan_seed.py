@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 def _discounted_yearly(monthly_amount: int, discount_percent: int = 20) -> int:
     """
     Compute a yearly price from a monthly amount with a % discount.
+    Args:
+        monthly_amount (int): Monthly amount in cents (e.g. 2900 == $29.00).
+        discount_percent (int, optional): Percentage discount to apply to the annual total.
+
+    Returns:
+        int: Discounted yearly amount in the same units as monthly_amount (rounded down).
     """
     yearly_no_discount = monthly_amount * 12
     discounted = int(yearly_no_discount * (100 - discount_percent) / 100)
@@ -270,6 +276,11 @@ Billed yearly with a 20% discount.",
 async def seed_billing_plans(db: AsyncSession) -> None:
     """
     Upsert the default billing plans into the database.
+    Args:
+        db (AsyncSession): Asynchronous SQLAlchemy session
+
+    Returns:
+        None: Commits changes to the database; does not return a value.
     """
 
     result = await db.execute(select(BillingPlan))

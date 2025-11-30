@@ -33,6 +33,18 @@ async def list_plans(
 ):
     """
     Return the available subscription plans with pricing and Stripe metadata.
+
+    Args:
+        db (AsyncSession): Database session injected by Depends(get_db).
+
+    Returns:
+        dict: On success, returns a dict with keys:
+            - status_code (int): HTTP status code (200)
+            - message (str): Human-readable message
+            - data (List[BillingPlanInfo]): List of billing plans
+        On error, returns a dict with keys:
+            - status_code (int): HTTP status code (500)
+            - message (str): Error message
     """
     try:
         billing_service: BillingService = get_billing_service(db)
