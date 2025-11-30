@@ -9,6 +9,7 @@ from app.api.core.config import settings
 from app.api.core.oauth import oauth
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.service.google_oauth_service import GoogleOAuthService
+from app.api.utils.cookie_helper import set_auth_cookies
 from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -107,21 +108,15 @@ async def google_callback(
             status_code=302,
         )
 
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=cookie_settings["secure"],
-            max_age=30 * 24 * 60 * 60,
-            domain=cookie_settings["domain"],
-            path="/",
-            samesite=cookie_settings["samesite"],
+        # Set authentication cookies using centralized utility
+        set_auth_cookies(
+            response=response,
+            request=request,
+            access_token=access_token,
+            refresh_token=refresh_token,
         )
 
-        logger.debug(
-            f"Set refresh_token cookie with domain={cookie_settings['domain']}, "
-            f"secure={cookie_settings['secure']}, samesite={cookie_settings['samesite']}"
-        )
+        logger.debug("Set authentication cookies for Google OAuth user")
 
         return response
 
