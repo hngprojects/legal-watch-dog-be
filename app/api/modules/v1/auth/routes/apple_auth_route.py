@@ -34,16 +34,6 @@ async def apple_login(
             code=req.code, redirect_uri=req.redirect_uri or settings.APPLE_REDIRECT_URI
         )
 
-        # response.set_cookie(
-        #     key="access_token",
-        #     value=result["access_token"],
-        #     httponly=True,
-        #     max_age=3600,
-        #     secure=settings.ENVIRONMENT != "dev",
-        #     samesite="lax",
-        #     path="/",
-        # )
-
         # Set authentication cookies using centralized utility
         # Note: Apple OAuth only returns access_token, no refresh_token
         set_auth_cookies(
