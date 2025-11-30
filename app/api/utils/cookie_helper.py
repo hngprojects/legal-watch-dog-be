@@ -127,7 +127,7 @@ def set_auth_cookies(
     # Set refresh token cookie if provided
     if refresh_token:
         response.set_cookie(
-            key=REFRESH_TOKEN_COOKIE_NAME,
+            key=REFRESH_TOKEN_COOKIE_NAME, 
             value=refresh_token,
             httponly=True,
             secure=cookie_settings["secure"],
