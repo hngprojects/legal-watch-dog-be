@@ -49,9 +49,9 @@ async def apple_login(
         # Note: Apple OAuth only returns access_token, no refresh_token
         set_auth_cookies(
             response=response,
+            request=request,
             access_token=result["access_token"],
             refresh_token=None,
-            request=request,
         )
 
         return auth_response(
