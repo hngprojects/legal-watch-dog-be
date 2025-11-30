@@ -99,7 +99,11 @@ def set_auth_cookies(
 
     Examples:
         >>> response = RedirectResponse(url=frontend_url)
-        >>> set_auth_cookies(response, request, access_token=access_token, refresh_token=refresh_token)
+        >>> set_auth_cookies(
+        ...     response, request,
+        ...     access_token=access_token,
+        ...     refresh_token=refresh_token
+        ... )
     """
     cookie_settings = get_cookie_settings(request)
 
