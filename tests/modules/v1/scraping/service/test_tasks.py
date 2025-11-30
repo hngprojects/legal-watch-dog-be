@@ -432,4 +432,4 @@ def test_dispatch_due_sources_no_due_sources(sync_session: Session):
 
         result = dispatch_due_sources.run()
 
-    assert result == "No sources to dispatch."
+    assert result == "Dispatched 0 sources."
