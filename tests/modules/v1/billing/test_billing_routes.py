@@ -163,7 +163,7 @@ class TestBillingRoutesIntegration:
         account = BillingAccount(
             id=uuid4(),
             organization_id=org_id,
-            stripe_customer_id=None,
+            stripe_customer_id="cus_test123",
             status=BillingStatus.ACTIVE,
             currency="USD",
             metadata_={},
