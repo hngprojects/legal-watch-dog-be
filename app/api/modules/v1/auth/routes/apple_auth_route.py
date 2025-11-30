@@ -98,9 +98,9 @@ async def apple_callback(
 
         set_auth_cookies(
             response=response,
+            request=request,
             access_token=result["access_token"],
             refresh_token=None,
-            request=request,
         )
 
         return success_response(status_code=200, message="Login successful", data=result)
