@@ -10,11 +10,11 @@ from app.api.modules.v1.auth.service.apple_auth import AppleAuthClient
 from app.api.utils.cookie_helper import set_auth_cookies
 from app.api.utils.response_payloads import auth_response, error_response, success_response
 
-router = APIRouter(prefix="/auth/apple", tags=["Social Auth"])
+router = APIRouter(prefix="/oauth/apple", tags=["Social Auth"])
 logger = logging.getLogger("app")
 
 
-@router.post("/signin")
+@router.post("/login")
 async def apple_login(
     req: AppleAuthRequest,
     request: Request,
