@@ -1,6 +1,6 @@
 import logging
 
-from app.api.core.dependencies.redis_service import add_token_to_denylist
+from app.api.core.dependencies.redis_service import add_token_to_denylist, get_redis_client
 from app.api.core.logger import setup_logging
 from app.api.utils.jwt import calculate_token_ttl, get_token_jti
 
@@ -10,8 +10,7 @@ logger = logging.getLogger("app")
 
 async def logout_user(token: str) -> bool:
     """
-    Logout user by adding their JWT to the Redis denylist.
-    The token will be invalid for all subsequent requests.
+    Helper function to logout user by adding their JWT to the Redis denylist.
 
     Args:
         token: JWT access token to revoke
@@ -19,37 +18,27 @@ async def logout_user(token: str) -> bool:
     Returns:
         True if logout successful
     """
-    # Extract JWT ID
     jti = get_token_jti(token)
 
     if not jti:
         logger.error("Failed to extract jti from token during logout")
         return False
 
-    # Calculate remaining TTL for the token
     ttl = calculate_token_ttl(token)
 
-    # Add to denylist with TTL matching token expiry
     success = await add_token_to_denylist(jti, ttl)
 
     if success:
-        logger.info(f"User logged out successfully, token {jti} denylisted")
+        logger.info(f"Token {jti} denylisted successfully")
+        return True
     else:
         logger.error(f"Failed to denylist token {jti} during logout")
-
-    return success
+        return False
 
 
 async def logout_all_sessions(user_id: str) -> bool:
     """
-    Logout user from all devices/sessions.
-    Note: This requires tracking all active sessions per user,
-    which is not implemented in the current simple JWT approach.
-
-    For full implementation, you would need to:
-    1. Store all active JTI values per user in Redis
-    2. On logout_all, retrieve all JTIs for user
-    3. Add all to denylist
+    Logout user from all devices/sessions by invalidating all their refresh tokens.
 
     Args:
         user_id: User UUID
@@ -57,6 +46,22 @@ async def logout_all_sessions(user_id: str) -> bool:
     Returns:
         True if successful
     """
-    # TODO: Implement session tracking for logout_all functionality
-    logger.warning(f"logout_all_sessions not fully implemented for user {user_id}")
-    return False
+    try:
+        redis_client = await get_redis_client()
+
+        pattern = f"refresh_token:{user_id}:*"
+
+        keys = []
+        async for key in redis_client.scan_iter(pattern):
+            keys.append(key)
+
+        if keys:
+            await redis_client.delete(*keys)
+            logger.info(
+                f"Logged out user {user_id} from all sessions - invalidated {len(keys)} tokens"
+            )
+
+        return True
+    except Exception as e:
+        logger.error(f"Failed to logout all sessions for user {user_id}: {str(e)}")
+        return False
