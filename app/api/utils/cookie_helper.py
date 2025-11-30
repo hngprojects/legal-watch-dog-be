@@ -108,6 +108,7 @@ def set_auth_cookies(
     cookie_settings = get_cookie_settings(request)
 
     # Set access token cookie if provided
+    
     if access_token:
         response.set_cookie(
             key="lwd_access_token",
