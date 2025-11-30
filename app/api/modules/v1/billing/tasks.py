@@ -6,6 +6,7 @@ from celery import shared_task
 from sqlmodel import select
 
 from app.api.core.config import settings
+from app.api.core.dependencies.send_mail import send_email
 from app.api.core.logger import logger
 from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.billing.models import (
@@ -18,7 +19,6 @@ from app.api.modules.v1.organization.models import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.users.models.roles_model import Role as RoleORM
 from app.api.modules.v1.users.models.users_model import User as UserORM
-from app.api.utils import send_email_background_task
 
 # Apply nest_asyncio to allow nested event loops in Celery
 nest_asyncio.apply()
@@ -32,13 +32,13 @@ def run_async_in_celery(coro):
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # Event loop already running, use it directly
+            
             return loop.run_until_complete(coro)
         else:
-            # No running loop, use asyncio.run()
+           
             return asyncio.run(coro)
     except RuntimeError:
-        # No event loop exists, create new one
+        
         return asyncio.run(coro)
 
 
@@ -75,7 +75,7 @@ async def _expire_trials_async():
                     billing_account.status = BillingStatus.BLOCKED
                     db.add(billing_account)
 
-                    # Call synchronous wrapper instead of async function
+                    
                     send_trial_expired_email_task(billing_account)
 
                     logger.info(
@@ -327,10 +327,7 @@ def send_payment_failed_email_task(billing_account: BillingAccount):
 
 async def _send_trial_expired_email_async(billing_account: BillingAccount):
     """
-    Send trial expired notification.
-
-    Note: Uses synchronous Celery .delay() - do NOT await this call.
-    The email task runs in a separate Celery worker.
+    Send trial expired notification using team's async send_email function.
     """
     try:
         # Use a fresh session to avoid concurrent operation errors
@@ -353,11 +350,10 @@ async def _send_trial_expired_email_async(billing_account: BillingAccount):
             admins = result.scalars().all()
 
             for admin in admins:
-                # Synchronous Celery task - do NOT await
-                send_email_background_task.delay(
-                    to_email=admin.email,
-                    subject="Your Legal Watchdog Trial Has Expired",
+                await send_email(
                     template_name="trial_expired",
+                    subject="Your Legal Watchdog Trial Has Expired",
+                    recipient=admin.email,
                     context={
                         "user_name": admin.name or admin.email,
                         "organization_name": org.name,
@@ -375,13 +371,10 @@ async def _send_trial_expired_email_async(billing_account: BillingAccount):
 
 async def _send_trial_reminder_email_async(billing_account: BillingAccount, days_remaining: int):
     """
-    Send trial reminder email.
-
-    Note: Uses synchronous Celery .delay() - do NOT await this call.
-    The email task runs in a separate Celery worker.
+    Send trial reminder notification using async send_email function.
     """
     try:
-        # Use a fresh session to avoid concurrent operation errors
+    
         async with AsyncSessionLocal() as db:
             org = await db.get(Organization, billing_account.organization_id)
             if not org:
@@ -402,13 +395,13 @@ async def _send_trial_reminder_email_async(billing_account: BillingAccount, days
 
             for admin in admins:
                 # Synchronous Celery task - do NOT await
-                send_email_background_task.delay(
-                    to_email=admin.email,
+                await send_email(
+                    template_name="trial_reminder",
                     subject=(
                         f"Your Legal Watchdog Trial Ends in {days_remaining} "
                         f"Day{'s' if days_remaining > 1 else ''}"
                     ),
-                    template_name="trial_reminder",
+                    recipient=admin.email,
                     context={
                         "user_name": admin.name or admin.email,
                         "organization_name": org.name,
@@ -428,10 +421,7 @@ async def _send_trial_reminder_email_async(billing_account: BillingAccount, days
 
 async def _send_payment_failed_email_async(billing_account: BillingAccount):
     """
-    Send payment failure notification.
-
-    Note: Uses synchronous Celery .delay() - do NOT await this call.
-    The email task runs in a separate Celery worker.
+    Send paymennt failed notification using team async send_email function.
     """
     try:
         # Use a fresh session to avoid concurrent operation errors
@@ -454,11 +444,10 @@ async def _send_payment_failed_email_async(billing_account: BillingAccount):
             admins = result.scalars().all()
 
             for admin in admins:
-                # Synchronous Celery task - do NOT await
-                send_email_background_task.delay(
-                    to_email=admin.email,
-                    subject="Payment Failed - Action Required",
+                await send_email(
                     template_name="payment_failed",
+                    subject="Payment Failed - Action Required",
+                    recipient=admin.email,
                     context={
                         "user_name": admin.name or admin.email,
                         "organization_name": org.name,
