@@ -122,9 +122,9 @@ async def google_callback(
         # Set authentication cookies using centralized utility
         set_auth_cookies(
             response=response,
+            request=request,
             access_token=access_token,
             refresh_token=refresh_token,
-            request=request,
         )
 
         logger.debug("Set authentication cookies for Google OAuth user")
