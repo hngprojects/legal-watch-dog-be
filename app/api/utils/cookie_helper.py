@@ -11,6 +11,10 @@ from app.api.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Cookie name constants
+ACCESS_TOKEN_COOKIE_NAME = "lwd_access_token"
+REFRESH_TOKEN_COOKIE_NAME = "lwd_refresh_token"
+
 
 def get_cookie_settings(request: Request) -> Dict:
     """
@@ -108,10 +112,9 @@ def set_auth_cookies(
     cookie_settings = get_cookie_settings(request)
 
     # Set access token cookie if provided
-    
     if access_token:
         response.set_cookie(
-            key="lwd_access_token",
+            key=ACCESS_TOKEN_COOKIE_NAME,
             value=access_token,
             httponly=True,
             secure=cookie_settings["secure"],
@@ -124,7 +127,7 @@ def set_auth_cookies(
     # Set refresh token cookie if provided
     if refresh_token:
         response.set_cookie(
-            key="lwd_refresh_token",
+            key=REFRESH_TOKEN_COOKIE_NAME,
             value=refresh_token,
             httponly=True,
             secure=cookie_settings["secure"],
@@ -158,7 +161,7 @@ def clear_auth_cookies(response: Response, request: Request) -> None:
 
     # Clear access token cookie
     response.delete_cookie(
-        key="lwd_access_token",
+        key=ACCESS_TOKEN_COOKIE_NAME,
         path="/",
         domain=cookie_settings["domain"],
         secure=cookie_settings["secure"],
@@ -167,7 +170,7 @@ def clear_auth_cookies(response: Response, request: Request) -> None:
 
     # Clear refresh token cookie
     response.delete_cookie(
-        key="lwd_refresh_token",
+        key=REFRESH_TOKEN_COOKIE_NAME,
         path="/",
         domain=cookie_settings["domain"],
         secure=cookie_settings["secure"],
