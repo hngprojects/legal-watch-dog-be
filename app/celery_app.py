@@ -18,8 +18,8 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.api.modules.v1.scraping.service.tasks",
+        "app.api.modules.v1.billing.tasks",
         "app.api.modules.v1.notifications.service.revision_notification_task",
-        # NOTE: billing.tasks removed - requires async conversion
     ],
 )
 
@@ -76,15 +76,21 @@ celery_app.conf.beat_schedule = {
         "schedule": 60.0,  # Every 60 seconds
         "options": {"queue": "celery"},
     },
-    # NOTE: Billing tasks removed - require async conversion
-    # "expire-trials": {
-    #     "task": "billing.tasks.expire_trials",
-    #     "schedule": crontab(minute=0),
-    # },
-    # "send-trial-reminders": {
-    #     "task": "billing.tasks.send_trial_reminders",
-    #     "schedule": crontab(hour=9, minute=0),
-    # },
+    # Expire trials - runs every hour
+    "expire-trials": {
+        "task": "billing.tasks.expire_trials",
+        "schedule": 3600.0,  # Every hour (3600 seconds)
+    },
+    # Update billing status - runs every 6 hours
+    "update-billing-status": {
+        "task": "billing.tasks.update_billing_status",
+        "schedule": 21600.0,  # Every 6 hours (21600 seconds)
+    },
+    # Send trial reminders - runs daily at 9 AM UTC
+    "send-trial-reminders": {
+        "task": "billing.tasks.send_trial_reminders",
+        "schedule": 86400.0,  # Daily (86400 seconds)
+    },
 }
 
 celery_app.conf.timezone = "UTC"
