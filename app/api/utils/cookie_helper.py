@@ -1,7 +1,7 @@
 """Cookie management utilities for OAuth and authentication."""
 
 import logging
-from typing import Dict
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
 from fastapi import Request
@@ -80,9 +80,9 @@ def get_cookie_settings(request: Request) -> Dict:
 
 def set_auth_cookies(
     response: Response,
-    access_token: str,
-    refresh_token: str,
     request: Request,
+    access_token: Optional[str] = None,
+    refresh_token: Optional[str] = None,
     access_token_max_age: int = 86400,  # 24 hours
     refresh_token_max_age: int = 2592000,  # 30 days
 ) -> None:
@@ -91,41 +91,43 @@ def set_auth_cookies(
 
     Args:
         response: FastAPI response object to set cookies on.
-        access_token: Access token value.
-        refresh_token: Refresh token value.
         request: HTTP request object to determine cookie settings.
+        access_token: Access token value (optional).
+        refresh_token: Refresh token value (optional).
         access_token_max_age: Max age for access token cookie in seconds (default: 24 hours).
         refresh_token_max_age: Max age for refresh token cookie in seconds (default: 30 days).
 
     Examples:
         >>> response = RedirectResponse(url=frontend_url)
-        >>> set_auth_cookies(response, access_token, refresh_token, request)
+        >>> set_auth_cookies(response, request, access_token=access_token, refresh_token=refresh_token)
     """
     cookie_settings = get_cookie_settings(request)
 
-    # Set access token cookie
-    response.set_cookie(
-        key="lwd_access_token",
-        value=access_token,
-        httponly=True,
-        secure=cookie_settings["secure"],
-        samesite=cookie_settings["samesite"],
-        max_age=access_token_max_age,
-        path="/",
-        domain=cookie_settings["domain"],
-    )
+    # Set access token cookie if provided
+    if access_token:
+        response.set_cookie(
+            key="lwd_access_token",
+            value=access_token,
+            httponly=True,
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            max_age=access_token_max_age,
+            path="/",
+            domain=cookie_settings["domain"],
+        )
 
-    # Set refresh token cookie
-    response.set_cookie(
-        key="lwd_refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=cookie_settings["secure"],
-        samesite=cookie_settings["samesite"],
-        max_age=refresh_token_max_age,
-        path="/",
-        domain=cookie_settings["domain"],
-    )
+    # Set refresh token cookie if provided
+    if refresh_token:
+        response.set_cookie(
+            key="lwd_refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            max_age=refresh_token_max_age,
+            path="/",
+            domain=cookie_settings["domain"],
+        )
 
     logger.debug(
         f"Set auth cookies with domain={cookie_settings['domain']}, "

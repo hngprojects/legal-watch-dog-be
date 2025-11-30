@@ -146,9 +146,9 @@ async def microsoft_callback(
         # Set authentication cookies using centralized utility
         set_auth_cookies(
             response=response,
+            request=request,
             access_token=result["access_token"],
             refresh_token=result["refresh_token"],
-            request=request,
         )
 
         logger.info(
