@@ -1,7 +1,7 @@
 """create specialist_hires table
 
 Revision ID: 924acaf3d7b8
-Revises: 88065553cd35
+Revises: fa7a4d7cccac
 Create Date: 2025-11-28 16:50:57.891869
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '924acaf3d7b8'
-down_revision: Union[str, Sequence[str], None] = '88065553cd35'
+down_revision: Union[str, Sequence[str], None] = 'fa7a4d7cccac'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
