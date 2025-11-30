@@ -122,8 +122,10 @@ async def test_set_membership_status_success():
 
 
 @pytest.mark.asyncio
-async def test_remove_user_from_organization_success():
-    db = AsyncMock()
+async def test_soft_delete_member_success():
+    db = MagicMock()
+    db.flush = AsyncMock()
+    db.refresh = AsyncMock()
 
     membership = UserOrganization(
         user_id=uuid.uuid4(), organization_id=uuid.uuid4(), role_id=uuid.uuid4()
@@ -131,9 +133,37 @@ async def test_remove_user_from_organization_success():
 
     UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=membership)
 
-    await UserOrganizationCRUD.remove_user_from_organization(
+    await UserOrganizationCRUD.soft_delete_member(
         db, membership.user_id, membership.organization_id
     )
 
-    db.delete.assert_awaited_with(membership)
+    assert membership.is_deleted is True
+    assert membership.deleted_at is not None
+    db.add.assert_called_once_with(membership)
     db.flush.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_member_not_found():
+    db = AsyncMock()
+    UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=None)
+
+    with pytest.raises(ValueError, match="User is not a member"):
+        await UserOrganizationCRUD.soft_delete_member(db, uuid.uuid4(), uuid.uuid4())
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_member_already_deleted():
+    db = AsyncMock()
+    membership = UserOrganization(
+        user_id=uuid.uuid4(),
+        organization_id=uuid.uuid4(),
+        role_id=uuid.uuid4(),
+        is_deleted=True,
+    )
+    UserOrganizationCRUD.get_user_organization = AsyncMock(return_value=membership)
+
+    with pytest.raises(ValueError, match="Membership is already deleted"):
+        await UserOrganizationCRUD.soft_delete_member(
+            db, membership.user_id, membership.organization_id
+        )

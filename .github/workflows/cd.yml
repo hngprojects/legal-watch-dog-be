@@ -138,7 +138,7 @@ jobs:
           MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
           MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
-          MICROSOFT_SCOPES='${{ vars.MICROSOFT_SCOPES || "[\"https://graph.microsoft.com/User.Read\", \"openid\", \"email\", \"profile\"]" }}'
+          # MICROSOFT_SCOPES=https://graph.microsoft.com/User.Read,openid,email,profile
           MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
           MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
           MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
@@ -150,9 +150,14 @@ jobs:
           APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
           APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }}
           APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
-          APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY="${{ secrets.APPLE_PRIVATE_KEY }}"
           APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
           APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
+
+          # Google OAuth
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
           
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
@@ -358,7 +363,7 @@ jobs:
           MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
           MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_USERINFO_ENDPOINT=${{ vars.MICROSOFT_USERINFO_ENDPOINT || 'https://graph.microsoft.com/v1.0/me' }}
-          MICROSOFT_SCOPES='${{ vars.MICROSOFT_SCOPES || "[\"https://graph.microsoft.com/User.Read\", \"openid\", \"email\", \"profile\"]" }}'
+          # MICROSOFT_SCOPES=https://graph.microsoft.com/User.Read,openid,email,profile
           MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_NEW_USER_URL }}
           MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL=${{ secrets.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL || vars.MICROSOFT_OAUTH_REDIRECT_EXISTING_USER_URL }}
           MICROSOFT_OAUTH_STATE_TTL=${{ vars.MICROSOFT_OAUTH_STATE_TTL || '900' }}
@@ -370,9 +375,14 @@ jobs:
           APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
           APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }}
           APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
-          APPLE_PRIVATE_KEY=${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY="${{ secrets.APPLE_PRIVATE_KEY }}"
           APPLE_CLIENT_SECRET_LIFETIME=${{ secrets.APPLE_CLIENT_SECRET_LIFETIME || vars.APPLE_CLIENT_SECRET_LIFETIME }}
           APPLE_REDIRECT_URI=${{ secrets.APPLE_REDIRECT_URI }}
+
+          # Google OAuth
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
           
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
@@ -453,7 +463,7 @@ jobs:
   # -------------------------
   notify_slack:
     name: Notify Slack
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     needs:
       - deploy_production
       - deploy_staging

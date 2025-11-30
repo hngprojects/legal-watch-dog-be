@@ -6,6 +6,7 @@ from alembic import context
 from app.api.core.config import BASE_DIR, settings
 from app.api.db.database import Base
 from app.api.modules.v1.auth.models.otp_model import OTP
+from app.api.modules.v1.auth.models.oauth_models import RefreshTokenMetadata, OAuthLoginEvent
 from app.api.modules.v1.billing.models.billing_account import BillingAccount
 from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
 from app.api.modules.v1.billing.models.payment_method import PaymentMethod

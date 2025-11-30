@@ -1,9 +1,11 @@
 import logging
+import os
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.config import settings
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
@@ -17,6 +19,7 @@ from app.api.modules.v1.organization.schemas.organization_schema import (
 )
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
+from app.api.modules.v1.scraping.storage.minio_storage import upload_profile_picture
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.routes.docs.user_routes_docs import (
     get_user_organizations_custom_errors,
@@ -26,6 +29,7 @@ from app.api.modules.v1.users.routes.docs.user_routes_docs import (
     get_user_profile_custom_success,
     get_user_profile_responses,
 )
+from app.api.modules.v1.users.schemas.user_profile_schema import UpdateUserProfileRequest
 from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -87,6 +91,158 @@ async def get_current_user_profile(
 
 get_current_user_profile._custom_errors = get_user_profile_custom_errors
 get_current_user_profile._custom_success = get_user_profile_custom_success
+
+
+@router.patch(
+    "/me",
+    status_code=status.HTTP_200_OK,
+    summary="Update current user's profile",
+)
+async def update_user_profile(
+    payload: UpdateUserProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update the authenticated user's profile information.
+
+    Allows users to update their:
+    - Name
+    - Avatar URL
+
+    Email cannot be changed via this endpoint for security reasons.
+
+    Requirements:
+    - User must be authenticated
+
+    Args:
+        payload: Profile update data
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with updated user profile
+
+    Raises:
+        HTTPException: 400 for validation errors, 500 for server errors
+    """
+    try:
+        # Build update dictionary (only include non-None values)
+        update_data = {}
+        if payload.name is not None:
+            update_data["name"] = payload.name
+        if payload.avatar_url is not None:
+            update_data["avatar_url"] = payload.avatar_url
+
+        if not update_data:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST, message="No fields to update"
+            )
+
+        updated_user = await UserCRUD.update_user(db=db, user_id=current_user.id, **update_data)
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Profile updated successfully",
+            data={
+                "id": str(updated_user.id),
+                "email": updated_user.email,
+                "name": updated_user.name,
+                "avatar_url": updated_user.avatar_url,
+                "is_active": updated_user.is_active,
+                "is_verified": updated_user.is_verified,
+                "created_at": updated_user.created_at.isoformat(),
+                "updated_at": updated_user.updated_at.isoformat(),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update profile for user_id={current_user.id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to update profile",
+        )
+
+
+@router.post(
+    "/me/upload-profile-picture",
+    status_code=status.HTTP_200_OK,
+    summary="Upload profile picture",
+)
+async def upload_user_profile_picture(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Upload a profile picture for the authenticated user.
+
+    Validates the file type, uploads to MinIO, and updates the user's profile_picture_url.
+
+    Requirements:
+    - User must be authenticated
+    - File must be an image (jpeg, png, gif, webp)
+
+    Args:
+        file: Image file to upload
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response with updated profile picture URL
+
+    Raises:
+        HTTPException: 400 for invalid file type, 500 for upload/server errors
+    """
+    try:
+        allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+        if file.content_type not in allowed_types:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.",
+            )
+
+        file_content = await file.read()
+        if len(file_content) > 5 * 1024 * 1024:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="File too large. Maximum size is 5MB.",
+            )
+
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        unique_filename = f"{current_user.id}/{uuid.uuid4()}{file_extension}"
+
+        bucket_name = settings.MINIO_PROFILE_BUCKET
+        upload_profile_picture(
+            file_data=file_content,
+            bucket_name=bucket_name,
+            object_name=unique_filename,
+            content_type=file.content_type,
+        )
+
+        protocol = "https" if settings.MINIO_SECURE else "http"
+        picture_url = f"{protocol}://{settings.MINIO_ENDPOINT}/{bucket_name}/{unique_filename}"
+
+        await UserCRUD.update_user(db=db, user_id=current_user.id, profile_picture_url=picture_url)
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Profile picture uploaded successfully",
+            data={"profile_picture_url": picture_url},
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to upload profile picture for user_id={current_user.id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to upload profile picture",
+        )
 
 
 @router.get(
