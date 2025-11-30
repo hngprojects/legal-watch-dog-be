@@ -577,4 +577,3 @@ async def verify_webhook_signature(payload: bytes, header: str) -> Dict[str, Any
 
     logger.debug("Verifying stripe webhook signature (len=%d)", len(payload))
     return await _run_blocking(_construct, timeout=_DEFAULT_TIMEOUT)
-
