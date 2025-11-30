@@ -4,7 +4,6 @@ import time
 from typing import Any, Callable, Dict, Optional
 
 import stripe
-from fastapi import HTTPException
 
 from app.api.core.config import settings
 from app.api.modules.v1.billing.stripe.errors import SubscriptionAlreadyCanceledError
@@ -579,56 +578,3 @@ async def verify_webhook_signature(payload: bytes, header: str) -> Dict[str, Any
     logger.debug("Verifying stripe webhook signature (len=%d)", len(payload))
     return await _run_blocking(_construct, timeout=_DEFAULT_TIMEOUT)
 
-
-async def resolve_stripe_price_id_for_product(product_id: str) -> str:
-    """
-    Resolve an internal product ID to a validated Stripe one-time price ID.
-
-    Args:
-        product_id (str): Internal product identifier to map to a Stripe price.
-
-    Returns:
-        str: The Stripe price ID corresponding to the given product.
-
-    Raises:
-        HTTPException: If the product ID is unknown, the price ID is invalid, or the price
-            is not a one-time price, or if a Stripe error occurs while retrieving the price.
-    """
-    if product_id == settings.STRIPE_MONTHLY_PRODUCT_ID:
-        price_id = settings.STRIPE_MONTHLY_PRICE_ID
-    elif product_id == settings.STRIPE_YEARLY_PRODUCT_ID:
-        price_id = settings.STRIPE_YEARLY_PRICE_ID
-
-    elif product_id == settings.STRIPE_ONE_OFF_YEAR_PROD_ID:
-        price_id = settings.STRIPE_ONE_OFF_YEAR_PRICE_ID
-
-    elif product_id == settings.STRIPE_ONE_OFF_MONTH_PROD_ID:
-        price_id = settings.STRIPE_ONE_OFF_MONTH_PRICE_ID
-
-    else:
-        raise HTTPException(status_code=400, detail="Unknown product_id")
-
-    try:
-        price = stripe.Price.retrieve(price_id)
-
-    except stripe.error.InvalidRequestError as e:
-        logger.exception("Invalid Stripe price_id configured: %s", str(e))
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid Stripe price_id configured: {e.user_message or str(e)}",
-        )
-
-    except Exception as e:
-        logger.exception("Unexpected error retrieving Stripe price %s: %s", price_id, str(e))
-        raise HTTPException(
-            status_code=500,
-            detail="Unexpected error while retrieving Stripe price configuration",
-        ) from e
-
-    if price.type != "one_time":
-        raise HTTPException(
-            status_code=400,
-            detail="you cannot create invoice for subscription prices. \
-            Price must be one_time for manual invoices",
-        )
-    return price.id

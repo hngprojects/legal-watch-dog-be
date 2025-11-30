@@ -1,3 +1,190 @@
+# CREATE BILLING ACCOUNT DOCS
+create_billing_account_responses = {
+    201: {
+        "description": "Billing account created successfully",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "success": {
+                        "summary": "Billing account created",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 201,
+                            "message": "Billing account created",
+                            "data": {
+                                "id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
+                                "organization_id": "0c7c9f2b-7a67-4b37-9f42-5ff000000001",
+                                "status": "TRIALING",
+                                "currency": "USD",
+                                "stripe_customer_id": "cus_123456789",
+                                "trial_starts_at": "2025-11-30T02:20:18.667467Z",
+                                "trial_ends_at": "2025-12-14T02:20:18.667467Z",
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    400: {
+        "description": "Bad Request - Validation or business rule error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "validation_error": {
+                        "summary": "Validation / business rule failure",
+                        "value": {
+                            "error": "ERROR",
+                            "message": "Currency XYZ is not supported",
+                            "status_code": 400,
+                            "errors": {},
+                        },
+                    }
+                }
+            }
+        },
+    },
+    422: {
+        "description": "Unprocessable Entity - Request validation failed",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "invalid_payload": {
+                        "summary": "Invalid request payload",
+                        "value": {
+                            "error": "VALIDATION_ERROR",
+                            "message": "Validation failed",
+                            "status_code": 422,
+                            "errors": {
+                                "organization_id": ["value is not a valid uuid"],
+                                "currency": ["value is not a valid string"],
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "server_error": {
+                        "summary": "Failed to create billing account",
+                        "value": {
+                            "error": "INTERNAL_SERVER_ERROR",
+                            "message": "Failed to create billing account",
+                            "status_code": 500,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+}
+
+create_billing_account_custom_errors = ["400", "422", "500"]
+create_billing_account_custom_success = {
+    "status_code": 201,
+    "description": "Billing account created successfully.",
+}
+
+
+# GET BILLING ACCOUNT DOCS
+get_billing_account_responses = {
+    200: {
+        "description": "Billing account retrieved successfully",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "success": {
+                        "summary": "Billing account found",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 200,
+                            "message": "Billing account retrieved",
+                            "data": {
+                                "id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
+                                "organization_id": "0c7c9f2b-7a67-4b37-9f42-5ff000000001",
+                                "status": "ACTIVE",
+                                "currency": "USD",
+                                "default_payment_method_id": "e5b2dd4b-9a71-4d4f-9c11-bc4100000001",
+                                "stripe_customer_id": "cus_123456789",
+                                "stripe_subscription_id": "sub_123456789",
+                                "cancel_at_period_end": False,
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    404: {
+        "description": "Billing account not found",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "not_found": {
+                        "summary": "No billing account for organisation",
+                        "value": {
+                            "error": "ERROR",
+                            "message": "Billing account not found for organisation",
+                            "status_code": 404,
+                            "errors": {},
+                        },
+                    }
+                }
+            }
+        },
+    },
+    422: {
+        "description": "Unprocessable Entity - Request validation failed",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "invalid_organisation_id": {
+                        "summary": "Invalid organisation ID",
+                        "value": {
+                            "error": "VALIDATION_ERROR",
+                            "message": "Validation failed",
+                            "status_code": 422,
+                            "errors": {
+                                "organization_id": ["value is not a valid uuid"],
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "server_error": {
+                        "summary": "Failed to fetch billing account",
+                        "value": {
+                            "error": "INTERNAL_SERVER_ERROR",
+                            "message": "Failed to fetch billing account",
+                            "status_code": 500,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+}
+
+get_billing_account_custom_errors = ["404", "422", "500"]
+get_billing_account_custom_success = {
+    "status_code": 200,
+    "description": "Billing account retrieved successfully.",
+}
+
 # CREATE CHECKOUT SESSION DOCS
 create_checkout_responses = {
     200: {
@@ -113,123 +300,6 @@ create_checkout_custom_success = {
     "status_code": 200,
     "description": "Checkout session created successfully.",
 }
-
-# CREATE CHECKOUT SESSION DOCS
-create_checkout_responses = {
-    200: {
-        "description": "Checkout session created successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Checkout session created",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 200,
-                            "message": "Checkout session created",
-                            "data": {
-                                "checkout_url": "https://checkout.stripe.com/c/test_123",
-                                "session_id": "cs_test_1234567890",
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    400: {
-        "description": "Bad Request - Invalid plan or request",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "unsupported_plan": {
-                        "summary": "Unsupported billing plan",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Unsupported billing plan",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    },
-                    "invalid_request": {
-                        "summary": "Invalid request payload",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Invalid request",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Validation Failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "validation_error": {
-                        "summary": "Request Validation Failed",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "plan": ["Field required"],
-                            },
-                        },
-                    },
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "stripe_customer_error": {
-                        "summary": "Failed to create Stripe customer",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to create Stripe customer",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                    "checkout_error": {
-                        "summary": "Checkout session creation failed",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to create checkout session",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                    "config_error": {
-                        "summary": "Billing configuration invalid",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": (
-                                "Billing is not correctly configured. Please contact support."
-                            ),
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-create_checkout_custom_errors = ["400", "422", "500"]
-create_checkout_custom_success = {
-    "status_code": 200,
-    "description": "Checkout session created successfully.",
-}
-
 
 # GET SUBSCRIPTION STATUS DOCS
 subscription_status_responses = {
@@ -248,13 +318,32 @@ subscription_status_responses = {
                                 "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
                                 "stripe_customer_id": "cus_123456789",
                                 "stripe_subscription_id": "sub_123456789",
-                                "status": "active",
+                                "status": "ACTIVE",
                                 "cancel_at_period_end": False,
-                                "trial_starts_at": "2025-01-01T00:00:00Z",
-                                "trial_ends_at": "2025-01-14T00:00:00Z",
                                 "current_period_start": "2025-01-01T00:00:00Z",
                                 "current_period_end": "2025-02-01T00:00:00Z",
                                 "next_billing_at": "2025-02-01T00:00:00Z",
+                                "current_plan": {
+                                    "id": "1a2b3c4d-5e6f-7g8h-9i10-j11k12l13m14",
+                                    "code": "ESSENTIAL_YEARLY",
+                                    "tier": "ESSENTIAL",
+                                    "label": "Essential (Yearly)",
+                                    "interval": "year",
+                                    "currency": "USD",
+                                    "amount": "27840",
+                                    "description": "Best for individual consultants & small teams. \
+                                        Billed yearly with a 20% discount.",
+                                    "features": [
+                                        "Up to 1 projects",
+                                        "Up to 2 jurisdictions",
+                                        "1-day snapshot history",
+                                        "20 monthly scans",
+                                        "Email summaries",
+                                        "AI summaries",
+                                    ],
+                                    "is_most_popular": False,
+                                    "is_active": True,
+                                },
                             },
                         },
                     }
@@ -339,18 +428,37 @@ change_subscription_plan_responses = {
                         "value": {
                             "status": "SUCCESS",
                             "status_code": 200,
-                            "message": "Subscription plan changed to monthly",
+                            "message": "Subscription plan changed to ESSENTIAL_YEARLY",
                             "data": {
                                 "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
                                 "stripe_customer_id": "cus_123456789",
                                 "stripe_subscription_id": "sub_123456789",
-                                "status": "active",
+                                "status": "ACTIVE",
                                 "cancel_at_period_end": False,
-                                "trial_starts_at": "2025-01-01T00:00:00Z",
-                                "trial_ends_at": "2025-01-14T00:00:00Z",
                                 "current_period_start": "2025-01-01T00:00:00Z",
                                 "current_period_end": "2025-02-01T00:00:00Z",
                                 "next_billing_at": "2025-02-01T00:00:00Z",
+                                "current_plan": {
+                                    "id": "1a2b3c4d-5e6f-7g8h-9i10-j11k12l13m14",
+                                    "code": "ESSENTIAL_YEARLY",
+                                    "tier": "ESSENTIAL",
+                                    "label": "Essential (Yearly)",
+                                    "interval": "year",
+                                    "currency": "USD",
+                                    "amount": "27840",
+                                    "description": "Best for individual consultants & small teams. \
+                                        Billed yearly with a 20% discount.",
+                                    "features": [
+                                        "Up to 1 projects",
+                                        "Up to 2 jurisdictions",
+                                        "1-day snapshot history",
+                                        "20 monthly scans",
+                                        "Email summaries",
+                                        "AI summaries",
+                                    ],
+                                    "is_most_popular": False,
+                                    "is_active": True,
+                                },
                             },
                         },
                     }
@@ -473,32 +581,12 @@ change_subscription_plan_custom_success = {
 # CANCEL SUBSCRIPTION DOCS
 cancel_subscription_responses = {
     200: {
-        "description": "Subscription cancelled or scheduled for cancellation successfully",
+        "description": "Subscription scheduled for cancellation successfully",
         "content": {
             "application/json": {
                 "examples": {
-                    "cancel_immediately": {
-                        "summary": "Cancelled immediately",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 200,
-                            "message": "Subscription cancelled immediately",
-                            "data": {
-                                "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "stripe_customer_id": "cus_123456789",
-                                "stripe_subscription_id": "sub_123456789",
-                                "status": "canceled",
-                                "cancel_at_period_end": False,
-                                "trial_starts_at": "2025-01-01T00:00:00Z",
-                                "trial_ends_at": "2025-01-14T00:00:00Z",
-                                "current_period_start": "2025-01-01T00:00:00Z",
-                                "current_period_end": "2025-02-01T00:00:00Z",
-                                "next_billing_at": None,
-                            },
-                        },
-                    },
                     "cancel_at_period_end": {
-                        "summary": "Set to cancel at period end",
+                        "summary": "Cancelled immediately",
                         "value": {
                             "status": "SUCCESS",
                             "status_code": 200,
@@ -507,13 +595,31 @@ cancel_subscription_responses = {
                                 "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
                                 "stripe_customer_id": "cus_123456789",
                                 "stripe_subscription_id": "sub_123456789",
-                                "status": "active",
+                                "status": "ACTIVE",
                                 "cancel_at_period_end": True,
-                                "trial_starts_at": "2025-01-01T00:00:00Z",
-                                "trial_ends_at": "2025-01-14T00:00:00Z",
                                 "current_period_start": "2025-01-01T00:00:00Z",
                                 "current_period_end": "2025-02-01T00:00:00Z",
-                                "next_billing_at": "2025-02-01T00:00:00Z",
+                                "current_plan": {
+                                    "id": "99810fed-ec37-49ac-8818-5b135b409199",
+                                    "code": "ESSENTIAL_YEARLY",
+                                    "tier": "ESSENTIAL",
+                                    "label": "Essential (Yearly)",
+                                    "interval": "year",
+                                    "currency": "USD",
+                                    "amount": 27840,
+                                    "description": "Best for individual consultants & small teams. \
+                                        Billed yearly with a 20% discount.",
+                                    "features": [
+                                        "Up to 1 projects",
+                                        "Up to 2 jurisdictions",
+                                        "1-day snapshot history",
+                                        "20 monthly scans",
+                                        "Email summaries",
+                                        "AI summaries",
+                                    ],
+                                    "is_most_popular": False,
+                                    "is_active": True,
+                                },
                             },
                         },
                     },
@@ -610,316 +716,6 @@ cancel_subscription_custom_errors = ["400", "404", "422", "500"]
 cancel_subscription_custom_success = {
     "status_code": 200,
     "description": "Subscription cancelled or scheduled for cancellation successfully.",
-}
-
-
-# CREATE BILLING ACCOUNT DOCS
-create_billing_account_responses = {
-    201: {
-        "description": "Billing account created successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Billing account created",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 201,
-                            "message": "Billing account created",
-                            "data": {
-                                "id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "organization_id": "0c7c9f2b-7a67-4b37-9f42-5ff000000001",
-                                "currency": "USD",
-                                "stripe_customer_id": "cus_123456789",
-                                "stripe_subscription_id": None,
-                                "status": "inactive",
-                                "cancel_at_period_end": False,
-                                "trial_starts_at": None,
-                                "trial_ends_at": None,
-                                "current_period_start": None,
-                                "current_period_end": None,
-                                "next_billing_at": None,
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    400: {
-        "description": "Bad Request - Validation or business rule error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "validation_error": {
-                        "summary": "Validation / business rule failure",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Currency XYZ is not supported",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_payload": {
-                        "summary": "Invalid request payload",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                                "currency": ["value is not a valid string"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to create billing account",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to create billing account",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-create_billing_account_custom_errors = ["400", "422", "500"]
-create_billing_account_custom_success = {
-    "status_code": 201,
-    "description": "Billing account created successfully.",
-}
-
-
-# GET BILLING ACCOUNT DOCS
-get_billing_account_responses = {
-    200: {
-        "description": "Billing account retrieved successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Billing account found",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 200,
-                            "message": "Billing account retrieved",
-                            "data": {
-                                "id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "organization_id": "0c7c9f2b-7a67-4b37-9f42-5ff000000001",
-                                "currency": "USD",
-                                "stripe_customer_id": "cus_123456789",
-                                "stripe_subscription_id": "sub_123456789",
-                                "status": "active",
-                                "cancel_at_period_end": False,
-                                "trial_starts_at": "2025-01-01T00:00:00Z",
-                                "trial_ends_at": "2025-01-14T00:00:00Z",
-                                "current_period_start": "2025-01-01T00:00:00Z",
-                                "current_period_end": "2025-02-01T00:00:00Z",
-                                "next_billing_at": "2025-02-01T00:00:00Z",
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    404: {
-        "description": "Billing account not found",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "not_found": {
-                        "summary": "No billing account for organisation",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Billing account not found for organisation",
-                            "status_code": 404,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_organisation_id": {
-                        "summary": "Invalid organisation ID",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to fetch billing account",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to fetch billing account",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-get_billing_account_custom_errors = ["404", "422", "500"]
-get_billing_account_custom_success = {
-    "status_code": 200,
-    "description": "Billing account retrieved successfully.",
-}
-
-
-# ADD PAYMENT METHOD DOCS
-add_payment_method_responses = {
-    201: {
-        "description": "Payment method added successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Payment method added",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 201,
-                            "message": "Payment method added",
-                            "data": {
-                                "id": "e5b2dd4b-9a71-4d4f-9c11-bc4100000001",
-                                "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "stripe_payment_method_id": "pm_1PvABCDEF12345678",
-                                "card_brand": "visa",
-                                "last4": "4242",
-                                "exp_month": 12,
-                                "exp_year": 2030,
-                                "is_default": True,
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    400: {
-        "description": "Bad Request - Validation or business rule error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "validation_error": {
-                        "summary": "Invalid payment method data",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Card brand is not supported",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    404: {
-        "description": "Billing account not found",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "billing_not_found": {
-                        "summary": "No billing account",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Billing account not found",
-                            "status_code": 404,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_payload": {
-                        "summary": "Invalid request payload",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                                "stripe_payment_method_id": ["Field required"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to add payment method",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to add payment method",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-add_payment_method_custom_errors = ["400", "404", "422", "500"]
-add_payment_method_custom_success = {
-    "status_code": 201,
-    "description": "Payment method added successfully.",
 }
 
 
@@ -1029,119 +825,6 @@ list_payment_methods_custom_success = {
 }
 
 
-# SET DEFAULT PAYMENT METHOD DOCS
-set_default_payment_method_responses = {
-    200: {
-        "description": "Default payment method set successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Default payment method set",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 200,
-                            "message": "Default payment method set",
-                            "data": {
-                                "id": "e5b2dd4b-9a71-4d4f-9c11-bc4100000001",
-                                "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "stripe_payment_method_id": "pm_1PvABCDEF12345678",
-                                "card_brand": "visa",
-                                "last4": "4242",
-                                "exp_month": 12,
-                                "exp_year": 2030,
-                                "is_default": True,
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    400: {
-        "description": "Bad Request - Validation or ownership error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_payment_method": {
-                        "summary": "Payment method does not belong to account",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Payment method does not belong to this billing account",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    404: {
-        "description": "Billing account not found",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "billing_not_found": {
-                        "summary": "No billing account",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Billing account not found",
-                            "status_code": 404,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_ids": {
-                        "summary": "Invalid organisation or payment method ID",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                                "payment_method_id": ["value is not a valid uuid"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to set default payment method",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to set default payment method",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-set_default_payment_method_custom_errors = ["400", "404", "422", "500"]
-set_default_payment_method_custom_success = {
-    "status_code": 200,
-    "description": "Default payment method set successfully.",
-}
-
-
 # DELETE PAYMENT METHOD DOCS
 delete_payment_method_responses = {
     204: {
@@ -1213,209 +896,6 @@ delete_payment_method_custom_success = {
 }
 
 
-# LIST PLANS DOCS
-list_plans_responses = {
-    200: {
-        "description": "Subscription plans retrieved successfully",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Available plans",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 200,
-                            "message": "Plans retrieved",
-                            "data": [
-                                {
-                                    "code": "monthly",
-                                    "label": "Pro Monthly",
-                                    "price_id": "price_123_monthly",
-                                    "product_id": "prod_123_monthly",
-                                    "interval": "month",
-                                    "currency": "USD",
-                                    "amount": 2900,
-                                },
-                                {
-                                    "code": "yearly",
-                                    "label": "Pro Yearly",
-                                    "price_id": "price_123_yearly",
-                                    "product_id": "prod_123_yearly",
-                                    "interval": "year",
-                                    "currency": "USD",
-                                    "amount": 29000,
-                                },
-                            ],
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_organisation_id": {
-                        "summary": "Invalid organisation ID",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to retrieve plans",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to retrieve plans",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-list_plans_custom_errors = ["422", "500"]
-list_plans_custom_success = {
-    "status_code": 200,
-    "description": "Subscription plans retrieved successfully.",
-}
-
-
-# CREATE INVOICE DOCS
-create_invoice_record_responses = {
-    201: {
-        "description": "Invoice created successfully (Stripe + local history)",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "success": {
-                        "summary": "Invoice created",
-                        "value": {
-                            "status": "SUCCESS",
-                            "status_code": 201,
-                            "message": "Invoice record created",
-                            "data": {
-                                "id": "a2b3c4d5-0000-0000-0000-000000000001",
-                                "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                "stripe_invoice_id": "in_123456789",
-                                "stripe_price_id": "price_123",
-                                "product_id": "prod_123",
-                                "quantity": 1,
-                                "amount": 2900,
-                                "currency": "USD",
-                                "status": "open",
-                                "description": "Pro Monthly subscription",
-                                "created_at": "2025-01-01T00:00:00Z",
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    400: {
-        "description": "Bad Request - Invalid product or business rule error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_product": {
-                        "summary": "Unknown product",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Unknown or unsupported product",
-                            "status_code": 400,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    404: {
-        "description": "Billing account not found",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "billing_not_found": {
-                        "summary": "No billing account",
-                        "value": {
-                            "error": "ERROR",
-                            "message": "Billing account not found",
-                            "status_code": 404,
-                            "errors": {},
-                        },
-                    }
-                }
-            }
-        },
-    },
-    422: {
-        "description": "Unprocessable Entity - Request validation failed",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "invalid_payload": {
-                        "summary": "Invalid invoice payload",
-                        "value": {
-                            "error": "VALIDATION_ERROR",
-                            "message": "Validation failed",
-                            "status_code": 422,
-                            "errors": {
-                                "organization_id": ["value is not a valid uuid"],
-                                "product_id": ["Field required"],
-                                "quantity": ["Input should be greater than 0"],
-                            },
-                        },
-                    }
-                }
-            }
-        },
-    },
-    500: {
-        "description": "Internal Server Error",
-        "content": {
-            "application/json": {
-                "examples": {
-                    "server_error": {
-                        "summary": "Failed to create invoice record",
-                        "value": {
-                            "error": "INTERNAL_SERVER_ERROR",
-                            "message": "Failed to create invoice record",
-                            "status_code": 500,
-                            "errors": {},
-                        },
-                    },
-                }
-            }
-        },
-    },
-}
-
-create_invoice_record_custom_errors = ["400", "404", "422", "500"]
-create_invoice_record_custom_success = {
-    "status_code": 201,
-    "description": "Invoice created successfully (Stripe + local history).",
-}
-
-
 # LIST INVOICES DOCS
 list_invoices_responses = {
     200: {
@@ -1428,32 +908,34 @@ list_invoices_responses = {
                         "value": {
                             "status": "SUCCESS",
                             "status_code": 200,
-                            "message": "Invoices retrieved",
+                            "message": "Payment history retrieved",
                             "data": [
                                 {
                                     "id": "a2b3c4d5-0000-0000-0000-000000000001",
                                     "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                    "stripe_invoice_id": "in_123456789",
-                                    "stripe_price_id": "price_123",
-                                    "product_id": "prod_123",
-                                    "quantity": 1,
-                                    "amount": 2900,
+                                    "amount_due": 27840,
+                                    "amount_paid": 27840,
                                     "currency": "USD",
-                                    "status": "open",
-                                    "description": "Pro Monthly subscription",
+                                    "status": "PAID",
+                                    "stripe_invoice_id": "in_123456789",
+                                    "hosted_invoice_url": "https://invoice.stripe.com/i/acct_1SWbBeIwSrzpxfjK/test_YWNjdF8xU1diQmVJd1NyenB4ZmpLLF9UVzJrWmE3TWJ6ZUkyVm50R3VSN2FmdFdMclNiY0ZGLDE1NTAxMTYxNA02007aJx30o9?s=ap",
+                                    "invoice_pdf_url": "https://pay.stripe.com/invoice/acct_1SWbBeIwSrzpxfjK/test_YWNjdF8xU1diQmVJd1NyenB4ZmpLLF9UVzJrWmE3TWJ6ZUkyVm50R3VSN2FmdFdMclNiY0ZGLDE1NTAxMTYxNA02007aJx30o9/pdf?s=ap",
+                                    "plan_code": "ESSENTIAL_YEARLY",
+                                    "plan_interval": "year",
                                     "created_at": "2025-01-01T00:00:00Z",
                                 },
                                 {
                                     "id": "a2b3c4d5-0000-0000-0000-000000000002",
                                     "billing_account_id": "3f7be7d0-5c7f-4a52-9f87-7fd970000001",
-                                    "stripe_invoice_id": "in_987654321",
-                                    "stripe_price_id": "price_456",
-                                    "product_id": "prod_456",
-                                    "quantity": 10,
-                                    "amount": 19900,
+                                    "amount_due": 27840,
+                                    "amount_paid": 27840,
                                     "currency": "USD",
-                                    "status": "paid",
-                                    "description": "Usage-based overage",
+                                    "status": "PAID",
+                                    "stripe_invoice_id": "in_987654321",
+                                    "hosted_invoice_url": "https://invoice.stripe.com/i/acct_1SWbBeIwSrzpxfjK/test_YWNjdF8xU1diQmVJd1NyenB4ZmpLLF9UVzJrWmE3TWJ6ZUkyVm50R3VSN2FmdFdMclNiY0ZGLDE1NTAxMTYxNA02007aJx30o9?s=ap",
+                                    "invoice_pdf_url": "https://pay.stripe.com/invoice/acct_1SWbBeIwSrzpxfjK/test_YWNjdF8xU1diQmVJd1NyenB4ZmpLLF9UVzJrWmE3TWJ6ZUkyVm50R3VSN2FmdFdMclNiY0ZGLDE1NTAxMTYxNA02007aJx30o9/pdf?s=ap",
+                                    "plan_code": "ESSENTIAL_YEARLY",
+                                    "plan_interval": "year",
                                     "created_at": "2025-01-15T00:00:00Z",
                                 },
                             ],
@@ -1525,4 +1007,134 @@ list_invoices_custom_errors = ["404", "422", "500"]
 list_invoices_custom_success = {
     "status_code": 200,
     "description": "Invoices retrieved successfully.",
+}
+
+
+# LIST PLANS DOCS
+list_plans_responses = {
+    200: {
+        "description": "Subscription plans retrieved successfully",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "success": {
+                        "summary": "Available plans",
+                        "value": {
+                            "status": "SUCCESS",
+                            "status_code": 200,
+                            "message": "Plans retrieved",
+                            "data": [
+                                {
+                                    "id": "00000000-0000-0000-0000-000000000001",
+                                    "code": "ESSENTIAL_MONTHLY",
+                                    "tier": "ESSENTIAL",
+                                    "label": "Essential",
+                                    "interval": "month",
+                                    "currency": "USD",
+                                    "amount": 2900,
+                                    "description": "Best for individual consultants & small teams.",
+                                    "features": [
+                                        "Up to 1 projects",
+                                        "Up to 2 jurisdictions",
+                                        "1-day snapshot history",
+                                        "20 monthly scans",
+                                        "Email summaries",
+                                        "AI summaries",
+                                    ],
+                                    "is_most_popular": False,
+                                    "is_active": True,
+                                },
+                                {
+                                    "id": "00000000-0000-0000-0000-000000000002",
+                                    "code": "PRO_MONTHLY",
+                                    "tier": "PROFESSIONAL",
+                                    "label": "Professional",
+                                    "interval": "month",
+                                    "currency": "USD",
+                                    "amount": 10000,
+                                    "description": "Designed for growing legal & compliance teams.",
+                                    "features": [
+                                        "Up to 20 projects",
+                                        "Up to 50 jurisdictions",
+                                        "Unlimited scans",
+                                        "Priority AI summaries",
+                                        "Team notifications",
+                                        "API access",
+                                        "1-year snapshot history",
+                                    ],
+                                    "is_most_popular": True,
+                                    "is_active": True,
+                                },
+                                {
+                                    "id": "00000000-0000-0000-0000-000000000003",
+                                    "code": "ENTERPRISE_MONTHLY",
+                                    "tier": "ENTERPRISE",
+                                    "label": "Enterprise",
+                                    "interval": "month",
+                                    "currency": "USD",
+                                    "amount": 29900,
+                                    "description": "For large organizations \
+                                        with complex regulatory needs.",
+                                    "features": [
+                                        "Unlimited projects and jurisdictions",
+                                        "Dedicated CSM",
+                                        "Custom AI configuration",
+                                        "SSO & advanced roles",
+                                        "Unlimited snapshot history",
+                                        "Full audit logs",
+                                    ],
+                                    "is_most_popular": False,
+                                    "is_active": True,
+                                },
+                            ],
+                        },
+                    }
+                }
+            }
+        },
+    },
+    422: {
+        "description": "Unprocessable Entity - Request validation failed",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "validation_error": {
+                        "summary": "Validation failed",
+                        "value": {
+                            "error": "VALIDATION_ERROR",
+                            "message": "Validation failed",
+                            "status_code": 422,
+                            "errors": {
+                                "body": ["Request payload is invalid"],
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "server_error": {
+                        "summary": "Failed to list plans",
+                        "value": {
+                            "error": "INTERNAL_SERVER_ERROR",
+                            "message": "Failed to list billing plans",
+                            "status_code": 500,
+                            "errors": {},
+                        },
+                    },
+                }
+            }
+        },
+    },
+}
+
+list_plans_custom_errors = ["422", "500"]
+list_plans_custom_success = {
+    "status_code": 200,
+    "description": "Subscription plans retrieved successfully.",
 }

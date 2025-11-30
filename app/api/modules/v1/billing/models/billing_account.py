@@ -10,7 +10,6 @@ from sqlmodel import Field, ForeignKey, Relationship, SQLModel
 if TYPE_CHECKING:
     from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
     from app.api.modules.v1.billing.models.payment_method import PaymentMethod
-    from app.api.modules.v1.billing.models.subscription import Subscription
 
 
 class BillingStatus(str, Enum):
@@ -81,11 +80,8 @@ class BillingAccount(SQLModel, table=True):
 
     default_payment_method_id: Optional[uuid.UUID] = Field(
         default=None,
-        sa_column=Column(
-            ForeignKey("billing_payment_methods.id", ondelete="SET NULL"),
-            nullable=True,
-            index=True,
-        ),
+        nullable=True,
+        index=True,
     )
 
     cancel_at_period_end: bool = Field(
@@ -125,7 +121,10 @@ class BillingAccount(SQLModel, table=True):
         back_populates="billing_account",
     )
 
-    subscriptions: List["Subscription"] = Relationship(
-        back_populates="billing_account",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    default_payment_method: Optional["PaymentMethod"] = Relationship(
+        sa_relationship_kwargs={
+            "primaryjoin": "BillingAccount.default_payment_method_id == PaymentMethod.id",
+            "foreign_keys": "[BillingAccount.default_payment_method_id]",
+            "uselist": False,
+        }
     )
