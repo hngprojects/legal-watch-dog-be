@@ -156,10 +156,10 @@ refresh_token._custom_success = refresh_custom_success  # type: ignore
     "/logout",
     response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
-    responses=logout_responses,  # type: ignore
+    responses=logout_responses,
 )
 async def logout(
-    request: Request,  # ← ADD THIS to get the token from header
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
