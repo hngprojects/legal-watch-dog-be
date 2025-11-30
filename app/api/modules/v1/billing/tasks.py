@@ -32,13 +32,10 @@ def run_async_in_celery(coro):
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            
             return loop.run_until_complete(coro)
         else:
-           
             return asyncio.run(coro)
     except RuntimeError:
-        
         return asyncio.run(coro)
 
 
@@ -75,7 +72,6 @@ async def _expire_trials_async():
                     billing_account.status = BillingStatus.BLOCKED
                     db.add(billing_account)
 
-                    
                     send_trial_expired_email_task(billing_account)
 
                     logger.info(
@@ -374,7 +370,6 @@ async def _send_trial_reminder_email_async(billing_account: BillingAccount, days
     Send trial reminder notification using async send_email function.
     """
     try:
-    
         async with AsyncSessionLocal() as db:
             org = await db.get(Organization, billing_account.organization_id)
             if not org:
