@@ -35,12 +35,12 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         mock_stripe_customer = {"id": "cus_test123"}
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_create_customer",
-            new=AsyncMock(return_value=mock_stripe_customer)
+            new=AsyncMock(return_value=mock_stripe_customer),
         ):
             account = await service.create_billing_account(
                 organization_id=org_id,
@@ -48,7 +48,7 @@ class TestBillingServiceAccountCreation:
                 customer_name="Test User",
                 metadata={"source": "test"},
             )
-        
+
         assert account.id is not None
         assert account.organization_id == org_id
         assert account.status == BillingStatus.TRIALING
@@ -56,7 +56,7 @@ class TestBillingServiceAccountCreation:
         assert account.trial_starts_at is not None
         assert account.trial_ends_at is not None
         assert account.currency == "USD"
-        
+
         # Verify trial is 14 days
         trial_duration = (account.trial_ends_at - account.trial_starts_at).days
         assert trial_duration == 14
@@ -69,19 +69,19 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         mock_stripe_customer = {"id": "cus_test123"}
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_create_customer",
-            new=AsyncMock(return_value=mock_stripe_customer)
+            new=AsyncMock(return_value=mock_stripe_customer),
         ):
             # Create first account
             await service.create_billing_account(
                 organization_id=org_id,
                 customer_email="test@example.com",
             )
-            
+
             # Attempt to create duplicate
             with pytest.raises(ValueError, match="Billing account already exists"):
                 await service.create_billing_account(
@@ -97,13 +97,13 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(
             organization_id=org_id,
             currency="EUR",
             initial_status=BillingStatus.ACTIVE,
         )
-        
+
         assert account.organization_id == org_id
         assert account.stripe_customer_id is None
         assert account.status == BillingStatus.ACTIVE
@@ -117,13 +117,13 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Mock Stripe to return no customer ID
         mock_stripe_customer = {"id": None}
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_create_customer",
-            new=AsyncMock(return_value=mock_stripe_customer)
+            new=AsyncMock(return_value=mock_stripe_customer),
         ):
             with pytest.raises(Exception, match="Stripe customer creation failed"):
                 await service.create_billing_account(
@@ -139,13 +139,13 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Create account
         created = await service.create_billing_account(organization_id=org_id)
-        
+
         # Retrieve account
         retrieved = await service.get_billing_account_by_org(org_id)
-        
+
         assert retrieved is not None
         assert retrieved.id == created.id
         assert retrieved.organization_id == org_id
@@ -158,9 +158,9 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.get_billing_account_by_org(org_id)
-        
+
         assert account is None
 
     async def test_get_billing_account_by_id(self, pg_async_session):
@@ -171,11 +171,11 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         created = await service.create_billing_account(organization_id=org_id)
-        
+
         retrieved = await service.get_billing_account_by_id(created.id)
-        
+
         assert retrieved is not None
         assert retrieved.id == created.id
 
@@ -187,20 +187,20 @@ class TestBillingServiceAccountCreation:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         mock_stripe_customer = {"id": "cus_unique123"}
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_create_customer",
-            new=AsyncMock(return_value=mock_stripe_customer)
+            new=AsyncMock(return_value=mock_stripe_customer),
         ):
             created = await service.create_billing_account(
                 organization_id=org_id,
                 customer_email="test@example.com",
             )
-        
+
         found = await service.find_billing_account_by_customer_id("cus_unique123")
-        
+
         assert found is not None
         assert found.id == created.id
         assert found.stripe_customer_id == "cus_unique123"
@@ -218,12 +218,12 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Create account with active trial
         await service.create_billing_account(organization_id=org_id)
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is True
         assert status == BillingStatus.TRIALING
 
@@ -235,7 +235,7 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Create account with expired trial
         past_date = datetime.now(timezone.utc) - timedelta(days=1)
         account = BillingAccount(
@@ -248,9 +248,9 @@ class TestBillingServiceUsageCheck:
         )
         pg_async_session.add(account)
         await pg_async_session.commit()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is False
         assert status == BillingStatus.UNPAID
 
@@ -262,7 +262,7 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Create account with active status
         account = BillingAccount(
             organization_id=org_id,
@@ -272,9 +272,9 @@ class TestBillingServiceUsageCheck:
         )
         pg_async_session.add(account)
         await pg_async_session.commit()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is True
         assert status == BillingStatus.ACTIVE
 
@@ -286,7 +286,7 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = BillingAccount(
             organization_id=org_id,
             status=BillingStatus.PAST_DUE,
@@ -295,9 +295,9 @@ class TestBillingServiceUsageCheck:
         )
         pg_async_session.add(account)
         await pg_async_session.commit()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is False
         assert status == BillingStatus.PAST_DUE
 
@@ -309,7 +309,7 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = BillingAccount(
             organization_id=org_id,
             status=BillingStatus.CANCELLED,
@@ -318,9 +318,9 @@ class TestBillingServiceUsageCheck:
         )
         pg_async_session.add(account)
         await pg_async_session.commit()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is False
         assert status == BillingStatus.CANCELLED
 
@@ -328,9 +328,9 @@ class TestBillingServiceUsageCheck:
         """Test organization without billing account is not allowed."""
         service = BillingService(pg_async_session)
         org_id = uuid4()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is False
         assert status is None
 
@@ -342,7 +342,7 @@ class TestBillingServiceUsageCheck:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         past_date = datetime.now(timezone.utc) - timedelta(days=1)
         account = BillingAccount(
             organization_id=org_id,
@@ -354,9 +354,9 @@ class TestBillingServiceUsageCheck:
         )
         pg_async_session.add(account)
         await pg_async_session.commit()
-        
+
         allowed, status = await service.is_org_allowed_usage(org_id)
-        
+
         assert allowed is False
         assert status == BillingStatus.CANCELLED
 
@@ -368,7 +368,7 @@ class TestBillingServicePlans:
     async def test_list_active_plans(self, pg_async_session):
         """Test listing active billing plans."""
         service = BillingService(pg_async_session)
-        
+
         # Create multiple plans
         plan1 = BillingPlan(
             code="essential_monthly",
@@ -406,12 +406,12 @@ class TestBillingServicePlans:
             is_active=False,
             sort_order=3,
         )
-        
+
         pg_async_session.add_all([plan1, plan2, plan3])
         await pg_async_session.commit()
-        
+
         active_plans = await service.list_active_plans()
-        
+
         assert len(active_plans) == 2
         assert all(plan.is_active for plan in active_plans)
         # Verify sort order
@@ -420,7 +420,7 @@ class TestBillingServicePlans:
     async def test_get_plan_by_id(self, pg_async_session):
         """Test retrieving plan by ID."""
         service = BillingService(pg_async_session)
-        
+
         plan = BillingPlan(
             code="test_plan",
             tier=PlanTier.ESSENTIAL,
@@ -434,9 +434,9 @@ class TestBillingServicePlans:
         pg_async_session.add(plan)
         await pg_async_session.commit()
         await pg_async_session.refresh(plan)
-        
+
         retrieved = await service.get_plan_by_id(plan.id)
-        
+
         assert retrieved is not None
         assert retrieved.id == plan.id
         assert retrieved.code == "test_plan"
@@ -444,7 +444,7 @@ class TestBillingServicePlans:
     async def test_get_plan_by_stripe_price_id(self, pg_async_session):
         """Test retrieving plan by Stripe price ID."""
         service = BillingService(pg_async_session)
-        
+
         plan = BillingPlan(
             code="test_plan",
             tier=PlanTier.ESSENTIAL,
@@ -457,9 +457,9 @@ class TestBillingServicePlans:
         )
         pg_async_session.add(plan)
         await pg_async_session.commit()
-        
+
         retrieved = await service.get_plan_by_stripe_price_id("price_unique123")
-        
+
         assert retrieved is not None
         assert retrieved.stripe_price_id == "price_unique123"
 
@@ -476,14 +476,14 @@ class TestBillingServicePaymentMethods:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         # Create billing account
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         # Mock Stripe payment method attachment
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_attach_payment_method",
-            new=AsyncMock(return_value={"id": "pm_test123"})
+            new=AsyncMock(return_value={"id": "pm_test123"}),
         ):
             pm = await service.add_payment_method(
                 billing_account_id=account.id,
@@ -494,7 +494,7 @@ class TestBillingServicePaymentMethods:
                 exp_year=2025,
                 is_default=True,
             )
-        
+
         assert pm.id is not None
         assert pm.billing_account_id == account.id
         assert pm.stripe_payment_method_id == "pm_test123"
@@ -506,7 +506,7 @@ class TestBillingServicePaymentMethods:
         """Test adding payment method to non-existent account fails."""
         service = BillingService(pg_async_session)
         fake_account_id = uuid4()
-        
+
         with pytest.raises(ValueError, match="Billing account not found"):
             await service.add_payment_method(
                 billing_account_id=fake_account_id,
@@ -521,12 +521,12 @@ class TestBillingServicePaymentMethods:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_attach_payment_method",
-            new=AsyncMock(return_value={"id": "pm_test"})
+            new=AsyncMock(return_value={"id": "pm_test"}),
         ):
             # Add first payment method as default
             pm1 = await service.add_payment_method(
@@ -534,17 +534,17 @@ class TestBillingServicePaymentMethods:
                 stripe_payment_method_id="pm_first",
                 is_default=True,
             )
-            
+
             # Add second payment method as default
             pm2 = await service.add_payment_method(
                 billing_account_id=account.id,
                 stripe_payment_method_id="pm_second",
                 is_default=True,
             )
-        
+
         # Refresh first payment method
         await pg_async_session.refresh(pm1)
-        
+
         assert pm1.is_default is False
         assert pm2.is_default is True
 
@@ -556,12 +556,12 @@ class TestBillingServicePaymentMethods:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_attach_payment_method",
-            new=AsyncMock(return_value={"id": "pm_test"})
+            new=AsyncMock(return_value={"id": "pm_test"}),
         ):
             await service.add_payment_method(
                 billing_account_id=account.id,
@@ -571,9 +571,9 @@ class TestBillingServicePaymentMethods:
                 billing_account_id=account.id,
                 stripe_payment_method_id="pm_2",
             )
-        
+
         payment_methods = await service.list_payment_methods(account.id)
-        
+
         assert len(payment_methods) == 2
 
     async def test_delete_payment_method_success(self, pg_async_session):
@@ -584,26 +584,26 @@ class TestBillingServicePaymentMethods:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_attach_payment_method",
-            new=AsyncMock(return_value={"id": "pm_test"})
+            new=AsyncMock(return_value={"id": "pm_test"}),
         ):
             pm = await service.add_payment_method(
                 billing_account_id=account.id,
                 stripe_payment_method_id="pm_delete_test",
             )
-        
+
         with patch(
             "app.api.modules.v1.billing.service.billing_service.stripe_detach_payment_method",
-            new=AsyncMock(return_value={"id": "pm_delete_test"})
+            new=AsyncMock(return_value={"id": "pm_delete_test"}),
         ):
             deleted = await service.delete_payment_method(pm.id)
-        
+
         assert deleted is True
-        
+
         # Verify it's actually deleted
         retrieved = await service.get_payment_method_by_id(pm.id)
         assert retrieved is None
@@ -612,9 +612,9 @@ class TestBillingServicePaymentMethods:
         """Test deleting non-existent payment method returns False."""
         service = BillingService(pg_async_session)
         fake_pm_id = uuid4()
-        
+
         deleted = await service.delete_payment_method(fake_pm_id)
-        
+
         assert deleted is False
 
 
@@ -630,9 +630,9 @@ class TestBillingServiceInvoices:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         invoice = await service.create_invoice_record(
             billing_account_id=account.id,
             amount_due=10000,
@@ -641,7 +641,7 @@ class TestBillingServiceInvoices:
             stripe_invoice_id="in_test123",
             status=InvoiceStatus.PAID,
         )
-        
+
         assert invoice.id is not None
         assert invoice.billing_account_id == account.id
         assert invoice.amount_due == 10000
@@ -657,18 +657,18 @@ class TestBillingServiceInvoices:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         invoice = await service.create_invoice_record(
             billing_account_id=account.id,
             amount_due=10000,
             amount_paid=0,
             status=InvoiceStatus.OPEN,
         )
-        
+
         updated = await service.mark_invoice_paid(invoice.id, amount_paid=10000)
-        
+
         assert updated.status == InvoiceStatus.PAID
         assert updated.amount_paid == 10000
 
@@ -680,17 +680,17 @@ class TestBillingServiceInvoices:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         invoice = await service.create_invoice_record(
             billing_account_id=account.id,
             amount_due=10000,
             status=InvoiceStatus.OPEN,
         )
-        
+
         updated = await service.mark_invoice_failed(invoice.id)
-        
+
         assert updated.status == InvoiceStatus.FAILED
 
     async def test_get_invoices_for_account(self, pg_async_session):
@@ -701,9 +701,9 @@ class TestBillingServiceInvoices:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         # Create multiple invoices
         await service.create_invoice_record(
             billing_account_id=account.id,
@@ -715,9 +715,9 @@ class TestBillingServiceInvoices:
             amount_due=10000,
             stripe_invoice_id="in_2",
         )
-        
+
         invoices = await service.get_invoices_for_account(account.id)
-        
+
         assert len(invoices) == 2
 
     async def test_find_invoice_by_stripe_invoice_id(self, pg_async_session):
@@ -728,16 +728,16 @@ class TestBillingServiceInvoices:
         pg_async_session.add(org)
         await pg_async_session.commit()
         await pg_async_session.refresh(org)
-        
+
         account = await service.create_billing_account(organization_id=org_id)
-        
+
         created = await service.create_invoice_record(
             billing_account_id=account.id,
             amount_due=10000,
             stripe_invoice_id="in_unique123",
         )
-        
+
         found = await service.find_invoice_by_stripe_invoice_id("in_unique123")
-        
+
         assert found is not None
         assert found.id == created.id

@@ -25,7 +25,7 @@ class TestBillingAccountResponse:
         org_id = uuid4()
         account_id = uuid4()
         now = datetime.now(timezone.utc)
-        
+
         data = {
             "id": account_id,
             "organization_id": org_id,
@@ -38,9 +38,9 @@ class TestBillingAccountResponse:
             "created_at": now,
             "updated_at": now,
         }
-        
+
         response = BillingAccountResponse(**data)
-        
+
         assert response.id == account_id
         assert response.organization_id == org_id
         assert response.status == "TRIALING"
@@ -62,9 +62,9 @@ class TestBillingAccountResponse:
             "created_at": None,
             "updated_at": None,
         }
-        
+
         response = BillingAccountResponse(**data)
-        
+
         assert response.default_payment_method_id is None
         assert response.stripe_customer_id is None
         assert response.trial_starts_at is None
@@ -77,10 +77,10 @@ class TestBillingAccountResponse:
             "status": "TRIALING",
             "currency": "USD",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BillingAccountResponse(**data)
-        
+
         errors = exc_info.value.errors()
         assert any(error["loc"] == ("organization_id",) for error in errors)
 
@@ -92,10 +92,10 @@ class TestBillingAccountResponse:
             "status": "TRIALING",
             "currency": "USD",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BillingAccountResponse(**data)
-        
+
         errors = exc_info.value.errors()
         assert any(error["loc"] == ("id",) for error in errors)
 
@@ -106,7 +106,7 @@ class TestBillingPlanInfo:
     def test_valid_billing_plan_info(self):
         """Test creating valid BillingPlanInfo."""
         plan_id = uuid4()
-        
+
         data = {
             "id": plan_id,
             "code": "professional_monthly",
@@ -120,9 +120,9 @@ class TestBillingPlanInfo:
             "is_most_popular": True,
             "is_active": True,
         }
-        
+
         plan_info = BillingPlanInfo(**data)
-        
+
         assert plan_info.id == plan_id
         assert plan_info.code == "professional_monthly"
         assert plan_info.tier == PlanTier.PROFESSIONAL
@@ -141,9 +141,9 @@ class TestBillingPlanInfo:
             "currency": "USD",
             "amount": 5000,
         }
-        
+
         plan_info = BillingPlanInfo(**data)
-        
+
         assert plan_info.id is None
         assert plan_info.description is None
         assert plan_info.features == []
@@ -160,10 +160,10 @@ class TestBillingPlanInfo:
             "currency": "USD",
             "amount": 1000,
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BillingPlanInfo(**data)
-        
+
         errors = exc_info.value.errors()
         assert any(error["loc"] == ("interval",) for error in errors)
 
@@ -173,14 +173,14 @@ class TestBillingPlanInfo:
             "code": "test",
             # Missing tier, label, interval, currency, amount
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BillingPlanInfo(**data)
-        
+
         errors = exc_info.value.errors()
         required_fields = {"tier", "label", "interval", "currency", "amount"}
         error_fields = {error["loc"][0] for error in errors}
-        
+
         assert required_fields.issubset(error_fields)
 
     def test_billing_plan_info_negative_amount(self):
@@ -193,7 +193,7 @@ class TestBillingPlanInfo:
             "currency": "USD",
             "amount": -100,
         }
-        
+
         # Schema doesn't enforce positive amounts, so this should succeed
         plan_info = BillingPlanInfo(**data)
         assert plan_info.amount == -100
@@ -209,7 +209,7 @@ class TestBillingPlanInfo:
             "amount": 1000,
             "features": [],
         }
-        
+
         plan_info = BillingPlanInfo(**data)
         assert plan_info.features == []
 
@@ -223,6 +223,6 @@ class TestBillingPlanInfo:
             "currency": "USD",
             "amount": 100000,
         }
-        
+
         plan_info = BillingPlanInfo(**data)
         assert plan_info.interval == "year"

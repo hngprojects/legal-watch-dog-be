@@ -29,7 +29,7 @@ class TestParseTimestamp:
         """Test parsing a valid Unix timestamp."""
         timestamp = 1640995200  # 2022-01-01 00:00:00 UTC
         result = parse_ts(timestamp, "test_field")
-        
+
         assert result is not None
         assert isinstance(result, datetime)
         assert result.tzinfo == timezone.utc
@@ -61,7 +61,7 @@ class TestParseTimestamp:
         """Test parsing timestamp provided as string."""
         timestamp_str = "1640995200"
         result = parse_ts(timestamp_str, "test_field")
-        
+
         assert result is not None
         assert result.year == 2022
 
@@ -160,7 +160,7 @@ class TestMapPlanToPlanInfo:
     def test_map_complete_plan(self):
         """Test mapping a complete BillingPlan to BillingPlanInfo."""
         from uuid import uuid4
-        
+
         plan = BillingPlan(
             id=uuid4(),
             code="professional_monthly",
@@ -176,9 +176,9 @@ class TestMapPlanToPlanInfo:
             stripe_product_id="prod_test",
             stripe_price_id="price_test",
         )
-        
+
         result = map_plan_to_plan_info(plan)
-        
+
         assert result.id == plan.id
         assert result.code == "professional_monthly"
         assert result.tier == PlanTier.PROFESSIONAL
@@ -194,7 +194,7 @@ class TestMapPlanToPlanInfo:
     def test_map_plan_with_empty_features(self):
         """Test mapping plan with no features."""
         from uuid import uuid4
-        
+
         plan = BillingPlan(
             id=uuid4(),
             code="basic",
@@ -207,14 +207,14 @@ class TestMapPlanToPlanInfo:
             stripe_product_id="prod_test",
             stripe_price_id="price_test",
         )
-        
+
         result = map_plan_to_plan_info(plan)
         assert result.features == []
 
     def test_map_plan_with_none_features(self):
         """Test mapping plan where features_ is None."""
         from uuid import uuid4
-        
+
         plan = BillingPlan(
             id=uuid4(),
             code="basic",
@@ -228,14 +228,14 @@ class TestMapPlanToPlanInfo:
         )
         # Simulate None features
         plan.features_ = None
-        
+
         result = map_plan_to_plan_info(plan)
         assert result.features == []
 
     def test_map_yearly_plan(self):
         """Test mapping yearly interval plan."""
         from uuid import uuid4
-        
+
         plan = BillingPlan(
             id=uuid4(),
             code="enterprise_yearly",
@@ -247,6 +247,6 @@ class TestMapPlanToPlanInfo:
             stripe_product_id="prod_test",
             stripe_price_id="price_test",
         )
-        
+
         result = map_plan_to_plan_info(plan)
         assert result.interval == "year"

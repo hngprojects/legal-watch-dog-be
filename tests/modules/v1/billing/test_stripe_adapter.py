@@ -37,14 +37,14 @@ class TestStripeCustomerOperations:
             "name": "Test User",
             "object": "customer",
         }
-        
+
         with patch("stripe.Customer.create", return_value=mock_customer):
             result = await create_customer(
                 email="test@example.com",
                 name="Test User",
                 metadata={"org_id": "123"},
             )
-        
+
         assert result["id"] == "cus_test123"
         assert result["email"] == "test@example.com"
         assert result["name"] == "Test User"
@@ -52,13 +52,13 @@ class TestStripeCustomerOperations:
     async def test_create_customer_with_metadata(self):
         """Test customer creation includes metadata."""
         mock_customer = {"id": "cus_test123", "metadata": {"org_id": "456"}}
-        
+
         with patch("stripe.Customer.create", return_value=mock_customer) as mock_create:
             await create_customer(
                 email="test@example.com",
                 metadata={"org_id": "456", "plan": "professional"},
             )
-            
+
             # Verify metadata was passed
             call_args = mock_create.call_args
             assert call_args[1]["metadata"]["org_id"] == "456"
@@ -66,20 +66,17 @@ class TestStripeCustomerOperations:
 
     async def test_create_customer_stripe_error(self):
         """Test customer creation handles Stripe errors."""
-        with patch(
-            "stripe.Customer.create",
-            side_effect=stripe.error.APIError("API Error")
-        ):
+        with patch("stripe.Customer.create", side_effect=stripe.error.APIError("API Error")):
             with pytest.raises(stripe.error.APIError):
                 await create_customer(email="test@example.com")
 
     async def test_retrieve_customer_success(self):
         """Test successful customer retrieval."""
         mock_customer = {"id": "cus_test123", "email": "test@example.com"}
-        
+
         with patch("stripe.Customer.retrieve", return_value=mock_customer):
             result = await retrieve_customer("cus_test123")
-        
+
         assert result["id"] == "cus_test123"
         assert result["email"] == "test@example.com"
 
@@ -87,7 +84,7 @@ class TestStripeCustomerOperations:
         """Test retrieving non-existent customer raises error."""
         with patch(
             "stripe.Customer.retrieve",
-            side_effect=stripe.error.InvalidRequestError("No such customer", "customer")
+            side_effect=stripe.error.InvalidRequestError("No such customer", "customer"),
         ):
             with pytest.raises(stripe.error.InvalidRequestError):
                 await retrieve_customer("cus_nonexistent")
@@ -104,14 +101,14 @@ class TestStripePaymentMethodOperations:
             "customer": "cus_test123",
             "card": {"brand": "visa", "last4": "4242"},
         }
-        
+
         with patch("stripe.PaymentMethod.attach", return_value=mock_pm):
             result = await attach_payment_method(
                 customer_id="cus_test123",
                 payment_method_id="pm_test123",
                 set_as_default=False,
             )
-        
+
         assert result["id"] == "pm_test123"
         assert result["customer"] == "cus_test123"
 
@@ -119,7 +116,7 @@ class TestStripePaymentMethodOperations:
         """Test attaching payment method and setting as default."""
         mock_pm = {"id": "pm_test123", "customer": "cus_test123"}
         mock_customer = {"id": "cus_test123"}
-        
+
         with patch("stripe.PaymentMethod.attach", return_value=mock_pm):
             with patch("stripe.Customer.modify", return_value=mock_customer) as mock_modify:
                 await attach_payment_method(
@@ -127,7 +124,7 @@ class TestStripePaymentMethodOperations:
                     payment_method_id="pm_test123",
                     set_as_default=True,
                 )
-                
+
                 # Verify Customer.modify was called to set default
                 mock_modify.assert_called_once()
                 call_args = mock_modify.call_args
@@ -138,7 +135,7 @@ class TestStripePaymentMethodOperations:
         """Test attaching invalid payment method raises ValueError."""
         with patch(
             "stripe.PaymentMethod.attach",
-            side_effect=stripe.error.InvalidRequestError("Invalid payment method", "pm")
+            side_effect=stripe.error.InvalidRequestError("Invalid payment method", "pm"),
         ):
             with pytest.raises(ValueError, match="Invalid Stripe payment method"):
                 await attach_payment_method(
@@ -149,10 +146,10 @@ class TestStripePaymentMethodOperations:
     async def test_detach_payment_method_success(self):
         """Test successful payment method detachment."""
         mock_pm = {"id": "pm_test123", "customer": None}
-        
+
         with patch("stripe.PaymentMethod.detach", return_value=mock_pm):
             result = await detach_payment_method("pm_test123")
-        
+
         assert result["id"] == "pm_test123"
         assert result["customer"] is None
 
@@ -163,10 +160,10 @@ class TestStripePaymentMethodOperations:
             "type": "card",
             "card": {"brand": "visa", "last4": "4242"},
         }
-        
+
         with patch("stripe.PaymentMethod.retrieve", return_value=mock_pm):
             result = await retrieve_payment_method("pm_test123")
-        
+
         assert result["id"] == "pm_test123"
         assert result["type"] == "card"
 
@@ -182,7 +179,7 @@ class TestStripeCheckoutOperations:
             "url": "https://checkout.stripe.com/test",
             "mode": "subscription",
         }
-        
+
         with patch("stripe.checkout.Session.create", return_value=mock_session):
             result = await create_checkout_session(
                 success_url="https://example.com/success",
@@ -191,7 +188,7 @@ class TestStripeCheckoutOperations:
                 mode="subscription",
                 price_id="price_test123",
             )
-        
+
         assert result["id"] == "cs_test123"
         assert result["url"] == "https://checkout.stripe.com/test"
         assert result["mode"] == "subscription"
@@ -219,7 +216,7 @@ class TestStripeCheckoutOperations:
     async def test_create_checkout_session_with_metadata(self):
         """Test checkout session includes metadata."""
         mock_session = {"id": "cs_test123", "metadata": {"org_id": "456"}}
-        
+
         with patch("stripe.checkout.Session.create", return_value=mock_session) as mock_create:
             await create_checkout_session(
                 success_url="https://example.com/success",
@@ -228,7 +225,7 @@ class TestStripeCheckoutOperations:
                 price_id="price_test123",
                 metadata={"org_id": "456", "plan": "pro"},
             )
-            
+
             # Verify metadata was passed
             call_args = mock_create.call_args[1]
             assert call_args["metadata"]["org_id"] == "456"
@@ -247,27 +244,27 @@ class TestStripeSubscriptionOperations:
             "status": "active",
             "items": {"data": [{"price": {"id": "price_test123"}}]},
         }
-        
+
         with patch("stripe.Subscription.create", return_value=mock_subscription):
             result = await create_subscription(
                 customer_id="cus_test123",
                 price_id="price_test123",
             )
-        
+
         assert result["id"] == "sub_test123"
         assert result["status"] == "active"
 
     async def test_create_subscription_with_trial(self):
         """Test subscription creation with trial period."""
         mock_subscription = {"id": "sub_test123", "trial_end": 1234567890}
-        
+
         with patch("stripe.Subscription.create", return_value=mock_subscription) as mock_create:
             await create_subscription(
                 customer_id="cus_test123",
                 price_id="price_test123",
                 trial_period_days=14,
             )
-            
+
             # Verify trial_period_days was passed
             call_args = mock_create.call_args[1]
             assert call_args["trial_period_days"] == 14
@@ -277,7 +274,7 @@ class TestStripeSubscriptionOperations:
         mock_pm = {"id": "pm_test123"}
         mock_customer = {"id": "cus_test123"}
         mock_subscription = {"id": "sub_test123"}
-        
+
         with patch("stripe.PaymentMethod.attach", return_value=mock_pm):
             with patch("stripe.Customer.modify", return_value=mock_customer):
                 with patch("stripe.Subscription.create", return_value=mock_subscription):
@@ -286,16 +283,16 @@ class TestStripeSubscriptionOperations:
                         price_id="price_test123",
                         default_payment_method="pm_test123",
                     )
-        
+
         assert result["id"] == "sub_test123"
 
     async def test_retrieve_subscription_success(self):
         """Test successful subscription retrieval."""
         mock_subscription = {"id": "sub_test123", "status": "active"}
-        
+
         with patch("stripe.Subscription.retrieve", return_value=mock_subscription):
             result = await retrieve_subscription("sub_test123")
-        
+
         assert result["id"] == "sub_test123"
         assert result["status"] == "active"
 
@@ -310,14 +307,14 @@ class TestStripeSubscriptionOperations:
             "id": "sub_test123",
             "items": {"data": [{"price": {"id": "price_new123"}}]},
         }
-        
+
         with patch("stripe.Subscription.retrieve", return_value=mock_existing_sub):
             with patch("stripe.Subscription.modify", return_value=mock_updated_sub):
                 result = await update_subscription_price(
                     subscription_id="sub_test123",
                     new_price_id="price_new123",
                 )
-        
+
         assert result["id"] == "sub_test123"
 
     async def test_update_subscription_price_already_canceled_raises_error(self):
@@ -326,7 +323,7 @@ class TestStripeSubscriptionOperations:
             "id": "sub_test123",
             "status": "canceled",
         }
-        
+
         with patch("stripe.Subscription.retrieve", return_value=mock_canceled_sub):
             with pytest.raises(SubscriptionAlreadyCanceledError):
                 await update_subscription_price(
@@ -340,13 +337,13 @@ class TestStripeSubscriptionOperations:
             "id": "sub_test123",
             "cancel_at_period_end": True,
         }
-        
+
         with patch("stripe.Subscription.modify", return_value=mock_subscription):
             result = await cancel_subscription(
                 subscription_id="sub_test123",
                 cancel_at_period_end=True,
             )
-        
+
         assert result["cancel_at_period_end"] is True
 
     async def test_cancel_subscription_immediately(self):
@@ -355,13 +352,13 @@ class TestStripeSubscriptionOperations:
             "id": "sub_test123",
             "status": "canceled",
         }
-        
+
         with patch("stripe.Subscription.delete", return_value=mock_subscription):
             result = await cancel_subscription(
                 subscription_id="sub_test123",
                 cancel_at_period_end=False,
             )
-        
+
         assert result["status"] == "canceled"
 
 
@@ -376,13 +373,13 @@ class TestStripeWebhookVerification:
             "type": "invoice.payment_succeeded",
             "data": {"object": {}},
         }
-        
+
         payload = b'{"type": "invoice.payment_succeeded"}'
         signature = "test_signature"
-        
+
         with patch("stripe.Webhook.construct_event", return_value=mock_event):
             result = await verify_webhook_signature(payload, signature)
-        
+
         assert result["id"] == "evt_test123"
         assert result["type"] == "invoice.payment_succeeded"
 
@@ -390,10 +387,10 @@ class TestStripeWebhookVerification:
         """Test invalid webhook signature raises error."""
         payload = b'{"type": "test"}'
         signature = "invalid_signature"
-        
+
         with patch(
             "stripe.Webhook.construct_event",
-            side_effect=stripe.error.SignatureVerificationError("Invalid signature", "sig")
+            side_effect=stripe.error.SignatureVerificationError("Invalid signature", "sig"),
         ):
             with pytest.raises(stripe.error.SignatureVerificationError):
                 await verify_webhook_signature(payload, signature)
@@ -402,7 +399,7 @@ class TestStripeWebhookVerification:
         """Test webhook verification without secret raises RuntimeError."""
         payload = b'{"type": "test"}'
         signature = "test_signature"
-        
+
         with patch("app.api.core.config.settings.STRIPE_WEBHOOK_SECRET", None):
             with pytest.raises(RuntimeError, match="Webhook secret not configured"):
                 await verify_webhook_signature(payload, signature)
@@ -415,38 +412,38 @@ class TestStripeRetryMechanism:
     async def test_rate_limit_error_retries(self):
         """Test that rate limit errors trigger retries."""
         mock_customer = {"id": "cus_test123"}
-        
+
         # Simulate rate limit on first call, success on second
         side_effects = [
             stripe.error.RateLimitError("Rate limited"),
             mock_customer,
         ]
-        
+
         with patch("stripe.Customer.create", side_effect=side_effects):
             result = await create_customer(email="test@example.com")
-        
+
         assert result["id"] == "cus_test123"
 
     async def test_api_connection_error_retries(self):
         """Test that API connection errors trigger retries."""
         mock_customer = {"id": "cus_test123"}
-        
+
         # Simulate connection error on first call, success on second
         side_effects = [
             stripe.error.APIConnectionError("Connection failed"),
             mock_customer,
         ]
-        
+
         with patch("stripe.Customer.create", side_effect=side_effects):
             result = await create_customer(email="test@example.com")
-        
+
         assert result["id"] == "cus_test123"
 
     async def test_non_retriable_error_raises_immediately(self):
         """Test that non-retriable errors are raised immediately."""
         with patch(
             "stripe.Customer.create",
-            side_effect=stripe.error.InvalidRequestError("Invalid request", "email")
+            side_effect=stripe.error.InvalidRequestError("Invalid request", "email"),
         ):
             with pytest.raises(stripe.error.InvalidRequestError):
                 await create_customer(email="invalid")
