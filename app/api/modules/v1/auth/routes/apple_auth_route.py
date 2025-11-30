@@ -1,12 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, Form, Response
+from fastapi import APIRouter, Depends, Form, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.schemas.apple_auth import AppleAuthRequest
 from app.api.modules.v1.auth.service.apple_auth import AppleAuthClient
+from app.api.utils.cookie_helper import set_auth_cookies
 from app.api.utils.response_payloads import auth_response, error_response, success_response
 
 router = APIRouter(prefix="/auth/apple", tags=["Social Auth"])
@@ -15,7 +16,10 @@ logger = logging.getLogger("app")
 
 @router.post("/signin")
 async def apple_login(
-    req: AppleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)
+    req: AppleAuthRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Handle Apple sign-in.
@@ -30,14 +34,24 @@ async def apple_login(
             code=req.code, redirect_uri=req.redirect_uri or settings.APPLE_REDIRECT_URI
         )
 
-        response.set_cookie(
-            key="access_token",
-            value=result["access_token"],
-            httponly=True,
-            max_age=3600,
-            secure=settings.ENVIRONMENT != "dev",
-            samesite="lax",
-            path="/",
+
+        # response.set_cookie(
+        #     key="access_token",
+        #     value=result["access_token"],
+        #     httponly=True,
+        #     max_age=3600,
+        #     secure=settings.ENVIRONMENT != "dev",
+        #     samesite="lax",
+        #     path="/",
+        # )
+
+        # Set authentication cookies using centralized utility
+        # Note: Apple OAuth only returns access_token, no refresh_token
+        set_auth_cookies(
+            response=response,
+            access_token=result["access_token"],
+            refresh_token=None,
+            request=request,
         )
 
         return auth_response(
@@ -65,7 +79,10 @@ async def apple_login(
 
 @router.post("/callback")
 async def apple_callback(
-    response: Response, db: AsyncSession = Depends(get_db), code: str = Form(...)
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    code: str = Form(...),
 ):
     """
     Callback endpoint for Apple OAuth.
@@ -78,15 +95,14 @@ async def apple_callback(
         result = await apple_client.complete_oauth_flow(
             code=code, redirect_uri=settings.APPLE_REDIRECT_URI
         )
-        response.set_cookie(
-            key="access_token",
-            value=result["access_token"],
-            httponly=True,
-            max_age=3600,
-            secure=settings.ENVIRONMENT != "dev",
-            samesite="lax",
-            path="/",
+
+        set_auth_cookies(
+            response=response,
+            access_token=result["access_token"],
+            refresh_token=None,
+            request=request,
         )
+
         return success_response(status_code=200, message="Login successful", data=result)
     except ValueError as e:
         logger.warning(f"Apple callback failed due to invalid data: {e}")

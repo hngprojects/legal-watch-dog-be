@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -25,6 +26,7 @@ from app.api.modules.v1.auth.schemas.login import (
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.cookie_helper import clear_auth_cookies
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -159,7 +161,9 @@ refresh_token._custom_success = refresh_custom_success  # type: ignore
     responses=logout_responses,  # type: ignore
 )
 async def logout(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout the current user by invalidating their tokens.
@@ -167,8 +171,10 @@ async def logout(
     This endpoint:
     - Blacklists the user's current access token.
     - Blacklists the user's current refresh token.
+    - Clears authentication cookies.
 
     Args:
+        request (Request): HTTP request object for cookie clearing.
         current_user (User): Currently authenticated user from dependency.
         db (AsyncSession, optional): Database session dependency.
 
@@ -180,10 +186,23 @@ async def logout(
 
         await login_service.logout(user_id=str(current_user.id))
 
-        return success_response(
+        response_data = success_response(
             status_code=status.HTTP_200_OK,
             message="Logged out successfully",
         )
+
+        # Create JSONResponse to enable cookie manipulation
+        response = JSONResponse(
+            content=response_data,
+            status_code=status.HTTP_200_OK,
+        )
+
+        # Clear authentication cookies
+        clear_auth_cookies(response=response, request=request)
+
+        logger.info("User %s logged out successfully", str(current_user.id))
+
+        return response
     except HTTPException as e:
         logger.warning("Logout failed for user_id=%s: %s", str(current_user.id), e.detail)
         return error_response(
