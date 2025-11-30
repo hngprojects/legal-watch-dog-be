@@ -58,13 +58,13 @@ def get_cookie_settings(request: Request) -> Dict:
     # Production settings
     if settings.ENVIRONMENT == "production":
         parsed = urlparse(settings.APP_URL)
-        domain = (
-            f".{parsed.netloc}"
-            if parsed.netloc and not parsed.netloc.startswith(".")
-            else parsed.netloc
-            if parsed.netloc
-            else None
-        )
+        
+        # Determine domain from parsed URL
+        domain = None
+        if parsed.netloc:
+            domain = parsed.netloc
+            if not domain.startswith("."):
+                domain = f".{domain}"
 
         return {
             "domain": domain,
