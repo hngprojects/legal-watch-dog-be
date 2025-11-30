@@ -62,7 +62,8 @@ def get_cookie_settings(request: Request) -> Dict:
         # Determine domain from parsed URL
         domain = None
         if parsed.netloc:
-            domain = parsed.netloc
+            # Strip 'www.' prefix to ensure cookie works on root and all subdomains
+            domain = parsed.netloc[4:] if parsed.netloc.startswith("www.") else parsed.netloc
             if not domain.startswith("."):
                 domain = f".{domain}"
 
