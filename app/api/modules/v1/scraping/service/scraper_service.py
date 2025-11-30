@@ -1,3 +1,9 @@
+"""Service for orchestrating the web scraping pipeline.
+
+Handles the end-to-end flow of fetching content, extracting text,
+analyzing with AI, detecting changes, and persisting data revisions.
+"""
+
 import hashlib
 import logging
 from datetime import datetime
@@ -15,18 +21,21 @@ from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.cloudscrapper_service import HTTPClientService
 from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
-
-# Service Imports
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
+from app.api.modules.v1.notifications.service.revision_notification_task import send_revision_notifications_task
 
 logger = logging.getLogger(__name__)
 
 
 class ScraperService:
+    """Orchestrates the scraping, extraction, and analysis pipeline."""
+
     def __init__(self, db: AsyncSession):
-        """
-        Initializes the service with an ASYNC database session.
+        """Initialize the ScraperService with necessary dependencies.
+
+        Args:
+            db (AsyncSession): The asynchronous database session.
         """
         self.db = db
         self.ai_extractor = AIExtractionService()
@@ -36,9 +45,20 @@ class ScraperService:
         self.pdf_service = PDFService()
 
     async def execute_scrape_job(self, source_id: str) -> Dict[str, Any]:
-        """
-        Orchestrates the scraping pipeline:
-        Fetch -> Archive(Raw) -> Clean -> Archive(Clean) -> Hash -> AI Extract -> Diff -> Alert.
+        """Execute the full scraping pipeline for a given source.
+
+        Fetching -> Archiving -> Cleaning -> Hashing -> AI Extraction -> Diffing -> Persistence.
+        If a change is detected, it triggers a background notification task.
+
+        Args:
+            source_id (str): The UUID of the source to scrape.
+
+        Returns:
+            Dict[str, Any]: A summary of the scrape execution including status and changes.
+
+        Raises:
+            ValueError: If the source ID cannot be found.
+            Exception: Propagates any errors occurring during the pipeline.
         """
         logger.info(f"Starting pipeline for Source ID: {source_id}")
 
@@ -178,6 +198,10 @@ class ScraperService:
 
             await self.db.commit()
             await self.db.refresh(new_revision)
+
+            if was_change_detected:
+                logger.info(f"Triggering notifications for revision {new_revision.id}")
+                send_revision_notifications_task.delay(str(new_revision.id))
 
         except Exception as e:
             await self.db.rollback()
