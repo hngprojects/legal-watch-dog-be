@@ -115,33 +115,6 @@ async def microsoft_callback(
 
         response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-        # if settings.ENVIRONMENT == "production":
-        #     samesite = "none"
-        #     secure = True
-        # else:
-        #     samesite = "lax"
-        #     secure = False
-
-        # response.set_cookie(
-        #     key="lwd_access_token",
-        #     value=result["access_token"],
-        #     httponly=True,
-        #     secure=secure,
-        #     samesite=samesite,
-        #     max_age=86400,
-        #     path="/",
-        # )
-
-        # response.set_cookie(
-        #     key="lwd_refresh_token",
-        #     value=result["refresh_token"],
-        #     httponly=True,
-        #     secure=secure,
-        #     samesite=samesite,
-        #     max_age=2592000,
-        #     path="/",
-        # )
-
         # Set authentication cookies using centralized utility
         set_auth_cookies(
             response=response,

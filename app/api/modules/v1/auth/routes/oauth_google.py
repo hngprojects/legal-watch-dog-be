@@ -108,16 +108,6 @@ async def google_callback(
             status_code=302,
         )
 
-        #  response.set_cookie(
-        #     key="refresh_token",
-        #     value=refresh_token,
-        #     httponly=True,
-        #     secure=cookie_settings["secure"],
-        #     max_age=30 * 24 * 60 * 60,
-        #     domain=cookie_settings["domain"],
-        #     path="/",
-        #     samesite=cookie_settings["samesite"],
-        #  )
         # Set authentication cookies using centralized utility
         set_auth_cookies(
             response=response,
