@@ -28,9 +28,9 @@ async def test_apple_login_success():
         async def complete_oauth_flow(self, code, redirect_uri=None):
             return fake_result
 
+    # Create a properly configured mock request object
     mock_request = MagicMock(spec=Request)
-    mock_request.url.hostname = "localhost"
-    mock_request.headers = {}
+    mock_request.headers = {"origin": "http://localhost:3000"}
 
     with patch("app.api.modules.v1.auth.routes.apple_auth_route.AppleAuthClient", DummyClient):
         response_obj = Response()
@@ -55,9 +55,9 @@ async def test_apple_login_failure_returns_error():
         async def complete_oauth_flow(self, code, redirect_uri=None):
             raise ValueError("Invalid token")
 
+    # Create a properly configured mock request object
     mock_request = MagicMock(spec=Request)
-    mock_request.url.hostname = "localhost"
-    mock_request.headers = {}
+    mock_request.headers = {"origin": "http://localhost:3000"}
 
     with patch("app.api.modules.v1.auth.routes.apple_auth_route.AppleAuthClient", DummyClientBad):
         response_obj = Response()
