@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
@@ -91,7 +92,8 @@ class Settings(BaseSettings):
     MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
     # Public URL for MinIO (used for generating URLs returned to clients)
     # Set this to your public MinIO endpoint on staging/production (e.g., https://minio.staging.legalwatch.dog)
-    MINIO_PUBLIC_URL: str = config("MINIO_PUBLIC_URL", default="")
+    # Leave empty for local development to use MINIO_ENDPOINT
+    MINIO_PUBLIC_URL: Optional[str] = config("MINIO_PUBLIC_URL", default=None)
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")

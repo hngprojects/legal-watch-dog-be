@@ -224,9 +224,10 @@ async def upload_user_profile_picture(
         )
 
         # Use MINIO_PUBLIC_URL if set (for staging/production), otherwise construct from MINIO_ENDPOINT
-        if settings.MINIO_PUBLIC_URL:
+        minio_public_url = getattr(settings, "MINIO_PUBLIC_URL", None)
+        if minio_public_url:
             # Remove trailing slash if present
-            base_url = settings.MINIO_PUBLIC_URL.rstrip("/")
+            base_url = minio_public_url.rstrip("/")
             picture_url = f"{base_url}/{bucket_name}/{unique_filename}"
         else:
             # Fallback for local development
