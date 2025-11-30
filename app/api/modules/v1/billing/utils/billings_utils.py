@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.api.core.config import settings
-from app.api.modules.v1.billing.models.billing_account import BillingStatus
-from app.api.modules.v1.billing.models.invoice_history import InvoiceStatus
+from app.api.modules.v1.billing.models import BillingPlan, BillingStatus, InvoiceStatus
+from app.api.modules.v1.billing.schemas import BillingPlanInfo
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +56,19 @@ def map_stripe_invoice_status(stripe_status: Optional[str]) -> InvoiceStatus:
         "uncollectible": InvoiceStatus.FAILED,
     }
     return mapping.get(stripe_status, InvoiceStatus.PENDING)
+
+
+def map_plan_to_plan_info(plan: BillingPlan) -> BillingPlanInfo:
+    return BillingPlanInfo(
+        id=plan.id,
+        code=plan.code,
+        tier=plan.tier,
+        label=plan.label,
+        interval=plan.interval.value,
+        currency=plan.currency,
+        amount=plan.amount,
+        description=plan.description,
+        features=getattr(plan, "features_", []) or [],
+        is_most_popular=plan.is_most_popular,
+        is_active=plan.is_active,
+    )

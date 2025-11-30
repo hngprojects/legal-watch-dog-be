@@ -10,6 +10,7 @@ from app.api.modules.v1.auth.models.oauth_models import RefreshTokenMetadata, OA
 from app.api.modules.v1.billing.models.billing_account import BillingAccount
 from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
 from app.api.modules.v1.billing.models.payment_method import PaymentMethod
+from app.api.modules.v1.billing.models.billing_plan import BillingPlan
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization

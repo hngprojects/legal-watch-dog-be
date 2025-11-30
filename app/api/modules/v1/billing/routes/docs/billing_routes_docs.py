@@ -330,7 +330,7 @@ subscription_status_responses = {
                                     "label": "Essential (Yearly)",
                                     "interval": "year",
                                     "currency": "USD",
-                                    "amount": "27840",
+                                    "amount": 27840,
                                     "description": "Best for individual consultants & small teams. \
                                         Billed yearly with a 20% discount.",
                                     "features": [
@@ -445,7 +445,7 @@ change_subscription_plan_responses = {
                                     "label": "Essential (Yearly)",
                                     "interval": "year",
                                     "currency": "USD",
-                                    "amount": "27840",
+                                    "amount": 27840,
                                     "description": "Best for individual consultants & small teams. \
                                         Billed yearly with a 20% discount.",
                                     "features": [

@@ -56,6 +56,7 @@ from app.api.modules.v1.billing.stripe.stripe_adapter import (
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
     create_customer,
 )
+from app.api.modules.v1.billing.utils.billings_utils import map_plan_to_plan_info
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.response_payloads import error_response, success_response
 
@@ -361,19 +362,7 @@ async def get_subscription_status(
         if account.current_price_id:
             plan = await billing_service.get_plan_by_stripe_price_id(account.current_price_id)
             if plan:
-                current_plan_info = BillingPlanInfo(
-                    id=plan.id,
-                    code=plan.code,
-                    tier=plan.tier,
-                    label=plan.label,
-                    interval=plan.interval.value,
-                    currency=plan.currency,
-                    amount=plan.amount,
-                    description=plan.description,
-                    features=getattr(plan, "features_", []) or [],
-                    is_most_popular=plan.is_most_popular,
-                    is_active=plan.is_active,
-                )
+                current_plan_info = map_plan_to_plan_info(plan)
 
         data = SubscriptionStatusResponse(
             billing_account_id=account.id,
@@ -467,19 +456,7 @@ async def change_subscription_plan(
         current_plan_info: BillingPlanInfo | None = None
         if updated_account.current_price_id:
             if plan:
-                current_plan_info = BillingPlanInfo(
-                    id=plan.id,
-                    code=plan.code,
-                    tier=plan.tier,
-                    label=plan.label,
-                    interval=plan.interval.value,
-                    currency=plan.currency,
-                    amount=plan.amount,
-                    description=plan.description,
-                    features=getattr(plan, "features_", []) or [],
-                    is_most_popular=plan.is_most_popular,
-                    is_active=plan.is_active,
-                )
+                current_plan_info = map_plan_to_plan_info(plan)
 
         data = SubscriptionStatusResponse(
             billing_account_id=updated_account.id,
@@ -554,19 +531,7 @@ async def cancel_subscription(
         if updated.current_price_id:
             plan = await billing_service.get_plan_by_stripe_price_id(updated.current_price_id)
             if plan:
-                current_plan_info = BillingPlanInfo(
-                    id=plan.id,
-                    code=plan.code,
-                    tier=plan.tier,
-                    label=plan.label,
-                    interval=plan.interval.value,
-                    currency=plan.currency,
-                    amount=plan.amount,
-                    description=plan.description,
-                    features=getattr(plan, "features_", []) or [],
-                    is_most_popular=plan.is_most_popular,
-                    is_active=plan.is_active,
-                )
+                current_plan_info = map_plan_to_plan_info(plan)
 
         data = SubscriptionStatusResponse(
             billing_account_id=updated.id,

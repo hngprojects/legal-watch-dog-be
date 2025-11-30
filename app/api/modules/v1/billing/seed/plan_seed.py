@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
-from app.api.modules.v1.billing.models.plan import BillingPlan, PlanInterval, PlanTier
+from app.api.modules.v1.billing.models import BillingPlan, PlanInterval, PlanTier
 
 logger = logging.getLogger(__name__)
 

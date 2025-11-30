@@ -80,10 +80,17 @@ class BillingAccount(SQLModel, table=True):
 
     default_payment_method_id: Optional[uuid.UUID] = Field(
         default=None,
-        nullable=True,
-        index=True,
+        sa_column=Column(
+            ForeignKey(
+                "billing_payment_methods.id",
+                ondelete="SET NULL",
+                name="fk_ba_default_payment_method_id",
+                use_alter=True,
+            ),
+            nullable=True,
+            index=True,
+        ),
     )
-
     cancel_at_period_end: bool = Field(
         default=False,
         sa_column=Column(Boolean, nullable=False),

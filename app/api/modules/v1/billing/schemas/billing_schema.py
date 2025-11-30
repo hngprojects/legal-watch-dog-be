@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.modules.v1.billing.models.plan import PlanTier
+from app.api.modules.v1.billing.models import PlanTier
 
 
 class BillingAccountResponse(BaseModel):
