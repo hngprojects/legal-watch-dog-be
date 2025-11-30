@@ -108,7 +108,6 @@ async def google_callback(
             status_code=302,
         )
 
-
         #  response.set_cookie(
         #     key="refresh_token",
         #     value=refresh_token,

@@ -115,7 +115,6 @@ async def microsoft_callback(
 
         response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
         # if settings.ENVIRONMENT == "production":
         #     samesite = "none"
         #     secure = True

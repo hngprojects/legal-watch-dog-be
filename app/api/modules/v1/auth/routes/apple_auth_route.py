@@ -34,7 +34,6 @@ async def apple_login(
             code=req.code, redirect_uri=req.redirect_uri or settings.APPLE_REDIRECT_URI
         )
 
-
         # response.set_cookie(
         #     key="access_token",
         #     value=result["access_token"],

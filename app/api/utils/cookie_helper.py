@@ -58,7 +58,7 @@ def get_cookie_settings(request: Request) -> Dict:
     # Production settings
     if settings.ENVIRONMENT == "production":
         parsed = urlparse(settings.APP_URL)
-        
+
         # Determine domain from parsed URL
         domain = None
         if parsed.netloc:
@@ -128,7 +128,7 @@ def set_auth_cookies(
     # Set refresh token cookie if provided
     if refresh_token:
         response.set_cookie(
-            key=REFRESH_TOKEN_COOKIE_NAME, 
+            key=REFRESH_TOKEN_COOKIE_NAME,
             value=refresh_token,
             httponly=True,
             secure=cookie_settings["secure"],
