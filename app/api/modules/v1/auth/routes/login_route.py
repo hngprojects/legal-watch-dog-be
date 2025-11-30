@@ -186,10 +186,12 @@ async def logout(
 
         await login_service.logout(user_id=str(current_user.id))
 
-        response_data = success_response(
-            status_code=status.HTTP_200_OK,
-            message="Logged out successfully",
-        )
+        response_data = {
+            "status": "SUCCESS",
+            "status_code": status.HTTP_200_OK,
+            "message": "Logged out successfully",
+            "data": {},
+        }
 
         # Create JSONResponse to enable cookie manipulation
         response = JSONResponse(
