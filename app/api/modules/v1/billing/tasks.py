@@ -4,7 +4,6 @@ from celery import shared_task
 from sqlmodel import Session, select
 
 from app.api.core.config import settings
-from app.api.core.logger import logger
 from app.api.db.session import SessionLocal
 from app.api.modules.v1.billing.models import BillingAccount
 from app.api.modules.v1.organization.models import Organization
@@ -22,6 +21,7 @@ def expire_trials():
     - Sets status to 'blocked' if no active subscription
     - Sends notification emails to org admins
     """
+    from app.api.core.logger import logger
     logger.info("Running trial expiration task")
 
     db = SessionLocal()
@@ -89,6 +89,7 @@ def send_trial_reminders():
     - 3 days before trial ends
     - 1 day before trial ends
     """
+    from app.api.core.logger import logger
     logger.info("Running trial reminder task")
 
     db = SessionLocal()
@@ -148,6 +149,7 @@ def send_trial_reminders():
 
 def _send_trial_expired_email(db: Session, billing_account: BillingAccount):
     """Send trial expired notification to org admins"""
+    from app.api.core.logger import logger
     try:
         # Get organization
         org = db.get(Organization, billing_account.organization_id)
@@ -182,6 +184,7 @@ def _send_trial_expired_email(db: Session, billing_account: BillingAccount):
 
 def _send_trial_reminder_email(db: Session, billing_account: BillingAccount, days_remaining: int):
     """Send trial reminder email to org admins"""
+    from app.api.core.logger import logger
     try:
         # Get organization
         org = db.get(Organization, billing_account.organization_id)

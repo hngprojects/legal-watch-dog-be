@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     REDIS_RESEND_TTL: int = config("REDIS_RESEND_TTL", default=300, cast=int)
     REDIS_REGISTER_TTL: int = config("REDIS_REGISTER_TTL", default=86400, cast=int)
 
+    # Celery
+    CELERY_BROKER_URL: str = config("CELERY_BROKER_URL", default=config("REDIS_URL"))
+    CELERY_RESULT_BACKEND: str = config("CELERY_RESULT_BACKEND", default=config("REDIS_URL"))
+
     # JWT Authentication
     JWT_SECRET: str = config("JWT_SECRET", default="your-super-secret-jwt-key-change-in-production")
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
