@@ -17,7 +17,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 router = APIRouter(prefix="/specialists", tags=["specialists"])
 
 
-@router.post("/hire", response_model=SpecialistHireResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/hire-requests", response_model=SpecialistHireResponse, status_code=status.HTTP_201_CREATED
+)
 async def hire_specialist(request: SpecialistHireRequest, db: AsyncSession = Depends(get_db)):
     """
     Create a new specialist hire request.
