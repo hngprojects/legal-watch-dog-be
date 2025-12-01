@@ -62,14 +62,12 @@ class WaitlistSignup(BaseModel):
         if re.search(r"[.,&\-']{2,}", value):
             raise ValueError("Name cannot contain consecutive punctuation marks")
 
-        # Ensure name doesn't start or end with punctuation
         if re.match(r"^[.,&\-']", value):
             raise ValueError("Name cannot start with punctuation")
 
         if re.search(r"[.,&\-']$", value):
             raise ValueError("Name cannot end with punctuation")
 
-        # Validate allowed characters pattern
         allowed_pattern = re.compile(r"^[a-zA-Z\s\-'.,&]+$")
         if not allowed_pattern.match(value):
             raise ValueError(
@@ -87,7 +85,6 @@ class WaitlistSignup(BaseModel):
         """
         email_str = str(value).lower().strip()
 
-        # Check for dummy email patterns
         dummy_patterns = [
             r"^test@test\.",
             r"^dummy@",
@@ -106,7 +103,6 @@ class WaitlistSignup(BaseModel):
                     "Test/dummy emails are not accepted."
                 )
 
-        # Check for disposable email domains
         domain = email_str.split("@")[1]
         if domain in DISPOSABLE_DOMAINS:
             raise ValueError(
@@ -114,21 +110,17 @@ class WaitlistSignup(BaseModel):
                 "Please use a valid organization email."
             )
 
-        # Email length validation (RFC 5321)
         if len(email_str) > 254:
             raise ValueError("Email address is too long")
 
-        # Basic structure validation
         if "@" not in email_str or email_str.count("@") != 1:
             raise ValueError("Email must contain exactly one @ symbol")
 
         local_part, domain_part = email_str.split("@")
 
-        # Local part validation
         if not local_part or len(local_part) > 64:
             raise ValueError("Invalid email format")
 
-        # Domain validation
         if not domain_part or len(domain_part) < 3 or "." not in domain_part:
             raise ValueError("Email must have a valid domain (e.g., company.com)")
 

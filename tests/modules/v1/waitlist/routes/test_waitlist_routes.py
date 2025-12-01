@@ -25,7 +25,6 @@ from app.api.modules.v1.waitlist.schemas.waitlist_schema import WaitlistSignup
 
 @pytest.fixture
 def app(pg_async_session: AsyncSession):
-    """FastAPI app with test DB dependency override."""
     app = FastAPI()
 
     from fastapi.exceptions import RequestValidationError
@@ -48,7 +47,6 @@ def app(pg_async_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_signup_waitlist_success(app, pg_async_session):
-    """Test successful waitlist signup."""
     payload = WaitlistSignup(
         organization_email="success@company.com", organization_name="Success Company"
     )
@@ -65,7 +63,6 @@ async def test_signup_waitlist_success(app, pg_async_session):
 
 @pytest.mark.asyncio
 async def test_signup_waitlist_success_with_punctuation(app, pg_async_session):
-    """Test successful waitlist signup with valid punctuation in name."""
     payload = WaitlistSignup(
         organization_email="contact@smithjones.com", organization_name="Smith & Jones, Inc"
     )
@@ -81,8 +78,6 @@ async def test_signup_waitlist_success_with_punctuation(app, pg_async_session):
 
 @pytest.mark.asyncio
 async def test_signup_waitlist_duplicate_email(app, pg_async_session):
-    """Test signing up with an existing email returns error."""
-
     entry = Waitlist(organization_email="dup@company.com", organization_name="Dup Company")
     pg_async_session.add(entry)
     await pg_async_session.commit()
@@ -102,7 +97,6 @@ async def test_signup_waitlist_duplicate_email(app, pg_async_session):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_with_numbers(app):
-    """Test that organization name with numbers is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "Company123"}
 
     transport = ASGITransport(app=app)
@@ -118,7 +112,6 @@ async def test_signup_organization_name_with_numbers(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_empty(app):
-    """Test that empty organization name is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": ""}
 
     transport = ASGITransport(app=app)
@@ -134,7 +127,6 @@ async def test_signup_organization_name_empty(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_too_short(app):
-    """Test that organization name with less than 2 characters is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "A"}
 
     transport = ASGITransport(app=app)
@@ -150,7 +142,6 @@ async def test_signup_organization_name_too_short(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_too_long(app):
-    """Test that organization name exceeding 100 characters is rejected."""
     payload = {
         "organization_email": "test@company.com",
         "organization_name": "A" * 101,  # 101 characters
@@ -169,7 +160,6 @@ async def test_signup_organization_name_too_long(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_only_special_characters(app):
-    """Test that organization name with only special characters is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "###"}
 
     transport = ASGITransport(app=app)
@@ -185,7 +175,6 @@ async def test_signup_organization_name_only_special_characters(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_invalid_special_characters(app):
-    """Test that organization name with invalid special characters is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "Company@#$%"}
 
     transport = ASGITransport(app=app)
@@ -200,7 +189,6 @@ async def test_signup_organization_name_invalid_special_characters(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_excessive_spaces(app):
-    """Test that organization name with excessive consecutive spaces is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "Company    Name"}
 
     transport = ASGITransport(app=app)
@@ -216,7 +204,6 @@ async def test_signup_organization_name_excessive_spaces(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_consecutive_punctuation(app):
-    """Test that organization name with consecutive punctuation is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "Company,,, Inc"}
 
     transport = ASGITransport(app=app)
@@ -232,7 +219,6 @@ async def test_signup_organization_name_consecutive_punctuation(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_starts_with_punctuation(app):
-    """Test that organization name starting with punctuation is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "-Company Name"}
 
     transport = ASGITransport(app=app)
@@ -248,7 +234,6 @@ async def test_signup_organization_name_starts_with_punctuation(app):
 
 @pytest.mark.asyncio
 async def test_signup_organization_name_ends_with_punctuation(app):
-    """Test that organization name ending with punctuation is rejected."""
     payload = {"organization_email": "test@company.com", "organization_name": "Company Name-"}
 
     transport = ASGITransport(app=app)
@@ -262,12 +247,8 @@ async def test_signup_organization_name_ends_with_punctuation(app):
     assert "cannot end with punctuation" in data["errors"]["organization_name"][0].lower()
 
 
-# Validation Tests for Organization Email
-
-
 @pytest.mark.asyncio
 async def test_signup_dummy_email_test_domain(app):
-    """Test that test@test.com is rejected as dummy email."""
     payload = {"organization_email": "test@test.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -286,7 +267,6 @@ async def test_signup_dummy_email_test_domain(app):
 
 @pytest.mark.asyncio
 async def test_signup_dummy_email_example_domain(app):
-    """Test that emails with @example.com are rejected."""
     payload = {"organization_email": "info@example.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -301,7 +281,6 @@ async def test_signup_dummy_email_example_domain(app):
 
 @pytest.mark.asyncio
 async def test_signup_dummy_email_prefix(app):
-    """Test that emails starting with dummy@ are rejected."""
     payload = {"organization_email": "dummy@realcompany.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -316,7 +295,6 @@ async def test_signup_dummy_email_prefix(app):
 
 @pytest.mark.asyncio
 async def test_signup_invalid_email_format(app):
-    """Test that invalid email format is rejected."""
     payload = {"organization_email": "not-an-email", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -331,7 +309,6 @@ async def test_signup_invalid_email_format(app):
 
 @pytest.mark.asyncio
 async def test_signup_email_without_domain(app):
-    """Test that email without proper domain is rejected."""
     payload = {"organization_email": "test@nodomain", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -346,7 +323,6 @@ async def test_signup_email_without_domain(app):
 
 @pytest.mark.asyncio
 async def test_signup_disposable_email_mailinator(app):
-    """Test that Mailinator disposable emails are rejected."""
     payload = {"organization_email": "test@mailinator.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -365,7 +341,6 @@ async def test_signup_disposable_email_mailinator(app):
 
 @pytest.mark.asyncio
 async def test_signup_disposable_email_guerrillamail(app):
-    """Test that Guerrilla Mail disposable emails are rejected."""
     payload = {"organization_email": "user@guerrillamail.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -384,7 +359,6 @@ async def test_signup_disposable_email_guerrillamail(app):
 
 @pytest.mark.asyncio
 async def test_signup_disposable_email_10minutemail(app):
-    """Test that 10 Minute Mail disposable emails are rejected."""
     payload = {"organization_email": "test@10minutemail.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
@@ -403,7 +377,6 @@ async def test_signup_disposable_email_10minutemail(app):
 
 @pytest.mark.asyncio
 async def test_signup_disposable_email_yopmail(app):
-    """Test that YOPmail disposable emails are rejected."""
     payload = {"organization_email": "contact@yopmail.com", "organization_name": "Valid Company"}
 
     transport = ASGITransport(app=app)
