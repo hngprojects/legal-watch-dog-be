@@ -30,6 +30,9 @@ async def send_password_reset_email(context: dict):
         "subject": subject,
         "user_name": user_name,
         "reset_code": reset_code,
+        "frontend_url": context.get("frontend_url", ""),
+        "app_url": context.get("app_url", ""),
+        "expiry_minutes": context.get("expiry_minutes", 15),
     }
 
     logger.info(f"Attempting to send password reset email to {recipient}")
