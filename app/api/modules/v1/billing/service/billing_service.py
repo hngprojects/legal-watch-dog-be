@@ -16,6 +16,9 @@ from app.api.modules.v1.billing.models import (
     InvoiceStatus,
     PaymentMethod,
 )
+from app.api.modules.v1.billing.schemas import (
+    BillingPlanInfo,
+)
 from app.api.modules.v1.billing.stripe.errors import SubscriptionAlreadyCanceledError
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
     attach_payment_method as stripe_attach_payment_method,
@@ -43,6 +46,7 @@ from app.api.modules.v1.billing.utils.billings_utils import (
     map_stripe_status_to_billing_status,
     parse_ts,
 )
+from app.api.modules.v1.organization.models.organization_model import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -1328,6 +1332,78 @@ class BillingService:
                 update_values["currency"] = plan.currency
 
         return update_values
+
+    async def _sync_org_billing_from_account(
+        self,
+        db: AsyncSession,
+        organization_id: UUID,
+        account: BillingAccount,
+        plan_info: BillingPlanInfo | None,
+    ) -> None:
+        """
+        Keep Organization.plan and Organization.billing_info in sync with the billing account.
+
+        Args:
+            db (AsyncSession): The database session.
+            organization_id (UUID): The UUID of the organisation to update.
+            account (BillingAccount): The billing account with the latest billing info.
+            plan_info (BillingPlanInfo | None): The current plan info to set on the organisation.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If there is an error updating the organisation.
+        """
+
+        org = await db.get(Organization, organization_id)
+        if not org:
+            logger.warning(
+                "Organization %s not found while syncing billing info; skipping org update",
+                organization_id,
+            )
+            return
+
+        plan_value: str | None = None
+        if plan_info is not None:
+            plan_value = getattr(plan_info, "tier", None) or getattr(plan_info, "label", None)
+
+        org.plan = plan_value
+        if not org.plan:
+            org.plan = org.billing_info.get("current_plan", None) if org.billing_info else None
+            if not org.plan:
+                org.plan = org.billing_info.get("status", None) if org.billing_info else None
+                if not org.plan:
+                    org.plan = "free"
+
+        trial_ends_at = account.trial_ends_at.isoformat() if account.trial_ends_at else None
+        org.billing_info = {
+            "billing_account_id": str(account.id),
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+            "stripe_customer_id": account.stripe_customer_id,
+            "stripe_subscription_id": account.stripe_subscription_id,
+            "current_price_id": account.current_price_id,
+            "cancel_at_period_end": account.cancel_at_period_end or False,
+            "trial_starts_at": account.trial_starts_at.isoformat()
+            if account.trial_starts_at
+            else None,
+            "trial_ends_at": trial_ends_at,
+            "current_period_start": account.current_period_start.isoformat()
+            if account.current_period_start
+            else None,
+            "current_period_end": account.current_period_end.isoformat()
+            if account.current_period_end
+            else None,
+            "next_billing_at": account.next_billing_at.isoformat()
+            if account.next_billing_at
+            else None,
+            "current_plan": plan_info.model_dump(mode="json") if plan_info is not None else None,
+        }
+
+        org.updated_at = datetime.now(timezone.utc)
+
+        await db.commit()
+        await db.refresh(org)
 
 
 def get_billing_service(db: AsyncSession) -> BillingService:
