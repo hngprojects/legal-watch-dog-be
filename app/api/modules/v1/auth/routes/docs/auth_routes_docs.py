@@ -229,6 +229,35 @@ verify_otp_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "email_rate_limit": {
+                        "summary": "Rate Limit Exceeded for Email",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many OTP verification attempts for this email. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                    "ip_rate_limit": {
+                        "summary": "Rate Limit Exceeded for IP",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many OTP verification attempts from this IP. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal Server Error",
         "content": {
@@ -249,7 +278,7 @@ verify_otp_responses = {
     },
 }
 
-verify_otp_custom_errors = ["400", "422", "500"]
+verify_otp_custom_errors = ["400", "422", "429", "500"]
 verify_otp_custom_success = {
     "status_code": 201,
     "description": "OTP verified successfully. Registration completed.",
@@ -346,6 +375,35 @@ request_new_otp_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "email_rate_limit": {
+                        "summary": "Rate Limit Exceeded for Email",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many OTP requests for this email. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                    "ip_rate_limit": {
+                        "summary": "Rate Limit Exceeded for IP",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many OTP requests from this IP. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal Server Error",
         "content": {
@@ -366,7 +424,7 @@ request_new_otp_responses = {
     },
 }
 
-request_new_otp_custom_errors = ["400", "422", "500"]
+request_new_otp_custom_errors = ["400", "422", "429", "500"]
 request_new_otp_custom_success = {
     "status_code": 200,
     "description": "New OTP sent successfully to the registered email.",

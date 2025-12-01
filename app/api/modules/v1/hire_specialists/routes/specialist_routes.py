@@ -14,7 +14,7 @@ from app.api.modules.v1.hire_specialists.schemas.specialist_schemas import (
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-router = APIRouter(prefix="/specialists", tags=["specialists"])
+router = APIRouter(prefix="/specialists", tags=["Specialists"])
 
 
 @router.post(
