@@ -49,7 +49,7 @@ logger = logging.getLogger("app")
 
 MAX_OTP_REQUEST_ATTEMPTS = 3
 MAX_OTP_VERIFY_ATTEMPTS = 5
-RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
+RATE_LIMIT_WINDOW_SECONDS = 3600
 IP_RATE_LIMIT_MULTIPLIER = 3
 
 
@@ -160,7 +160,7 @@ async def verify_otp(
         if not email_allowed:
             raise RateLimitExceeded(
                 retry_after=RATE_LIMIT_WINDOW_SECONDS,
-                detail="Too many OTP verification attempts for this email. Please try again later.",
+                detail="Too many OTP verification attempts for this email. Please retry in 1 hour.",
             )
 
         ip_address = request.client.host if request.client else None
@@ -175,7 +175,7 @@ async def verify_otp(
         if not ip_allowed:
             raise RateLimitExceeded(
                 retry_after=RATE_LIMIT_WINDOW_SECONDS,
-                detail="Too many OTP verification attempts from this IP. Please try again later.",
+                detail="Too many OTP verification attempts from this IP. Please retry in 1 hour.",
             )
 
         service = RegistrationService(db, redis_client)
@@ -260,7 +260,7 @@ async def request_new_otp(
         if not email_allowed:
             raise RateLimitExceeded(
                 retry_after=RATE_LIMIT_WINDOW_SECONDS,
-                detail="Too many OTP requests for this email. Please try again later.",
+                detail="Too many OTP requests for this email. Please retry in 1 hour.",
             )
 
         ip_address = request.client.host if request.client else None
@@ -275,7 +275,7 @@ async def request_new_otp(
             if not ip_allowed:
                 raise RateLimitExceeded(
                     retry_after=RATE_LIMIT_WINDOW_SECONDS,
-                    detail="Too many OTP requests from this IP. Please try again later.",
+                    detail="Too many OTP requests from this IP. Please retry in 1 hour.",
                 )
 
         service = RegistrationService(db, redis_client)
