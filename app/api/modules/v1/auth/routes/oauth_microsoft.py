@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ from app.api.modules.v1.auth.schemas.oauth_microsoft import (
     MicrosoftAuthResponse,
 )
 from app.api.modules.v1.auth.service.oauth_microsoft import MicrosoftOAuthService
+from app.api.utils.cookie_helper import set_auth_cookies
 from app.api.utils.response_payloads import error_response
 
 router = APIRouter(prefix="/oauth/microsoft", tags=["Social Auth"])
@@ -81,6 +82,7 @@ microsoft_login._custom_success = microsoft_login_custom_success  # type: ignore
     responses=microsoft_callback_responses,  # type: ignore
 )
 async def microsoft_callback(
+    request: Request,
     code: str = Query(..., description="Authorization code from Microsoft"),
     state: str = Query(..., description="State parameter for validation"),
     error: Optional[str] = Query(None, description="Error from Microsoft"),
@@ -113,31 +115,12 @@ async def microsoft_callback(
 
         response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-        if settings.ENVIRONMENT == "production":
-            samesite = "none"
-            secure = True
-        else:
-            samesite = "lax"
-            secure = False
-
-        response.set_cookie(
-            key="lwd_access_token",
-            value=result["access_token"],
-            httponly=True,
-            secure=secure,
-            samesite=samesite,
-            max_age=86400,
-            path="/",
-        )
-
-        response.set_cookie(
-            key="lwd_refresh_token",
-            value=result["refresh_token"],
-            httponly=True,
-            secure=secure,
-            samesite=samesite,
-            max_age=2592000,
-            path="/",
+        # Set authentication cookies using centralized utility
+        set_auth_cookies(
+            response=response,
+            request=request,
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
         )
 
         logger.info(

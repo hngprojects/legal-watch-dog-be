@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "legal-watch-dog-be"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered monitoring platform for tracking global regulatory and policy changes for enterprises."
 readme = "README.md"
 requires-python = ">=3.12"
 
