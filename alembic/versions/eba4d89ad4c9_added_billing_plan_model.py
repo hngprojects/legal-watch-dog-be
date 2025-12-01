@@ -34,7 +34,12 @@ def upgrade() -> None:
     
     op.execute("DROP INDEX IF EXISTS ix_billing_invoices_stripe_invoice_id")
     op.create_index(op.f('ix_billing_invoices_stripe_invoice_id'), 'billing_invoices', ['stripe_invoice_id'], unique=True)
-    op.add_column('refresh_token_metadata', sa.Column('issued_at', sa.DateTime(timezone=True), nullable=False))
+    
+    op.execute("""
+        ALTER TABLE refresh_token_metadata
+        ADD COLUMN IF NOT EXISTS issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    """)
+    
     op.alter_column('refresh_token_metadata', 'provider_token_exp',
                existing_type=sa.BIGINT(),
                type_=sa.Integer(),
@@ -46,7 +51,11 @@ def upgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_jti")
     op.create_index(op.f('ix_refresh_token_metadata_jti'), 'refresh_token_metadata', ['jti'], unique=True)
     op.create_index(op.f('ix_refresh_token_metadata_id'), 'refresh_token_metadata', ['id'], unique=False)
-    op.drop_column('refresh_token_metadata', 'created_at')
+    
+    op.execute("""
+        ALTER TABLE refresh_token_metadata
+        DROP COLUMN IF EXISTS created_at
+    """)
     # ### end Alembic commands ###
 
 
