@@ -1,3 +1,9 @@
+"""Service for orchestrating the web scraping pipeline.
+
+Handles the end-to-end flow of fetching content, extracting text,
+analyzing with AI, detecting changes, and persisting data revisions.
+"""
+
 import hashlib
 import logging
 from datetime import datetime
@@ -9,14 +15,15 @@ from sqlmodel import desc, select
 
 from app.api.core.security import decrypt_auth_details
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.notifications.service.revision_notification_task import (
+    send_revision_notifications_task,
+)
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.service.cloudscrapper_service import HTTPClientService
 from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
-
-# Service Imports
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
 
@@ -24,9 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 class ScraperService:
+    """Orchestrates the scraping, extraction, and analysis pipeline."""
+
     def __init__(self, db: AsyncSession):
-        """
-        Initializes the service with an ASYNC database session.
+        """Initialize the ScraperService with necessary dependencies.
+
+        Args:
+            db (AsyncSession): The asynchronous database session.
         """
         self.db = db
         self.ai_extractor = AIExtractionService()
@@ -36,9 +47,20 @@ class ScraperService:
         self.pdf_service = PDFService()
 
     async def execute_scrape_job(self, source_id: str) -> Dict[str, Any]:
-        """
-        Orchestrates the scraping pipeline:
-        Fetch -> Archive(Raw) -> Clean -> Archive(Clean) -> Hash -> AI Extract -> Diff -> Alert.
+        """Execute the full scraping pipeline for a given source.
+
+        Fetching -> Archiving -> Cleaning -> Hashing -> AI Extraction -> Diffing -> Persistence.
+        If a change is detected AND it is not the first run, it triggers a notification.
+
+        Args:
+            source_id (str): The UUID of the source to scrape.
+
+        Returns:
+            Dict[str, Any]: A summary of the scrape execution including status and changes.
+
+        Raises:
+            ValueError: If the source ID cannot be found.
+            Exception: Propagates any errors occurring during the pipeline.
         """
         logger.info(f"Starting pipeline for Source ID: {source_id}")
 
@@ -96,7 +118,6 @@ class ScraperService:
         )
 
         clean_text = extraction_result["full_text"]
-
         content_hash = hashlib.sha256(clean_text.encode()).hexdigest()
 
         rev_query = (
@@ -164,7 +185,6 @@ class ScraperService:
                 scraped_at=datetime.utcnow(),
             )
             self.db.add(new_revision)
-
             await self.db.flush()
 
             if was_change_detected and last_revision:
@@ -178,6 +198,12 @@ class ScraperService:
 
             await self.db.commit()
             await self.db.refresh(new_revision)
+
+            if was_change_detected and last_revision:
+                logger.info(f"Triggering notifications for revision {new_revision.id}")
+                send_revision_notifications_task.delay(str(new_revision.id))
+            elif was_change_detected and not last_revision:
+                logger.info(f"First scrape for source {source.id}. Skipping notification.")
 
         except Exception as e:
             await self.db.rollback()
