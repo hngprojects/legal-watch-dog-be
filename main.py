@@ -11,8 +11,10 @@ from app.api import router as api_router
 from app.api.core.config import settings
 from app.api.core.custom_openapi_docs import custom_openapi
 from app.api.core.exceptions import (
+    RateLimitExceeded,
     general_exception_handler,
     http_exception_handler,
+    rate_limit_exception_handler,
     validation_exception_handler,
 )
 from app.api.core.logger import setup_logging
@@ -74,6 +76,7 @@ app.add_middleware(
     excluded_paths=["/api/v1/waitlist", "/health", "/", "/docs"],
 )
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
