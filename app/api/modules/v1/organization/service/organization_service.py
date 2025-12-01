@@ -85,7 +85,14 @@ class OrganizationService:
                 industry=industry,
             )
 
-            admin_role = await RoleCRUD.create_admin_role(
+            owner_role = await RoleCRUD.create_owner_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Owner",
+                description="Organization owner with full permissions",
+            )
+
+            await RoleCRUD.create_admin_role(
                 db=self.db,
                 organization_id=organization.id,
                 role_name="Admin",
@@ -109,7 +116,7 @@ class OrganizationService:
                 db=self.db,
                 user_id=user_id,
                 organization_id=organization.id,
-                role_id=admin_role.id,
+                role_id=owner_role.id,
                 is_active=True,
             )
 
@@ -117,14 +124,14 @@ class OrganizationService:
 
             logger.info(
                 f"Successfully created organization id={organization.id} "
-                f"for user_id={user_id} with admin role"
+                f"for user_id={user_id} with owner role"
             )
 
             return {
                 "organization_id": str(organization.id),
                 "organization_name": organization.name,
                 "user_id": str(user_id),
-                "role": admin_role.name,
+                "role": owner_role.name,
             }
 
         except ValueError as e:
