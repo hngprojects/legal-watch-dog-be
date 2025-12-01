@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import exc
 
 # revision identifiers, used by Alembic.
 revision: str = 'eba4d89ad4c9'
@@ -29,7 +30,7 @@ def upgrade() -> None:
     
     try:
         op.drop_constraint(op.f('fk_billing_accounts_default_payment_method'), 'billing_accounts', type_='foreignkey')
-    except Exception:
+    except exc.ProgrammingError:
         pass
     
     op.execute("DROP INDEX IF EXISTS ix_billing_invoices_stripe_invoice_id")
@@ -45,14 +46,14 @@ def upgrade() -> None:
                    existing_type=sa.BIGINT(),
                    type_=sa.Integer(),
                    existing_nullable=True)
-    except Exception:
+    except exc.ProgrammingError:
         pass
     
     try:
         op.alter_column('refresh_token_metadata', 'expires_at',
                    existing_type=postgresql.TIMESTAMP(timezone=True),
                    nullable=False)
-    except Exception:
+    except exc.ProgrammingError:
         pass
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_is_revoked")
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_jti")
