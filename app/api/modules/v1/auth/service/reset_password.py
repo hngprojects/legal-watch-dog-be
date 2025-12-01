@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.api.core.config import settings
 from app.api.core.dependencies.redis_service import get_redis_client
 from app.api.core.dependencies.send_reset_password import send_password_reset_email
 from app.api.core.exceptions import PasswordReuseError
@@ -186,6 +187,9 @@ async def request_password_reset(
             "user_email": user.email,
             "user_name": user.name,
             "reset_code": reset_code,
+            "frontend_url": settings.FRONTEND_URL,
+            "app_url": settings.APP_URL,
+            "expiry_minutes": CODE_TTL_MINUTES,
         }
 
         if background_tasks is not None:
