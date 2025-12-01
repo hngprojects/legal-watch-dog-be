@@ -63,13 +63,6 @@ async def test_validate_no_pending_registration_fails():
         )
 
 
-def test_create_organization_rejects_name_with_digits():
-    with pytest.raises(ValidationError) as exc:
-        CreateOrganizationRequest(name="Org123", industry="Tech")
-
-    assert "must not contain numbers" in str(exc.value)
-
-
 def test_create_organization_rejects_too_short_name():
     with pytest.raises(ValidationError) as exc:
         CreateOrganizationRequest(name="A", industry="Tech")

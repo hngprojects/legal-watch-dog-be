@@ -12,12 +12,19 @@ class CreateOrganizationRequest(BaseModel):
 
     @field_validator("name")
     def name_must_be_letters_only(cls, v: str) -> str:
+        """
+        Validate and normalize an organization name.
+
+        Args:
+            v (str): The organization name to validate.
+        Returns:
+            str: The stripped organization name if it passes validation.
+        Raises:
+            ValueError: If the name is shorter than 2 characters
+        """
         v = v.strip()
         if len(v) < 2:
             raise ValueError("Organization name must be at least 2 characters long")
-
-        if any(c.isdigit() for c in v):
-            raise ValueError("Organization name must not contain numbers")
 
         if not any(c.isalpha() for c in v):
             raise ValueError("Organization name must contain at least one letter")
