@@ -9,7 +9,6 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.api.modules.v1.scraping.service.tasks",
-        "app.api.modules.v1.billing.tasks",
         "app.api.modules.v1.notifications.service.revision_notification_task",
     ],
 )
@@ -29,17 +28,5 @@ celery_app.conf.beat_schedule = {
     "dispatch-due-sources-every-minute": {
         "task": "app.api.modules.v1.scraping.service.tasks.dispatch_due_sources",
         "schedule": crontab(minute="*"),
-    },
-    "expire-trials": {
-        "task": "app.api.modules.v1.billing.tasks.expire_trials",
-        "schedule": crontab(minute=0),
-    },
-    "update-billing-status": {
-        "task": "app.api.modules.v1.billing.tasks.update_billing_status",
-        "schedule": crontab(minute=0, hour="*/6"),
-    },
-    "send-trial-reminders": {
-        "task": "app.api.modules.v1.billing.tasks.send_trial_reminders",
-        "schedule": crontab(hour=9, minute=0),
     },
 }

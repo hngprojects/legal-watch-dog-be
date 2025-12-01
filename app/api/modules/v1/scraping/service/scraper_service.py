@@ -50,7 +50,7 @@ class ScraperService:
         """Execute the full scraping pipeline for a given source.
 
         Fetching -> Archiving -> Cleaning -> Hashing -> AI Extraction -> Diffing -> Persistence.
-        If a change is detected, it triggers a background notification task.
+        If a change is detected AND it is not the first run, it triggers a notification.
 
         Args:
             source_id (str): The UUID of the source to scrape.
@@ -118,7 +118,6 @@ class ScraperService:
         )
 
         clean_text = extraction_result["full_text"]
-
         content_hash = hashlib.sha256(clean_text.encode()).hexdigest()
 
         rev_query = (
@@ -186,7 +185,6 @@ class ScraperService:
                 scraped_at=datetime.utcnow(),
             )
             self.db.add(new_revision)
-
             await self.db.flush()
 
             if was_change_detected and last_revision:
@@ -201,9 +199,11 @@ class ScraperService:
             await self.db.commit()
             await self.db.refresh(new_revision)
 
-            if was_change_detected:
+            if was_change_detected and last_revision:
                 logger.info(f"Triggering notifications for revision {new_revision.id}")
                 send_revision_notifications_task.delay(str(new_revision.id))
+            elif was_change_detected and not last_revision:
+                logger.info(f"First scrape for source {source.id}. Skipping notification.")
 
         except Exception as e:
             await self.db.rollback()
