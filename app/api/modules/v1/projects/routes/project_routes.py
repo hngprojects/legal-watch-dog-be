@@ -264,7 +264,7 @@ async def update_project(
 
         project_service = ProjectService(db)
         project, message = await project_service.update_project(
-            project_id, organization_id, payload
+            project_id, organization_id, current_user.id, payload
         )
 
         if project is None:
@@ -323,7 +323,7 @@ async def delete_project(
         await tenant.get_membership(organization_id)
 
         project_service = ProjectService(db)
-        deleted = await project_service.delete_project(project_id, organization_id)
+        deleted = await project_service.delete_project(project_id, current_user.id, organization_id)
 
         if not deleted:
             return error_response(
@@ -338,4 +338,230 @@ async def delete_project(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to permanently delete project.",
+        )
+
+
+@router.get(
+    "/{project_id}/users",
+    status_code=status.HTTP_200_OK,
+)
+async def get_project_users(
+    project_id: UUID,
+    organization_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get list of all users in a project.
+
+    Retrieves the list of user IDs that are members of the specified project.
+    Only users in the same organization can view project membership.
+
+    Args:
+        project_id (UUID): Unique identifier of the project.
+        organization_id (UUID): Organization ID for access verification.
+        current_user (User): The authenticated user performing the request.
+        db (AsyncSession): Database session for query execution.
+
+    Returns:
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): "Project users retrieved successfully"
+            - data (dict): Dictionary with "user_ids" list
+
+    Raises:
+        HTTPException:
+            - 401 Unauthorized if authentication fails
+            - 403 Forbidden if user not in organization
+            - 404 Not Found if project doesn't exist
+            - 500 Internal Server Error if retrieval fails
+    """
+    logger.info(f"Getting users for project_id={project_id}, user_id={current_user.id}")
+
+    try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
+        project_service = ProjectService(db)
+        user_ids = await project_service.get_users(project_id, organization_id)
+
+        if user_ids is None:
+            return error_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="No users found in this project",
+            )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Project users retrieved successfully",
+            data={"user_ids": user_ids},
+        )
+
+    except Exception:
+        logger.exception(f"Error getting users for project_id={project_id}")
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve project users.",
+        )
+
+
+@router.post(
+    "/{project_id}/users/{user_id}",
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_user_to_project(
+    project_id: UUID,
+    target_user_id: UUID,
+    organization_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Add a user to a project.
+
+    Adds an existing organization member to the specified project. The user
+    to be added must already be a member of the organization. Only users
+    with 'edit_projects' permission (Admin and Manager) can add users to projects.
+
+    Args:
+        project_id (UUID): Unique identifier of the project.
+        user_id (UUID): UUID of the user to add to the project.
+        organization_id (UUID): Organization ID for access verification.
+        current_user (User): The authenticated user performing the request.
+        db (AsyncSession): Database session for query execution.
+
+    Returns:
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): "User successfully added to project"
+            - data (dict): Empty dict or relevant metadata
+
+    Raises:
+        HTTPException:
+            - 400 Bad Request if user already in project or not in organization
+            - 401 Unauthorized if authentication fails
+            - 403 Forbidden if current user lacks edit_projects permission
+            - 404 Not Found if project doesn't exist
+            - 500 Internal Server Error if operation fails
+    """
+    logger.info(
+        f"Adding user_id={target_user_id} to project_id={project_id} by user={current_user.id}"
+    )
+
+    try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
+        project_service = ProjectService(db)
+        success, message = await project_service.add_user(
+            project_id=project_id,
+            target_user_id=target_user_id,
+            organization_id=organization_id,
+            current_user_id=current_user.id,
+        )
+
+        if not success:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message=message,
+            )
+
+        return success_response(
+            status_code=status.HTTP_201_CREATED,
+            message=message,
+            data={},
+        )
+
+    except ValueError as e:
+        logger.warning(f"Permission denied: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            message=str(e),
+        )
+
+    except Exception:
+        logger.exception(f"Error adding user_id={target_user_id} to project_id={project_id}")
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to add user to project.",
+        )
+
+
+@router.delete(
+    "/{project_id}/users/{user_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def remove_user_from_project(
+    project_id: UUID,
+    target_user_id: UUID,
+    organization_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Remove a user from a project.
+
+    Removes a user's membership from the specified project. Only users with
+    'edit_projects' permission (Admin and Manager) can remove users from projects.
+
+    Args:
+        project_id (UUID): Unique identifier of the project.
+        user_id (UUID): UUID of the user to remove from the project.
+        organization_id (UUID): Organization ID for access verification.
+        current_user (User): The authenticated user performing the request.
+        db (AsyncSession): Database session for query execution.
+
+    Returns:
+        JSONResponse: Success response containing:
+            - status (str): "success"
+            - message (str): "User successfully removed from project"
+            - data (dict): Empty dict or relevant metadata
+
+    Raises:
+        HTTPException:
+            - 400 Bad Request if user not in project
+            - 401 Unauthorized if authentication fails
+            - 403 Forbidden if current user lacks edit_projects permission
+            - 404 Not Found if project doesn't exist
+            - 500 Internal Server Error if operation fails
+    """
+    logger.info(
+        f"Removing user_id={target_user_id} from project_id={project_id} by user={current_user.id}"
+    )
+
+    try:
+        tenant = TenantGuard(db, current_user)
+        await tenant.get_membership(organization_id)
+
+        project_service = ProjectService(db)
+        success, message = await project_service.remove_user(
+            project_id=project_id,
+            target_user_id=target_user_id,
+            organization_id=organization_id,
+        )
+
+        if not success:
+            return error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message=message,
+            )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message=message,
+            data={},
+        )
+
+    except ValueError as e:
+        logger.warning(f"Permission denied: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            message=str(e),
+        )
+
+    except Exception:
+        logger.exception(f"Error removing user_id={target_user_id} from project_id={project_id}")
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to remove user from project.",
         )

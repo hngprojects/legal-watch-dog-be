@@ -24,6 +24,7 @@ from app.api.modules.v1.projects.utils.project_utils import (
     get_project_by_id_including_deleted,
     get_user_by_id,
 )
+from app.api.utils.organization_validations import check_user_permission
 
 logger = logging.getLogger("app")
 
@@ -63,6 +64,14 @@ class ProjectService:
         Returns:
             Created Project object
         """
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "create_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to create a project")
+
         logger.info(
             f"Creating '{data.title}' for organization_id={organization_id}, user_id={user_id}"
         )
@@ -156,6 +165,7 @@ class ProjectService:
         self,
         project_id: UUID,
         organization_id: UUID,
+        user_id: UUID,
         data: ProjectUpdate,
     ) -> tuple[Optional[Project], str]:
         """
@@ -167,7 +177,15 @@ class ProjectService:
             organization_id: Organization UUID
             data: Update data
         """
+
         logger.info(f"Updating project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
 
         project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
@@ -212,7 +230,7 @@ class ProjectService:
 
         return project, success_message
 
-    async def delete_project(self, project_id: UUID, organization_id: UUID) -> bool:
+    async def delete_project(self, project_id: UUID, user_id: UUID, organization_id: UUID) -> bool:
         """
         Permanently delete project from database (irreversible).
 
@@ -225,6 +243,13 @@ class ProjectService:
             True if deleted, False if not found
         """
         logger.warning(f"hard deleting project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "delete_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to delete projects")
 
         project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
@@ -267,7 +292,11 @@ class ProjectService:
         return list(user_ids)
 
     async def add_user(
-        self, project_id: UUID, user_id: UUID, organization_id: UUID
+        self,
+        project_id: UUID,
+        target_user_id: UUID,
+        organization_id: UUID,
+        current_user_id: UUID,
     ) -> tuple[bool, str]:
         """
         Add user to project.
@@ -281,34 +310,43 @@ class ProjectService:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        logger.info(f"Adding user_id={user_id} to project_id={project_id}")
+        logger.info(f"Adding user_id={target_user_id} to project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, current_user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
 
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
             logger.warning(f"Project not found: project_id={project_id}")
             return False, "Project not found or you don't have access to it"
 
-        user = await get_user_by_id(self.db, user_id, organization_id)
+        user = await get_user_by_id(self.db, target_user_id, organization_id)
         if not user:
-            logger.warning(f"User not found in organization: user_id={user_id}")
+            logger.warning(f"User not found in organization: user_id={target_user_id}")
             return False, "User not found in your organization"
 
-        if await check_project_user_exists(self.db, project_id, user_id):
-            logger.warning(f"User already in project: user_id={user_id}, project_id={project_id}")
+        if await check_project_user_exists(self.db, project_id, target_user_id):
+            logger.warning(
+                f"User already in project: user_id={target_user_id}, project_id={project_id}"
+            )
             return False, "User already added to project"
 
-        project_user = ProjectUser(project_id=project_id, user_id=user_id)
+        project_user = ProjectUser(project_id=project_id, user_id=target_user_id)
         self.db.add(project_user)
         await self.db.commit()
 
         logger.info(
-            f"User added to project successfully: user_id={user_id}, project_id={project_id}"
+            f"User added to project successfully: user_id={target_user_id}, project_id={project_id}"
         )
 
         return True, "User successfully added to project"
 
     async def remove_user(
-        self, project_id: UUID, user_id: UUID, organization_id: UUID
+        self, project_id: UUID, target_user_id: UUID, organization_id: UUID, current_user_id: UUID
     ) -> tuple[bool, str]:
         """
         Remove user from project.
@@ -322,7 +360,14 @@ class ProjectService:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        logger.info(f"Removing user_id={user_id} from project_id={project_id}")
+        logger.info(f"Removing user_id={target_user_id} from project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, current_user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
 
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
@@ -330,21 +375,22 @@ class ProjectService:
             return False, "Project not found or you don't have access to it"
 
         statement = select(ProjectUser).where(
-            and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
+            and_(ProjectUser.project_id == project_id, ProjectUser.user_id == target_user_id)
         )
-        # prefer SQLModel AsyncSession.execute which returns a ScalarResult
         result = await self.db.execute(statement)
         project_user = result.one_or_none()
 
         if not project_user:
-            logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
+            logger.warning(
+                f"User not in project: user_id={target_user_id}, project_id={project_id}"
+            )
             return False, "User is not a member of this project"
 
         await self.db.delete(project_user)
         await self.db.commit()
 
         logger.info(
-            f"User removed from project successfully: user_id={user_id}, project_id={project_id}"
+            f"Removed user_id={target_user_id} from project project_id={project_id}"
         )
 
         return True, "User successfully removed from project"
