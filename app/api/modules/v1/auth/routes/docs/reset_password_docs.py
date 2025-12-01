@@ -92,6 +92,24 @@ request_reset_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "rate_limit_exceeded": {
+                        "summary": "Too many requests",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many password reset requests. Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    }
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal server error",
         "content": {
@@ -112,7 +130,7 @@ request_reset_responses = {
     },
 }
 
-request_reset_custom_errors = ["403", "404", "422", "500"]
+request_reset_custom_errors = ["403", "404", "422", "429", "500"]
 request_reset_custom_success = {
     "status_code": 200,
     "description": "Password reset code sent successfully to the registered email.",

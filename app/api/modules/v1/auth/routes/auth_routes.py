@@ -2,13 +2,15 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
+from app.api.core.dependencies.redis_service import check_rate_limit
 from app.api.core.dependencies.registeration_redis import get_redis
+from app.api.core.exceptions import RateLimitExceeded
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.routes.docs.auth_routes_docs import (
     company_signup_custom_errors,
@@ -44,6 +46,11 @@ from app.api.utils.response_payloads import (
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 logger = logging.getLogger("app")
+
+MAX_OTP_REQUEST_ATTEMPTS = 3
+MAX_OTP_VERIFY_ATTEMPTS = 5
+RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
+IP_RATE_LIMIT_MULTIPLIER = 3
 
 
 @router.post(
@@ -115,6 +122,7 @@ company_signup._custom_success = company_signup_custom_success
 )
 async def verify_otp(
     payload: VerifyOTPRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
 ):
@@ -124,6 +132,10 @@ async def verify_otp(
     Validates the one-time password sent to the user's email and completes the
     registration process by creating the organization, admin role, and admin user account.
 
+    Rate Limited:
+    - Maximum 5 verification attempts per hour per email.
+    - Maximum 15 verification attempts per hour per IP address.
+
     Args:
         payload (VerifyOTPRequest): Object containing email and OTP code.
         db (AsyncSession, optional): Async database session. Defaults to Depends(get_db).
@@ -132,8 +144,40 @@ async def verify_otp(
 
     Returns:
         dict: Standardized success or error response indicating OTP verification status.
+
+    Raises:
+        RateLimitExceeded: If the email or IP exceeds the allowed number of verification attempts.
+        ValueError: If the OTP is invalid or expired.
+        HTTPException: 500 for internal server errors.
     """
     try:
+        email_allowed = await check_rate_limit(
+            f"otp_verify:email:{payload.email}",
+            max_attempts=MAX_OTP_VERIFY_ATTEMPTS,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+        if not email_allowed:
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many OTP verification attempts for this email. Please try again later.",
+            )
+
+        ip_address = request.client.host if request.client else None
+
+        if ip_address:
+            ip_allowed = await check_rate_limit(
+                f"otp_verify:ip:{ip_address}",
+                max_attempts=MAX_OTP_VERIFY_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
+                window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+            )
+
+        if not ip_allowed:
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many OTP verification attempts from this IP. Please try again later.",
+            )
+
         service = RegistrationService(db, redis_client)
         result = await service.verify_otp_and_complete_registration(
             email=payload.email, code=payload.code
@@ -147,6 +191,9 @@ async def verify_otp(
 
     except ValueError as e:
         return error_response(status_code=status.HTTP_400_BAD_REQUEST, message=str(e))
+
+    except RateLimitExceeded:
+        raise
 
     except Exception as e:
         logger.error(
@@ -174,6 +221,7 @@ verify_otp._custom_success = verify_otp_custom_success
 )
 async def request_new_otp(
     payload: ResendOTPRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: Redis = Depends(get_redis),
@@ -184,6 +232,10 @@ async def request_new_otp(
     Generates and sends a new OTP code to an email address with a pending registration
     that has not yet completed verification. The previous OTP is invalidated.
 
+    Rate Limited:
+    - Maximum 3 requests per hour per email.
+    - Maximum 9 requests per hour per IP address.
+
     Args:
         payload (ResendOTPRequest): Object containing the email to resend OTP for.
         background_tasks (BackgroundTasks): FastAPI background tasks instance for async operations.
@@ -193,8 +245,39 @@ async def request_new_otp(
 
     Returns:
         dict: Standardized success or error response containing OTP resend status.
+
+    Raises:
+        RateLimitExceeded: If the email or IP exceeds the allowed number of requests.
+        HTTPException: 400 for validation errors or 500 for internal server errors.
     """
     try:
+        email_allowed = await check_rate_limit(
+            f"otp_request:email:{payload.email}",
+            max_attempts=MAX_OTP_REQUEST_ATTEMPTS,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+        if not email_allowed:
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many OTP requests for this email. Please try again later.",
+            )
+
+        ip_address = request.client.host if request.client else None
+
+        if ip_address:
+            ip_allowed = await check_rate_limit(
+                f"otp_request:ip:{ip_address}",
+                max_attempts=MAX_OTP_REQUEST_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
+                window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+            )
+
+            if not ip_allowed:
+                raise RateLimitExceeded(
+                    retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                    detail="Too many OTP requests from this IP. Please try again later.",
+                )
+
         service = RegistrationService(db, redis_client)
         result = await service.resend_otp(
             email=payload.email,
@@ -216,6 +299,9 @@ async def request_new_otp(
             status_code=status.HTTP_400_BAD_REQUEST,
             message=str(e),
         )
+
+    except RateLimitExceeded:
+        raise
 
     except Exception as e:
         logger.error(

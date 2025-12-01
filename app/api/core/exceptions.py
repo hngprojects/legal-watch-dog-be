@@ -75,6 +75,48 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
+class RateLimitExceeded(Exception):
+    """
+    Custom exception for rate limit violations.
+
+    Attributes:
+        retry_after: Number of seconds until the rate limit resets
+        detail: Additional details about the rate limit violation
+    """
+
+    def __init__(self, retry_after: int = 3600, detail: str = "Rate limit exceeded"):
+        self.retry_after = retry_after
+        self.detail = detail
+        super().__init__(detail)
+
+
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Handle rate limit exceptions and return a standardized JSON response.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        exc (RateLimitExceeded): The rate limit exception.
+
+    Returns:
+        JSONResponse: Standardized 429 error response with retry information.
+    """
+    logger.warning(
+        f"Rate limit exceeded for {request.client.host if request.client else 'unknown'} "
+        f"on {request.url.path}"
+    )
+
+    response = error_response(
+        status_code=429,
+        message=exc.detail,
+        error="RATE_LIMIT_EXCEEDED",
+    )
+
+    response.headers["Retry-After"] = str(exc.retry_after)
+
+    return response
+
+
 class PasswordReuseError(Exception):
     """
     Custom exception to indicate that a user is trying to reuse a previously used password.
