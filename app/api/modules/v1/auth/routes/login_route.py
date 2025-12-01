@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
@@ -25,6 +26,7 @@ from app.api.modules.v1.auth.schemas.login import (
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.cookie_helper import clear_auth_cookies
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -156,34 +158,60 @@ refresh_token._custom_success = refresh_custom_success  # type: ignore
     "/logout",
     response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
-    responses=logout_responses,  # type: ignore
+    responses=logout_responses,
 )
 async def logout(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout the current user by invalidating their tokens.
 
     This endpoint:
-    - Blacklists the user's current access token.
-    - Blacklists the user's current refresh token.
+
+    - Blacklists the user's current access token
+    - Blacklists the user's current refresh token
 
     Args:
-        current_user (User): Currently authenticated user from dependency.
-        db (AsyncSession, optional): Database session dependency.
+        request: HTTP request to extract token from header
+        current_user: Currently authenticated user from dependency.
+        db: Database session dependency.
+
 
     Returns:
         JSON response confirming logout or error details.
     """
     try:
+        auth_header = request.headers.get("authorization")
+        token = None
+
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "")
+
         login_service = LoginService(db)
 
-        await login_service.logout(user_id=str(current_user.id))
+        await login_service.logout(user_id=str(current_user.id), token=token)
 
-        return success_response(
+        response_data = {
+            "status": "SUCCESS",
+            "status_code": status.HTTP_200_OK,
+            "message": "Logged out successfully",
+            "data": {},
+        }
+
+        # Create JSONResponse to enable cookie manipulation
+        response = JSONResponse(
+            content=response_data,
             status_code=status.HTTP_200_OK,
-            message="Logged out successfully",
         )
+
+        # Clear authentication cookies
+        clear_auth_cookies(response=response, request=request)
+
+        logger.info("User %s logged out successfully", str(current_user.id))
+
+        return response
     except HTTPException as e:
         logger.warning("Logout failed for user_id=%s: %s", str(current_user.id), e.detail)
         return error_response(
@@ -199,5 +227,5 @@ async def logout(
         )
 
 
-logout._custom_errors = logout_custom_errors  # type: ignore
-logout._custom_success = logout_custom_success  # type: ignore
+logout._custom_errors = logout_custom_errors
+logout._custom_success = logout_custom_success

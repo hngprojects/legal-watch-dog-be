@@ -22,6 +22,7 @@ from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
+from app.api.modules.v1.hire_specialists.models.specialist_models import SpecialistHire
 from app.api.modules.v1.notifications.models.revision_notification import Notification
 
 

@@ -1,7 +1,7 @@
 """Added: Billing plan model
 
 Revision ID: eba4d89ad4c9
-Revises: fa7a4d7cccac
+Revises: 924acaf3d7b8
 Create Date: 2025-11-30 02:34:49.751313
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'eba4d89ad4c9'
-down_revision: Union[str, Sequence[str], None] = 'fa7a4d7cccac'
+down_revision: Union[str, Sequence[str], None] = '924acaf3d7b8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

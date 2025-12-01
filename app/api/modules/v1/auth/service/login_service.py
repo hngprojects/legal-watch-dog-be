@@ -85,31 +85,6 @@ class LoginService:
                 detail="Invalid or expired refresh token",
             )
 
-    async def logout(self, user_id: str) -> dict:
-        """
-        Logout user and clear their tokens.
-
-        Args:
-            user_id: User UUID
-
-        Returns:
-            Logout confirmation
-        """
-        try:
-            user = await self.db.scalar(select(User).where(User.id == user_id))
-            if user:
-                await self._reset_failed_attempts(user.email)
-
-            logger.info(f"User {user_id} logged out successfully")
-
-            return {"message": "Logged out successfully", "success": True}
-        except Exception as e:
-            logger.error(f"Logout failed: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Logout failed",
-            )
-
     async def _authenticate_user(
         self, email: str, password: str, ip_address: Optional[str] = None
     ) -> dict:
@@ -477,4 +452,70 @@ class LoginService:
             return True
         except Exception as e:
             logger.error(f"Failed to revoke refresh token: {str(e)}")
+            return False
+
+    async def logout(self, user_id: str, token: str = None) -> dict:
+        """
+        Logout user and invalidate their tokens.
+
+        Args:
+            user_id: User UUID
+            token: Current access token to invalidate (optional but recommended)
+
+        Returns:
+            Logout confirmation
+        """
+        try:
+            user = await self.db.scalar(select(User).where(User.id == user_id))
+
+            if user:
+                await self._reset_failed_attempts(user.email)
+
+            if token:
+                jti = get_token_jti(token)
+                if jti:
+                    ttl = calculate_token_ttl(token)
+                    await add_token_to_denylist(jti, ttl)
+                    logger.info(f"Token {jti} added to denylist for user {user_id}")
+
+            await self._invalidate_user_refresh_tokens(user_id)
+
+            logger.info(f"User {user_id} logged out successfully")
+
+            return {"message": "Logged out successfully", "success": True}
+
+        except Exception as e:
+            logger.error(f"Logout failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Logout failed",
+            )
+
+    async def _invalidate_user_refresh_tokens(self, user_id: str) -> bool:
+        """
+        Invalidate all refresh tokens for a user.
+        This prevents token refresh after logout.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            True if successful
+        """
+        try:
+            redis_client = await get_redis_client()
+
+            pattern = f"refresh_token:{user_id}:*"
+
+            keys = []
+            async for key in redis_client.scan_iter(pattern):
+                keys.append(key)
+
+            if keys:
+                await redis_client.delete(*keys)
+                logger.info(f"Invalidated {len(keys)} refresh tokens for user {user_id}")
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to invalidate refresh tokens: {str(e)}")
             return False

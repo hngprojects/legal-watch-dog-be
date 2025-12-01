@@ -115,8 +115,12 @@ class BillingService:
         """
         Return all active subscription plans configured in the system.
 
-        Plans are ordered first by sort_order and then by amount so the
-        UI can render them in a stable order.
+        Args:
+            None
+
+        Returns:
+            List[BillingPlan]: A list of active BillingPlan objects ordered by sort_order
+            and then by amount.
         """
         stmt = (
             select(BillingPlan)
@@ -142,9 +146,11 @@ class BillingService:
     async def get_plan_by_stripe_price_id(self, price_id: str) -> Optional[BillingPlan]:
         """
         Look up a billing plan by its Stripe price ID.
+        Args:
+            price_id (str): Stripe price identifier (e.g., "price_...") to look up.
 
-        This is used to determine the current plan for a billing account
-        based on `BillingAccount.current_price_id`.
+        Returns:
+            Optional[BillingPlan]: The BillingPlan matching the given Stripe price id
         """
         stmt = select(BillingPlan).where(BillingPlan.stripe_price_id == price_id)
         return await self.db.scalar(stmt)
@@ -630,7 +636,12 @@ class BillingService:
     ) -> InvoiceHistory:
         """
         Create or update an InvoiceHistory record from a Stripe invoice object.
-        Called from Stripe webhooks (invoice.paid, invoice.payment_succeeded, etc).
+        Args:
+            account (BillingAccount): The billing account to associate the invoice with.
+            stripe_invoice (dict): The raw Stripe invoice object/payload.
+
+        Returns:
+            InvoiceHistory: The created or updated InvoiceHistory record.
         """
         stripe_invoice_id = stripe_invoice["id"]
         currency = (stripe_invoice.get("currency") or "usd").upper()
@@ -1226,6 +1237,12 @@ class BillingService:
     ) -> Dict[str, Any]:
         """
         Convert a Stripe subscription object into BillingAccount update values.
+
+        Args:
+            sub (Dict[str, Any]): Raw Stripe subscription object returned by Stripe APIs.
+
+        Returns:
+            Dict[str, Any]: A dictionary of BillingAccount fields to update.
         """
         stripe_status = sub.get("status")
         customer_id = sub.get("customer")
