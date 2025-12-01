@@ -145,9 +145,7 @@ class TestRoleHierarchyCanAssign:
 
     def test_manager_can_assign_manager(self):
         """Test that Manager can assign Manager role."""
-        assert (
-            RoleHierarchy.can_assign_role("Manager", "Manager") is False
-        )  # Changed: Manager can only assign below
+        assert RoleHierarchy.can_assign_role("Manager", "Manager") is False
 
     def test_manager_can_assign_member(self):
         """Test that Manager can assign Member role."""
@@ -169,7 +167,6 @@ class TestValidateRoleHierarchy:
         """Test that Owner can assign Owner role to another user."""
         db = AsyncMock()
 
-        # Mock user (Owner)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -177,7 +174,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Owner"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Member)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -201,14 +197,13 @@ class TestValidateRoleHierarchy:
                 new_role_name="Owner",
             )
 
-            assert result[0] is True  # is_valid
-            assert result[1] == ""  # no error message
+            assert result[0] is True
+            assert result[1] == ""
 
     async def test_admin_cannot_assign_owner_role(self):
         """Test that Admin CANNOT assign Owner role."""
         db = AsyncMock()
 
-        # Mock user (Admin)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -216,7 +211,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Admin"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Member)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -247,7 +241,6 @@ class TestValidateRoleHierarchy:
         """Test that Admin can assign Manager role."""
         db = AsyncMock()
 
-        # Mock user (Admin)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -255,7 +248,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Admin"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Member)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -285,7 +277,6 @@ class TestValidateRoleHierarchy:
         """Test that Manager cannot assign Admin role."""
         db = AsyncMock()
 
-        # Mock user (Manager)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -293,7 +284,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Manager"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Member)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -324,7 +314,6 @@ class TestValidateRoleHierarchy:
         """Test that Admin cannot manage Owner."""
         db = AsyncMock()
 
-        # Mock user (Admin)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -332,7 +321,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Admin"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Owner)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -362,7 +350,6 @@ class TestValidateRoleHierarchy:
         """Test that Owner can manage Admin."""
         db = AsyncMock()
 
-        # Mock user (Owner)
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -370,7 +357,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Owner"
         user_role.id = user_membership.role_id
 
-        # Mock target user (Admin)
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -399,7 +385,6 @@ class TestValidateRoleHierarchy:
         """Test that assign_role action requires new_role_name."""
         db = AsyncMock()
 
-        # Mock user
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -407,7 +392,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Admin"
         user_role.id = user_membership.role_id
 
-        # Mock target user
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
@@ -458,7 +442,6 @@ class TestValidateRoleHierarchy:
         """Test that ValueError is raised for unknown action."""
         db = AsyncMock()
 
-        # Mock user
         user_membership = MagicMock()
         user_membership.role_id = uuid.uuid4()
 
@@ -466,7 +449,6 @@ class TestValidateRoleHierarchy:
         user_role.name = "Admin"
         user_role.id = user_membership.role_id
 
-        # Mock target user
         target_membership = MagicMock()
         target_membership.role_id = uuid.uuid4()
 
