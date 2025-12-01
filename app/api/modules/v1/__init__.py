@@ -22,9 +22,9 @@ from app.api.modules.v1.users.routes.users_route import router as users_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
 router = APIRouter(prefix="/v1")
-router.include_router(specialist_router)
 router.include_router(waitlist_router)
 router.include_router(contact_us_router)
+router.include_router(specialist_router)
 router.include_router(register_router)
 router.include_router(oauth_microsoft_router)
 router.include_router(oauth_google_router)

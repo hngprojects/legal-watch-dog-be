@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import exc
 
 # revision identifiers, used by Alembic.
 revision: str = 'eba4d89ad4c9'
@@ -29,24 +30,40 @@ def upgrade() -> None:
     
     try:
         op.drop_constraint(op.f('fk_billing_accounts_default_payment_method'), 'billing_accounts', type_='foreignkey')
-    except Exception:
+    except exc.ProgrammingError:
         pass
     
     op.execute("DROP INDEX IF EXISTS ix_billing_invoices_stripe_invoice_id")
-    op.create_index(op.f('ix_billing_invoices_stripe_invoice_id'), 'billing_invoices', ['stripe_invoice_id'], unique=True)
-    op.add_column('refresh_token_metadata', sa.Column('issued_at', sa.DateTime(timezone=True), nullable=False))
-    op.alter_column('refresh_token_metadata', 'provider_token_exp',
-               existing_type=sa.BIGINT(),
-               type_=sa.Integer(),
-               existing_nullable=True)
-    op.alter_column('refresh_token_metadata', 'expires_at',
-               existing_type=postgresql.TIMESTAMP(timezone=True),
-               nullable=False)
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_billing_invoices_stripe_invoice_id ON billing_invoices (stripe_invoice_id)")
+    
+    op.execute("""
+        ALTER TABLE refresh_token_metadata
+        ADD COLUMN IF NOT EXISTS issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    """)
+    
+    try:
+        op.alter_column('refresh_token_metadata', 'provider_token_exp',
+                   existing_type=sa.BIGINT(),
+                   type_=sa.Integer(),
+                   existing_nullable=True)
+    except exc.ProgrammingError:
+        pass
+    
+    try:
+        op.alter_column('refresh_token_metadata', 'expires_at',
+                   existing_type=postgresql.TIMESTAMP(timezone=True),
+                   nullable=False)
+    except exc.ProgrammingError:
+        pass
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_is_revoked")
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_jti")
-    op.create_index(op.f('ix_refresh_token_metadata_jti'), 'refresh_token_metadata', ['jti'], unique=True)
-    op.create_index(op.f('ix_refresh_token_metadata_id'), 'refresh_token_metadata', ['id'], unique=False)
-    op.drop_column('refresh_token_metadata', 'created_at')
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_refresh_token_metadata_jti ON refresh_token_metadata (jti)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_refresh_token_metadata_id ON refresh_token_metadata (id)")
+    
+    op.execute("""
+        ALTER TABLE refresh_token_metadata
+        DROP COLUMN IF EXISTS created_at
+    """)
     # ### end Alembic commands ###
 
 
