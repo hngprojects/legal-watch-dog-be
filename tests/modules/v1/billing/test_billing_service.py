@@ -181,11 +181,7 @@ class TestBillingServiceUsageCheck:
         session.add(org)
         await session.commit()
         account = BillingAccount(
-            organization_id=org_id,
-            status=status,
-            currency="USD",
-            metadata_={},
-            **kwargs
+            organization_id=org_id, status=status, currency="USD", metadata_={}, **kwargs
         )
         session.add(account)
         await session.commit()
@@ -207,9 +203,10 @@ class TestBillingServiceUsageCheck:
         org_id = uuid4()
         past_date = datetime.now(timezone.utc) - timedelta(days=1)
         await self._create_account(
-            pg_async_session, org_id,
+            pg_async_session,
+            org_id,
             trial_starts_at=past_date - timedelta(days=14),
-            trial_ends_at=past_date
+            trial_ends_at=past_date,
         )
         service = BillingService(pg_async_session)
 
@@ -261,9 +258,11 @@ class TestBillingServiceUsageCheck:
         org_id = uuid4()
         past_date = datetime.now(timezone.utc) - timedelta(days=1)
         await self._create_account(
-            pg_async_session, org_id, status=BillingStatus.ACTIVE,
+            pg_async_session,
+            org_id,
+            status=BillingStatus.ACTIVE,
             current_period_end=past_date,
-            cancel_at_period_end=True
+            cancel_at_period_end=True,
         )
         service = BillingService(pg_async_session)
 
