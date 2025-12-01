@@ -144,7 +144,7 @@ async def validate_role_hierarchy(
 
     if action == "assign_role":
         if not new_role_name:
-            return False, "New role name is required for role assignment", user_role, target_role
+            raise ValueError("New role name is required for 'assign_role'")
 
         if not RoleHierarchy.can_manage_role(user_role.name, target_role.name):
             raise CannotManageHigherRoleException(
