@@ -34,10 +34,7 @@ def upgrade() -> None:
         pass
     
     op.execute("DROP INDEX IF EXISTS ix_billing_invoices_stripe_invoice_id")
-    try:
-        op.create_index(op.f('ix_billing_invoices_stripe_invoice_id'), 'billing_invoices', ['stripe_invoice_id'], unique=True)
-    except exc.ProgrammingError:
-        pass
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_billing_invoices_stripe_invoice_id ON billing_invoices (stripe_invoice_id)")
     
     op.execute("""
         ALTER TABLE refresh_token_metadata
@@ -60,14 +57,8 @@ def upgrade() -> None:
         pass
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_is_revoked")
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_jti")
-    try:
-        op.create_index(op.f('ix_refresh_token_metadata_jti'), 'refresh_token_metadata', ['jti'], unique=True)
-    except exc.ProgrammingError:
-        pass
-    try:
-        op.create_index(op.f('ix_refresh_token_metadata_id'), 'refresh_token_metadata', ['id'], unique=False)
-    except exc.ProgrammingError:
-        pass
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_refresh_token_metadata_jti ON refresh_token_metadata (jti)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_refresh_token_metadata_id ON refresh_token_metadata (id)")
     
     op.execute("""
         ALTER TABLE refresh_token_metadata
