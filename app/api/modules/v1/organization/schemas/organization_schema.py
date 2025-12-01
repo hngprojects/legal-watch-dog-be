@@ -11,7 +11,7 @@ class CreateOrganizationRequest(BaseModel):
     industry: str | None = Field(None, max_length=100, description="Industry type")
 
     @field_validator("name")
-    def name_must_be_letters_only(cls, v: str) -> str:
+    def name_validator(cls, v: str) -> str:
         """
         Validate and normalize an organization name.
 
@@ -102,7 +102,7 @@ class UpdateOrganizationRequest(BaseModel):
     is_active: Optional[bool] = Field(None, description="Organization active status")
 
     @field_validator("name")
-    def update_name_must_be_letters_only(cls, v: Optional[str]) -> Optional[str]:
+    def update_name_validator(cls, v: Optional[str]) -> Optional[str]:
         """
         Validate the `name` field ensuring it meets organization naming rules.
 
@@ -121,9 +121,6 @@ class UpdateOrganizationRequest(BaseModel):
         v = v.strip()
         if len(v) < 2:
             raise ValueError("Organization name must be at least 2 characters long")
-
-        if any(c.isdigit() for c in v):
-            raise ValueError("Organization name must not contain numbers")
 
         if not any(c.isalpha() for c in v):
             raise ValueError("Organization name must contain at least one letter")
