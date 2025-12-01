@@ -274,6 +274,13 @@ class TestSubscriptionEventHandling:
         assert account.trial_starts_at is not None
         assert account.trial_ends_at is not None
 
+        org_from_db = await pg_async_session.get(Organization, org_id)
+        assert org_from_db is not None
+        assert org_from_db.billing_info is not None
+        assert org_from_db.billing_info["stripe_subscription_id"] == "sub_test123"
+        assert org_from_db.billing_info["current_price_id"] == "price_test123"
+        assert org_from_db.plan is not None
+
 
 @pytest.mark.asyncio
 class TestCheckoutSessionEventHandling:
