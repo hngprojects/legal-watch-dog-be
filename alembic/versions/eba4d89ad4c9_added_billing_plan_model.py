@@ -40,13 +40,20 @@ def upgrade() -> None:
         ADD COLUMN IF NOT EXISTS issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
     """)
     
-    op.alter_column('refresh_token_metadata', 'provider_token_exp',
-               existing_type=sa.BIGINT(),
-               type_=sa.Integer(),
-               existing_nullable=True)
-    op.alter_column('refresh_token_metadata', 'expires_at',
-               existing_type=postgresql.TIMESTAMP(timezone=True),
-               nullable=False)
+    try:
+        op.alter_column('refresh_token_metadata', 'provider_token_exp',
+                   existing_type=sa.BIGINT(),
+                   type_=sa.Integer(),
+                   existing_nullable=True)
+    except Exception:
+        pass
+    
+    try:
+        op.alter_column('refresh_token_metadata', 'expires_at',
+                   existing_type=postgresql.TIMESTAMP(timezone=True),
+                   nullable=False)
+    except Exception:
+        pass
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_is_revoked")
     op.execute("DROP INDEX IF EXISTS ix_refresh_token_metadata_jti")
     op.create_index(op.f('ix_refresh_token_metadata_jti'), 'refresh_token_metadata', ['jti'], unique=True)
