@@ -18,7 +18,6 @@ from app.api.modules.v1.users.models.users_model import User
 @pytest.mark.asyncio
 async def test_update_member_details_success():
     """Test successful member details update."""
-
     mock_db = AsyncMock()
     mock_current_user = MagicMock(spec=User)
     mock_current_user.id = uuid.uuid4()
@@ -49,36 +48,45 @@ async def test_update_member_details_success():
         mock_check_perm.return_value = True
 
         with patch(
-            "app.api.modules.v1.organization.routes.organization_route.UserOrganizationCRUD.update_member_details",
+            "app.api.modules.v1.organization.routes.organization_route.validate_role_hierarchy",
             new_callable=AsyncMock,
-        ) as mock_update:
-            mock_update.return_value = (updated_user, updated_membership)
+        ) as mock_validate:
+            mock_validate.return_value = (True, "", MagicMock(), MagicMock())
 
-            response = await update_member_details(
-                organization_id=org_id,
-                user_id=user_id,
-                payload=payload,
-                current_user=mock_current_user,
-                db=mock_db,
-            )
+            with patch(
+                "app.api.modules.v1.organization.routes.organization_route.UserOrganizationCRUD.update_member_details",
+                new_callable=AsyncMock,
+            ) as mock_update:
+                mock_update.return_value = (updated_user, updated_membership)
 
-            body = json.loads(response.body)
-            assert body["status"] == "SUCCESS"
-            assert body["message"] == "Member details updated successfully"
-            assert body["data"]["name"] == "New Name"
-            assert body["data"]["email"] == "new@example.com"
-            assert body["data"]["department"] == "Engineering"
-            assert body["data"]["title"] == "Senior Engineer"
+                response = await update_member_details(
+                    organization_id=org_id,
+                    user_id=user_id,
+                    payload=payload,
+                    current_user=mock_current_user,
+                    db=mock_db,
+                )
 
-            mock_update.assert_called_once()
-            call_args = mock_update.call_args[1]
-            assert call_args["organization_id"] == org_id
-            assert call_args["user_id"] == user_id
-            assert call_args["user_updates"] == {"name": "New Name", "email": "new@example.com"}
-            assert call_args["membership_updates"] == {
-                "department": "Engineering",
-                "title": "Senior Engineer",
-            }
+                body = json.loads(response.body)
+                assert body["status"] == "SUCCESS"
+                assert body["message"] == "Member details updated successfully"
+                assert body["data"]["name"] == "New Name"
+                assert body["data"]["email"] == "new@example.com"
+                assert body["data"]["department"] == "Engineering"
+                assert body["data"]["title"] == "Senior Engineer"
+
+                mock_update.assert_called_once()
+                call_args = mock_update.call_args[1]
+                assert call_args["organization_id"] == org_id
+                assert call_args["user_id"] == user_id
+                assert call_args["user_updates"] == {
+                    "name": "New Name",
+                    "email": "new@example.com",
+                }
+                assert call_args["membership_updates"] == {
+                    "department": "Engineering",
+                    "title": "Senior Engineer",
+                }
 
 
 @pytest.mark.asyncio
@@ -127,16 +135,22 @@ async def test_update_member_details_no_fields():
     ) as mock_check_perm:
         mock_check_perm.return_value = True
 
-        response = await update_member_details(
-            organization_id=org_id,
-            user_id=user_id,
-            payload=payload,
-            current_user=mock_current_user,
-            db=mock_db,
-        )
+        with patch(
+            "app.api.modules.v1.organization.routes.organization_route.validate_role_hierarchy",
+            new_callable=AsyncMock,
+        ) as mock_validate:
+            mock_validate.return_value = (True, "", MagicMock(), MagicMock())
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "No fields provided" in response.body.decode()
+            response = await update_member_details(
+                organization_id=org_id,
+                user_id=user_id,
+                payload=payload,
+                current_user=mock_current_user,
+                db=mock_db,
+            )
+
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert "No fields provided" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -156,18 +170,24 @@ async def test_delete_member_success():
         mock_check_perm.return_value = True
 
         with patch(
-            "app.api.modules.v1.organization.routes.organization_route.UserOrganizationCRUD.soft_delete_member",
+            "app.api.modules.v1.organization.routes.organization_route.validate_role_hierarchy",
             new_callable=AsyncMock,
-        ) as mock_delete:
-            response = await delete_member(
-                organization_id=org_id,
-                user_id=user_id,
-                current_user=mock_current_user,
-                db=mock_db,
-            )
+        ) as mock_validate:
+            mock_validate.return_value = (True, "", MagicMock(), MagicMock())
 
-            assert response.status_code == status.HTTP_204_NO_CONTENT
-            mock_delete.assert_called_once()
+            with patch(
+                "app.api.modules.v1.organization.routes.organization_route.UserOrganizationCRUD.soft_delete_member",
+                new_callable=AsyncMock,
+            ) as mock_delete:
+                response = await delete_member(
+                    organization_id=org_id,
+                    user_id=user_id,
+                    current_user=mock_current_user,
+                    db=mock_db,
+                )
+
+                assert response.status_code == status.HTTP_204_NO_CONTENT
+                mock_delete.assert_called_once()
 
 
 @pytest.mark.asyncio
