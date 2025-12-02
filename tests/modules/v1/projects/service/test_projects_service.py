@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,11 +64,15 @@ async def test_create_project_after_registration(pg_async_session):
         org_id=org_id,
     )
 
-    project = await project_service.create_project(
-        data=project_data,
-        organization_id=org_id,
-        user_id=user_id,
-    )
+    with patch(
+        "app.api.modules.v1.projects.services.project_service.check_user_permission"
+    ) as mock_check:
+        mock_check.return_value = True
+        project = await project_service.create_project(
+            data=project_data,
+            organization_id=org_id,
+            user_id=user_id,
+        )
 
     assert project.id is not None
     assert project.title == "Test Project"
@@ -108,9 +113,14 @@ async def test_update_project_service_not_found(pg_async_session: AsyncSession):
     project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
+    user_id = uuid.uuid4()
     data = ProjectUpdate(title="Updated Title")
 
-    project, message = await project_service.update_project(project_id, org_id, data)
+    with patch(
+        "app.api.modules.v1.projects.services.project_service.check_user_permission"
+    ) as mock_check:
+        mock_check.return_value = True
+        project, message = await project_service.update_project(project_id, org_id, user_id, data)
     assert project is None
     assert "not found" in message.lower()
 
@@ -123,13 +133,25 @@ async def test_update_project_service_success(pg_async_session: AsyncSession):
     pg_async_session.add(org)
     await pg_async_session.flush()
 
+    user_id = uuid.uuid4()
+    user = User(id=user_id, email="test@example.com", hashed_password="hashed", name="Test User")
+    pg_async_session.add(user)
+    await pg_async_session.flush()
+
     project = Project(title="Original Title", org_id=org.id)
     pg_async_session.add(project)
     await pg_async_session.flush()
     await pg_async_session.refresh(project)
 
     data = ProjectUpdate(title="Updated Title")
-    updated_project, message = await project_service.update_project(project.id, org.id, data)
+
+    with patch(
+        "app.api.modules.v1.projects.services.project_service.check_user_permission"
+    ) as mock_check:
+        mock_check.return_value = True
+        updated_project, message = await project_service.update_project(
+            project.id, org.id, user_id, data
+        )
 
     assert updated_project is not None
     assert updated_project.title == "Updated Title"
@@ -141,6 +163,12 @@ async def test_delete_project_service(pg_async_session: AsyncSession):
     project_service = ProjectService(pg_async_session)
     org_id = uuid.uuid4()
     project_id = uuid.uuid4()
+    user_id = uuid.uuid4()
 
-    result = await project_service.delete_project(project_id, org_id)
+    with patch(
+        "app.api.modules.v1.projects.services.project_service.check_user_permission"
+    ) as mock_check:
+        mock_check.return_value = True
+        result = await project_service.delete_project(project_id, user_id, org_id)
+
     assert result in [True, False]
