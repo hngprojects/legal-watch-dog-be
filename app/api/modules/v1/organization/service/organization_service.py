@@ -9,6 +9,8 @@ from sqlmodel import func, select
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.organization.models.invitation_model import Invitation
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
@@ -85,7 +87,14 @@ class OrganizationService:
                 industry=industry,
             )
 
-            admin_role = await RoleCRUD.create_admin_role(
+            owner_role = await RoleCRUD.create_owner_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Owner",
+                description="Organization owner with full permissions",
+            )
+
+            await RoleCRUD.create_admin_role(
                 db=self.db,
                 organization_id=organization.id,
                 role_name="Admin",
@@ -109,7 +118,7 @@ class OrganizationService:
                 db=self.db,
                 user_id=user_id,
                 organization_id=organization.id,
-                role_id=admin_role.id,
+                role_id=owner_role.id,
                 is_active=True,
             )
 
@@ -117,14 +126,14 @@ class OrganizationService:
 
             logger.info(
                 f"Successfully created organization id={organization.id} "
-                f"for user_id={user_id} with admin role"
+                f"for user_id={user_id} with owner role"
             )
 
             return {
                 "organization_id": str(organization.id),
                 "organization_name": organization.name,
                 "user_id": str(user_id),
-                "role": admin_role.name,
+                "role": owner_role.name,
             }
 
         except ValueError as e:
@@ -287,7 +296,7 @@ class OrganizationService:
                 if existing_org and existing_org.id != organization_id:
                     raise ValueError("You already have an organization with this name")
 
-            updated_organization = await OrganizationCRUD.update(
+            updated_organization: Organization = await OrganizationCRUD.update(
                 db=self.db,
                 organization_id=organization_id,
                 name=name,
@@ -297,7 +306,7 @@ class OrganizationService:
 
             await self.db.commit()
 
-            membership = await UserOrganizationCRUD.get_user_organization(
+            membership: UserOrganization | None = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
             role = await self.db.get(Role, membership.role_id) if membership else None
@@ -309,6 +318,7 @@ class OrganizationService:
                 "name": updated_organization.name,
                 "industry": updated_organization.industry,
                 "settings": updated_organization.settings,
+                "plan": updated_organization.plan,
                 "billing_info": updated_organization.billing_info,
                 "is_active": updated_organization.is_active,
                 "created_at": updated_organization.created_at.isoformat(),

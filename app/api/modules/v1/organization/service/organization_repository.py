@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import func, select
 
 from app.api.modules.v1.organization.models.organization_model import Organization
 
@@ -87,7 +87,12 @@ class OrganizationCRUD:
         Returns:
             Organization or None if not found
         """
-        result = await db.execute(select(Organization).where(Organization.name == name))
+        result = await db.execute(
+            select(Organization).where(
+                Organization.deleted_at.is_(None),
+                func.lower(Organization.name) == func.lower(name),
+            )
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -173,9 +178,12 @@ class OrganizationCRUD:
         if not org_ids:
             return None
 
-        result = await db.execute(
-            select(Organization).where(Organization.id.in_(org_ids), Organization.name == name)
+        stmt = select(Organization).where(
+            Organization.id.in_(org_ids),
+            Organization.deleted_at.is_(None),
+            func.lower(Organization.name) == func.lower(name),
         )
+        result = await db.execute(stmt)
 
         return result.scalar_one_or_none()
 

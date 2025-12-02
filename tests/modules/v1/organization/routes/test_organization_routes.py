@@ -94,10 +94,10 @@ async def test_update_organization_success():
         "created_at": "2023-01-01T00:00:00",
         "updated_at": "2023-01-02T00:00:00",
         "settings": {},
-        "billing_info": {},
+        "billing_info": {"status": "active", "current_plan": {"tier": "pro"}},
         "user_role": "Admin",
         "location": None,
-        "plan": None,
+        "plan": "pro",
         "logo_url": None,
         "projects_count": 0,
     }
@@ -118,5 +118,10 @@ async def test_update_organization_success():
         assert response.status_code == status.HTTP_200_OK
         body = json.loads(response.body)
         assert body["status"] == "SUCCESS"
-        assert body["data"]["name"] == "Updated Org"
-        assert body["data"]["industry"] == "Finance"
+
+        data = body["data"]
+        assert data["name"] == "Updated Org"
+        assert data["industry"] == "Finance"
+        assert data["plan"] == "pro"
+        assert data["billing_info"]["status"] == "active"
+        assert data["billing_info"]["current_plan"]["tier"] == "pro"

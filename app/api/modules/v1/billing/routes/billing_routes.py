@@ -469,8 +469,14 @@ async def change_subscription_plan(
 
         current_plan_info: BillingPlanInfo | None = None
         if updated_account.current_price_id:
-            if plan:
-                current_plan_info = map_plan_to_plan_info(plan)
+            current_plan_info = map_plan_to_plan_info(plan)
+
+        await billing_service._sync_org_billing_from_account(
+            db=db,
+            organization_id=organization_id,
+            account=updated_account,
+            plan_info=current_plan_info,
+        )
 
         data = SubscriptionStatusResponse(
             billing_account_id=updated_account.id,
@@ -563,6 +569,13 @@ async def cancel_subscription(
             plan = await billing_service.get_plan_by_stripe_price_id(updated.current_price_id)
             if plan:
                 current_plan_info = map_plan_to_plan_info(plan)
+
+        await billing_service._sync_org_billing_from_account(
+            db=db,
+            organization_id=organization_id,
+            account=updated,
+            plan_info=current_plan_info,
+        )
 
         data = SubscriptionStatusResponse(
             billing_account_id=updated.id,

@@ -595,3 +595,51 @@ class TestBillingServiceInvoices:
         found = await service.find_invoice_by_stripe_invoice_id("in_unique123")
         assert found is not None
         assert found.id == created.id
+
+
+@pytest.mark.asyncio
+async def test_sync_org_billing_from_account_updates_org(pg_async_session):
+    """Test _sync_org_billing_from_account should update org.plan and billing_info."""
+    org_id = uuid4()
+    org = Organization(id=org_id, name="Test Org Sync")
+    pg_async_session.add(org)
+    await pg_async_session.commit()
+
+    account = BillingAccount(
+        id=uuid4(),
+        organization_id=org_id,
+        stripe_customer_id="cus_sync_123",
+        stripe_subscription_id="sub_sync_123",
+        status=BillingStatus.ACTIVE,
+        current_price_id="price_sync_123",
+        cancel_at_period_end=False,
+        trial_starts_at=datetime.now(timezone.utc),
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
+        currency="USD",
+        metadata_={},
+    )
+    pg_async_session.add(account)
+    await pg_async_session.commit()
+
+    service = BillingService(db=pg_async_session)
+
+    await service._sync_org_billing_from_account(
+        db=pg_async_session,
+        organization_id=org_id,
+        account=account,
+        plan_info=None,
+    )
+
+    refreshed = await pg_async_session.get(Organization, org_id)
+
+    assert refreshed is not None
+    assert refreshed.billing_info is not None
+
+    info = refreshed.billing_info
+    assert info["billing_account_id"] == str(account.id)
+    assert info["stripe_customer_id"] == account.stripe_customer_id
+    assert info["stripe_subscription_id"] == account.stripe_subscription_id
+    assert info["current_price_id"] == account.current_price_id
+    assert "status" in info
+
+    assert refreshed.plan == "free"
