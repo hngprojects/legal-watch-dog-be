@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -184,11 +183,12 @@ def pg_sync_session():
 
 
 @pytest_asyncio.fixture
-async def pg_async_session(event_loop):
+async def pg_async_session():
     """
     Provide an async PostgreSQL session using `asyncpg`. This fixture creates and
     tears down tables for tests that require an async session.
     """
+
     if not settings.DATABASE_URL:
         pytest.skip("Postgres DB not configured for tests")
 
@@ -254,13 +254,6 @@ async def pg_async_session(event_loop):
                 await session.commit()
 
     await engine.dispose()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture
