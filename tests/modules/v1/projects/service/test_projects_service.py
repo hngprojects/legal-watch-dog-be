@@ -138,6 +138,11 @@ async def test_update_project_service_success(pg_async_session: AsyncSession):
     pg_async_session.add(user)
     await pg_async_session.flush()
 
+    user_id = uuid.uuid4()
+    user = User(id=user_id, email="test@example.com", hashed_password="hashed", name="Test User")
+    pg_async_session.add(user)
+    await pg_async_session.flush()
+
     project = Project(title="Original Title", org_id=org.id)
     pg_async_session.add(project)
     await pg_async_session.flush()
