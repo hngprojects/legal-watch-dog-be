@@ -176,7 +176,6 @@ class RegistrationService:
                         f"Invitation {invitation.id} is not pending/has expired for user {user.id}"
                     )
                 elif user.email.lower() != invitation.invited_email.lower():
-                    # SECURITY: Verify the registered email matches the invitation
                     logger.warning(
                         f"Email mismatch during registration: registered={user.email}, "
                         f"invited={invitation.invited_email}, token={token}"
