@@ -175,6 +175,12 @@ class RegistrationService:
                     logger.warning(
                         f"Invitation {invitation.id} is not pending/has expired for user {user.id}"
                     )
+                elif user.email.lower() != invitation.invited_email.lower():
+                    # SECURITY: Verify the registered email matches the invitation
+                    logger.warning(
+                        f"Email mismatch during registration: registered={user.email}, "
+                        f"invited={invitation.invited_email}, token={token}"
+                    )
                 else:
                     await UserOrganizationCRUD.add_user_to_organization(
                         db=self.db,
