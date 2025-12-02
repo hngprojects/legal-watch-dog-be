@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
@@ -10,6 +11,16 @@ if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.users.models.roles_model import Role
+
+# Default organization settings
+DEFAULT_ORG_SETTINGS = {
+    "visibility": "private",
+    "require_strong_passwords": True,
+    "require_2fa": True,
+    "allow_external_sharing": False,
+    "audit_logging_enabled": True,
+    "project_default_privacy": "private",
+}
 
 
 class Organization(SQLModel, table=True):
@@ -53,8 +64,8 @@ class Organization(SQLModel, table=True):
     logo_url: Optional[str] = Field(None, max_length=500, description="Organization logo URL")
 
     settings: dict = Field(
-        default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default="{}"),
+        default_factory=lambda: DEFAULT_ORG_SETTINGS.copy(),
+        sa_column=Column(JSON, nullable=False, server_default=json.dumps(DEFAULT_ORG_SETTINGS)),
     )
 
     billing_info: dict = Field(
