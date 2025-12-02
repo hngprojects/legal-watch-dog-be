@@ -103,6 +103,7 @@ async def test_upload_user_profile_picture_success():
         mock_settings.MINIO_PROFILE_BUCKET = "profile-pictures"
         mock_settings.MINIO_ENDPOINT = "localhost:9001"
         mock_settings.MINIO_SECURE = False
+        mock_settings.MINIO_PUBLIC_URL = "http://localhost:9001"
         mock_uuid.return_value = uuid.UUID("12345678-1234-5678-9012-123456789012")
 
         mock_upload.return_value = (

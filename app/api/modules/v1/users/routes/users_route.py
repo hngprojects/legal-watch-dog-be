@@ -223,8 +223,13 @@ async def upload_user_profile_picture(
             content_type=file.content_type,
         )
 
-        protocol = "https" if settings.MINIO_SECURE else "http"
-        picture_url = f"{protocol}://{settings.MINIO_ENDPOINT}/{bucket_name}/{unique_filename}"
+        minio_public_url = getattr(settings, "MINIO_PUBLIC_URL", None)
+        if minio_public_url:
+            base_url = minio_public_url.rstrip("/")
+            picture_url = f"{base_url}/{bucket_name}/{unique_filename}"
+        else:
+            protocol = "https" if settings.MINIO_SECURE else "http"
+            picture_url = f"{protocol}://{settings.MINIO_ENDPOINT}/{bucket_name}/{unique_filename}"
 
         await UserCRUD.update_user(db=db, user_id=current_user.id, profile_picture_url=picture_url)
 
