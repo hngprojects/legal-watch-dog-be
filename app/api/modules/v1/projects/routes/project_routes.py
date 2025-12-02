@@ -22,6 +22,7 @@ from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectListResponse,
     ProjectResponse,
     ProjectUpdate,
+    ProjectUsersResponse,
 )
 from app.api.modules.v1.projects.services.project_service import ProjectService
 from app.api.modules.v1.users.models.users_model import User
@@ -80,6 +81,13 @@ async def create_project(
             status_code=status.HTTP_201_CREATED,
             message="Project created successfully",
             data=ProjectResponse.model_validate(project).model_dump(),
+        )
+
+    except ValueError as e:
+        logger.warning(f"Permission denied: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            message=str(e),
         )
 
     except Exception:
@@ -279,6 +287,12 @@ async def update_project(
             data=ProjectResponse.model_validate(project).model_dump(),
         )
 
+    except ValueError as e:
+        logger.warning(f"Permission denied: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            message=str(e),
+        )
     except Exception:
         logger.exception(f"Error updating project_id={project_id}")
         return error_response(
@@ -333,6 +347,13 @@ async def delete_project(
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    except ValueError as e:
+        logger.warning(f"Permission denied: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            message=str(e),
+        )
+
     except Exception:
         logger.exception(f"Error during hard delete of project_id={project_id}")
         return error_response(
@@ -343,11 +364,14 @@ async def delete_project(
 
 @router.get(
     "/{project_id}/users",
+    response_model=ProjectUsersResponse,
     status_code=status.HTTP_200_OK,
 )
 async def get_project_users(
     project_id: UUID,
     organization_id: UUID,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -383,18 +407,20 @@ async def get_project_users(
         await tenant.get_membership(organization_id)
 
         project_service = ProjectService(db)
-        user_ids = await project_service.get_users(project_id, organization_id)
+        result = await project_service.get_project_users(
+            project_id=project_id, organization_id=organization_id, page=page, limit=limit
+        )
 
-        if user_ids is None:
+        if result is None:
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
-                message="No users found in this project",
+                message="Project not found",
             )
 
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Project users retrieved successfully",
-            data={"user_ids": user_ids},
+            data=result,
         )
 
     except Exception:
@@ -411,7 +437,7 @@ async def get_project_users(
 )
 async def add_user_to_project(
     project_id: UUID,
-    target_user_id: UUID,
+    user_id: UUID,
     organization_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -444,9 +470,7 @@ async def add_user_to_project(
             - 404 Not Found if project doesn't exist
             - 500 Internal Server Error if operation fails
     """
-    logger.info(
-        f"Adding user_id={target_user_id} to project_id={project_id} by user={current_user.id}"
-    )
+    logger.info(f"Adding user_id={user_id} to project_id={project_id} by user={current_user.id}")
 
     try:
         tenant = TenantGuard(db, current_user)
@@ -455,7 +479,7 @@ async def add_user_to_project(
         project_service = ProjectService(db)
         success, message = await project_service.add_user(
             project_id=project_id,
-            target_user_id=target_user_id,
+            user_id=user_id,
             organization_id=organization_id,
             current_user_id=current_user.id,
         )
@@ -480,7 +504,7 @@ async def add_user_to_project(
         )
 
     except Exception:
-        logger.exception(f"Error adding user_id={target_user_id} to project_id={project_id}")
+        logger.exception(f"Error adding user_id={user_id} to project_id={project_id}")
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to add user to project.",
@@ -493,7 +517,7 @@ async def add_user_to_project(
 )
 async def remove_user_from_project(
     project_id: UUID,
-    target_user_id: UUID,
+    user_id: UUID,
     organization_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -526,7 +550,7 @@ async def remove_user_from_project(
             - 500 Internal Server Error if operation fails
     """
     logger.info(
-        f"Removing user_id={target_user_id} from project_id={project_id} by user={current_user.id}"
+        f"Removing user_id={user_id} from project_id={project_id} by user={current_user.id}"
     )
 
     try:
@@ -536,8 +560,9 @@ async def remove_user_from_project(
         project_service = ProjectService(db)
         success, message = await project_service.remove_user(
             project_id=project_id,
-            target_user_id=target_user_id,
+            user_id=user_id,
             organization_id=organization_id,
+            current_user_id=current_user.id,
         )
 
         if not success:
@@ -560,7 +585,7 @@ async def remove_user_from_project(
         )
 
     except Exception:
-        logger.exception(f"Error removing user_id={target_user_id} from project_id={project_id}")
+        logger.exception(f"Error removing user_id={user_id} from project_id={project_id}")
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to remove user from project.",
