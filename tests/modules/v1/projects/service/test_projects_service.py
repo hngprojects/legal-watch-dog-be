@@ -49,12 +49,13 @@ async def test_create_project_after_registration(pg_async_session):
         id=user_id,
         organization_id=org_id,
         role_id=role_id,
-        email="dummy@test.com",
+        email=f"test_{user_id}@example.com",
         hashed_password="hashedpassword",
         name="Dummy User",
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
+
     pg_async_session.add(user)
     await pg_async_session.flush()
 
@@ -129,16 +130,35 @@ async def test_update_project_service_not_found(pg_async_session: AsyncSession):
 async def test_update_project_service_success(pg_async_session: AsyncSession):
     """Test successfully updating an existing project."""
     project_service = ProjectService(pg_async_session)
-    org = Organization(name="Test Org")
+    org_id = uuid.uuid4()
+    org = Organization(
+        id=org_id,
+        name="Test Org",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
     pg_async_session.add(org)
     await pg_async_session.flush()
 
     user_id = uuid.uuid4()
-    user = User(id=user_id, email="test@example.com", hashed_password="hashed", name="Test User")
+    user = User(
+        id=user_id,
+        email=f"test_update_{user_id}@example.com",
+        hashed_password="hashed",
+        name="Test User",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+
     pg_async_session.add(user)
     await pg_async_session.flush()
 
-    project = Project(title="Original Title", org_id=org.id)
+    project = Project(
+        title="Original Title",
+        org_id=org.id,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
     pg_async_session.add(project)
     await pg_async_session.flush()
     await pg_async_session.refresh(project)
