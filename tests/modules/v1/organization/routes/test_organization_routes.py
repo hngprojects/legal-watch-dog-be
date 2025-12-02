@@ -254,4 +254,4 @@ async def test_cancel_invitation_success():
         assert response.status_code == status.HTTP_200_OK
         body = json.loads(response.body)
         assert body["status"] == "SUCCESS"
-        assert body["message"] == "Invitation cancelled successfully"    
+        assert body["message"] == "Invitation cancelled successfully"
