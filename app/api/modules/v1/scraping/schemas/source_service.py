@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from app.api.modules.v1.scraping.models.source_model import SourceType
 
@@ -35,8 +35,8 @@ class SourceCreate(BaseModel):
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = {}
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "jurisdiction_id": "550e8400-e29b-41d4-a716-446655440000",
                 "name": "Supreme Court Opinions",
@@ -51,6 +51,7 @@ class SourceCreate(BaseModel):
                 },
             }
         }
+    )
 
 
 class SourceUpdate(BaseModel):
@@ -100,8 +101,7 @@ class SourceRead(BaseModel):
     has_auth: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SourceBulkCreate(BaseModel):
@@ -114,8 +114,8 @@ class SourceBulkCreate(BaseModel):
 
     sources: List[SourceCreate] = Field(..., min_items=1, max_items=50)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "sources": [
                     {
@@ -135,6 +135,7 @@ class SourceBulkCreate(BaseModel):
                 ]
             }
         }
+    )
 
 
 class SourceAccept(BaseModel):
@@ -154,8 +155,8 @@ class SourceAccept(BaseModel):
     scrape_frequency: str = Field(default="DAILY", description="Scraping frequency")
     scraping_rules: Optional[Dict] = Field(default={}, description="Custom extraction rules")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "suggested_sources": [
                     {
@@ -171,3 +172,4 @@ class SourceAccept(BaseModel):
                 "scrape_frequency": "DAILY",
             }
         }
+    )

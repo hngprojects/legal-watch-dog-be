@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ExtractionResult(BaseModel):
@@ -42,5 +42,4 @@ class ChangeDetectionResult(BaseModel):
         ..., description="LOW, MEDIUM, or HIGH based on the severity of the change."
     )
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
