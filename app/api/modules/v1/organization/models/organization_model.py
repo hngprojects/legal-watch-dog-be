@@ -22,6 +22,7 @@ DEFAULT_ORG_SETTINGS = {
     "project_default_privacy": "private",
 }
 
+
 class Organization(SQLModel, table=True):
     """Organization model.
 
