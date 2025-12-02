@@ -90,9 +90,6 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     MINIO_USE_SSL: bool = False
     MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
-    # Public URL for MinIO (used for generating URLs returned to clients)
-    # Set this to your public MinIO endpoint on staging/production (e.g., https://minio.staging.legalwatch.dog)
-    # Leave empty for local development to use MINIO_ENDPOINT
     MINIO_PUBLIC_URL: Optional[str] = config("MINIO_PUBLIC_URL", default=None)
 
     # gemini AI Service
