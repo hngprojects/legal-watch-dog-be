@@ -15,6 +15,7 @@ from app.api.core.role_exceptions import (
     SelfManagementException,
 )
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
     create_organization_custom_errors,
     create_organization_custom_success,
@@ -28,6 +29,7 @@ from app.api.modules.v1.organization.routes.docs.organization_route_docs import 
 )
 from app.api.modules.v1.organization.schemas.invitation_schema import (
     InvitationCreate,
+    InvitationListResponse,
     InvitationResponse,
 )
 from app.api.modules.v1.organization.schemas.member_schema import UpdateMemberRequest
@@ -39,6 +41,7 @@ from app.api.modules.v1.organization.schemas.organization_schema import (
     UpdateMemberStatusRequest,
     UpdateOrganizationRequest,
 )
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.users_model import User
@@ -286,6 +289,89 @@ async def invite_user(
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Failed to send invitation. Please try again later.",
+        )
+
+
+@router.get(
+    "/{organization_id}/invitations",
+    response_model=InvitationListResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_organization_invitations(
+    organization_id: uuid.UUID,
+    status_filter: str = Query(
+        default="pending",
+        description="Filter by status (pending, accepted, declined, expired, all)",
+    ),
+    page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
+    limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all invitations for an organization.
+
+    This endpoint allows admins to view invitations sent for the organization.
+    Results can be filtered by status (default: pending).
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' or 'invite_users' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        status_filter: Status to filter by (default: pending)
+        page: Page number (default: 1)
+        limit: Items per page (default: 10, max: 100)
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        InvitationListResponse: Paginated list of invitations
+    """
+    try:
+        service = OrganizationService(db)
+        result = await service.get_organization_invitations(
+            organization_id=organization_id,
+            requesting_user_id=current_user.id,
+            page=page,
+            limit=limit,
+            status_filter=status_filter,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organization invitations retrieved successfully",
+            data=result,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to get invitations for org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif (
+            "do not have permission" in error_message.lower()
+            or "do not have access" in error_message.lower()
+        ):
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve invitations for org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organization invitations. Please try again later.",
         )
 
 
@@ -1011,3 +1097,101 @@ async def delete_organization(
 
 delete_organization._custom_errors = delete_organization_custom_errors
 delete_organization._custom_success = delete_organization_custom_success
+
+
+@router.delete(
+    "/{organization_id}/invitations/{invitation_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def cancel_invitation(
+    organization_id: uuid.UUID,
+    invitation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel a pending invitation.
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' or 'invite_users' permission
+    - Invitation must be in PENDING status
+
+    Args:
+        organization_id: UUID of the organization
+        invitation_id: UUID of the invitation to cancel
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response confirming cancellation
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden,
+                      404 for not found, 500 for server errors
+    """
+    try:
+        # Check permissions
+        has_manage = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        has_invite = await check_user_permission(
+            db, current_user.id, organization_id, "invite_users"
+        )
+
+        if not (has_manage or has_invite):
+            raise ValueError("You do not have permission to cancel invitations")
+
+        # Verify invitation belongs to organization
+        invitation = await db.get(Invitation, invitation_id)
+        if not invitation:
+            raise ValueError("Invitation not found")
+
+        if invitation.organization_id != organization_id:
+            raise ValueError("Invitation does not belong to this organization")
+
+        # Cancel invitation
+        cancelled_invitation = await InvitationCRUD.cancel_invitation(
+            db=db,
+            invitation_id=invitation_id,
+            requesting_user_id=current_user.id,
+        )
+
+        await db.commit()
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Invitation cancelled successfully",
+            data={
+                "invitation_id": str(cancelled_invitation.id),
+                "invited_email": cancelled_invitation.invited_email,
+                "status": cancelled_invitation.status.value,
+            },
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to cancel invitation {invitation_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error cancelling invitation {invitation_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to cancel invitation. Please try again later.",
+        )
