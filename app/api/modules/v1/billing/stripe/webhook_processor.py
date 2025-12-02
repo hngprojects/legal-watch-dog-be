@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict
+from uuid import UUID
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from app.api.core.dependencies.redis_service import get_redis_client
 from app.api.modules.v1.billing.models import InvoiceHistory
 from app.api.modules.v1.billing.models.billing_account import BillingAccount as BA
 from app.api.modules.v1.billing.service.billing_service import get_billing_service
+from app.api.modules.v1.billing.utils.billings_utils import map_plan_to_plan_info
 
 logger = logging.getLogger(__name__)
 
@@ -223,11 +225,47 @@ async def _handle_subscription_event(db: AsyncSession, data: Dict[str, Any]) -> 
             )
             await db.execute(stmt)
             await db.commit()
+            await db.refresh(account)
+
+        current_plan_info = None
+        if account.current_price_id:
+            plan = await billing_service.get_plan_by_stripe_price_id(account.current_price_id)
+            if plan:
+                current_plan_info = map_plan_to_plan_info(plan)
+
+        org_id = getattr(account, "organization_id", None)
+
+        if not org_id:
+            metadata = data.get("metadata") or {}
+            org_id_str = metadata.get("organization_id")
+            if org_id_str:
+                org_id = UUID(org_id_str)
+
+        if org_id:
+            await billing_service._sync_org_billing_from_account(
+                db=db,
+                organization_id=org_id,
+                account=account,
+                plan_info=current_plan_info,
+            )
+        else:
+            logger.warning(
+                "No organization_id found while syncing subscription event for account %s",
+                account.id,
+            )
 
         logger.info(
-            "Processed subscription event for subscription=%s customer=%s", sub_id, customer_id
+            "Processed subscription event for subscription=%s customer=%s (org=%s)",
+            sub_id,
+            customer_id,
+            org_id,
         )
-        return {"action": "subscription_processed", "billing_account_id": str(account.id)}
+        return {
+            "action": "subscription_processed",
+            "billing_account_id": str(account.id),
+            "organization_id": str(org_id) if org_id else None,
+        }
+
     except Exception:
         await db.rollback()
         logger.exception("Error handling subscription event for subscription=%s", sub_id)

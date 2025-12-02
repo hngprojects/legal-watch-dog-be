@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import JSON, Column, DateTime
+from sqlalchemy import JSON, Column, DateTime, Index, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -88,3 +88,11 @@ class Organization(SQLModel, table=True):
     invitations: list["Invitation"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
+
+Index(
+    "ux_organizations_active_name",
+    func.lower(Organization.name),
+    unique=True,
+    postgresql_where=Organization.deleted_at.is_(None),
+)
