@@ -339,33 +339,6 @@ class ProjectService:
 
         return {"users": users, **pagination}
 
-    # async def get_users(self, project_id: UUID, organization_id: UUID) -> Optional[List[UUID]]:
-    #     """
-    #     Get list of user IDs in project.
-
-    #     Args:
-    #         db: Database session
-    #         project_id: Project UUID
-    #         organization_id: Organization UUID
-
-    #     Returns:
-    #         List of user UUIDs if project exists, None otherwise
-    #     """
-    #     logger.info(f"Fetching users for project_id={project_id}")
-
-    #     project = await get_project_by_id(self.db, project_id, organization_id)
-    #     if not project:
-    #         logger.warning(f"Project not found: project_id={project_id}")
-    #         return None
-
-    #     statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
-    #     result = await self.db.execute(statement)
-    #     user_ids = result.scalars().all()
-
-    #     logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
-
-    #     return list(user_ids)
-
     async def add_user(
         self,
         project_id: UUID,
