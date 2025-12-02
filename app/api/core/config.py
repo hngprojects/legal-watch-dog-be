@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
     SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
 
-    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9001")
+    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="lwd")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
