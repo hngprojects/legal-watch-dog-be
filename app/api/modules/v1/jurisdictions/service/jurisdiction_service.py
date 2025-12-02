@@ -612,7 +612,7 @@ class JurisdictionService:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     async def restore_jurisdiction_and_children(
-        self, db: AsyncSession, organization_id: UUID, jurisdiction_id: UUID
+        self, db: AsyncSession, jurisdiction_id: UUID, organization_id: UUID
     ):
         """
         Restore a jurisdiction and all its descendant jurisdictions using a
