@@ -2,15 +2,24 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
+from app.api.utils.validators import is_company_email
 
-class InvitationCreate(SQLModel):
+
+class InvitationCreate(BaseModel):
     invited_email: EmailStr = Field(description="Email of the user to invite")
     role_name: str = Field(
         default="Member", description="Role name (e.g., 'Admin', 'Member', 'Manager')"
     )
+
+    @field_validator("invited_email")
+    @classmethod
+    def email_must_be_company(cls, v):
+        if not is_company_email(v):
+            raise ValueError("Only company email addresses are allowed.")
+        return v
 
 
 class InvitationResponse(SQLModel):
@@ -25,6 +34,42 @@ class InvitationResponse(SQLModel):
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class InvitationListItem(SQLModel):
+    """Response model for a single invitation in a list"""
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    organization_name: str
+    invited_email: EmailStr
+    inviter_id: uuid.UUID
+    inviter_name: str
+    inviter_email: Optional[EmailStr]
+    role_id: Optional[uuid.UUID]
+    role_name: Optional[str]
+    status: str
+    is_expired: bool = Field(description="Whether the invitation has expired")
+    expires_at: datetime
+    accepted_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class InvitationListResponse(SQLModel):
+    """Paginated response for organization invitations"""
+
+    invitations: list[InvitationListItem]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
 
     class Config:
         from_attributes = True

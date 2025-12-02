@@ -669,3 +669,96 @@ class OrganizationService:
             )
             await self.db.rollback()
             raise Exception("Failed to delete organization")
+
+    async def get_organization_invitations(
+        self,
+        organization_id: uuid.UUID,
+        requesting_user_id: uuid.UUID,
+        page: int = 1,
+        limit: int = 10,
+        status_filter: Optional[str] = "pending",
+    ) -> dict:
+        """
+        Get all invitations for an organization (paginated).
+
+        Args:
+            organization_id: Organization UUID
+            requesting_user_id: UUID of the user requesting the data
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
+            status_filter: Filter by status (default: "pending", use "all" for no filter)
+
+        Returns:
+            dict: Dictionary with paginated invitations and metadata
+
+        Raises:
+            ValueError: If validation fails
+        """
+        logger.info(
+            f"Fetching invitations for org_id={organization_id} by user_id={requesting_user_id}"
+        )
+
+        try:
+            # Verify organization exists
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            if hasattr(organization, "deleted_at") and organization.deleted_at:
+                raise ValueError("Organization has been deleted")
+
+            # Verify user has access to the organization
+            membership = await UserOrganizationCRUD.get_user_organization(
+                self.db, requesting_user_id, organization_id
+            )
+
+            if not membership or not membership.is_active:
+                raise ValueError("You do not have access to this organization")
+
+            # Check if user has permission to view invitations
+            # Allow both 'manage_users' and 'invite_users' permissions
+            has_manage = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "manage_users"
+            )
+            has_invite = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "invite_users"
+            )
+
+            if not (has_manage or has_invite):
+                raise ValueError(
+                    "You do not have permission to view invitations for this organization"
+                )
+
+            skip = (page - 1) * limit
+
+            # Get invitations from CRUD
+            result = await InvitationCRUD.get_organization_invitations(
+                db=self.db,
+                organization_id=organization_id,
+                skip=skip,
+                limit=limit,
+                status_filter=status_filter,
+            )
+
+            invitations = result["invitations"]
+            total = result["total"]
+
+            pagination = calculate_pagination(total=total, page=page, limit=limit)
+
+            logger.info(
+                f"Successfully retrieved {len(invitations)}invitations for org_id={organization_id}"
+            )
+
+            return {"invitations": invitations, **pagination}
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error fetching invitations for org_id={organization_id}: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching invitations for org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to retrieve organization invitations")

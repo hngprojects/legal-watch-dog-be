@@ -15,6 +15,7 @@ from fastapi import status
 
 from app.api.modules.v1.organization.routes.organization_route import (
     get_organization,
+    get_organization_invitations,
     update_organization,
 )
 from app.api.modules.v1.organization.schemas.organization_schema import (
@@ -120,3 +121,131 @@ async def test_update_organization_success():
         assert body["status"] == "SUCCESS"
         assert body["data"]["name"] == "Updated Org"
         assert body["data"]["industry"] == "Finance"
+
+
+@pytest.mark.asyncio
+async def test_get_organization_invitations_success():
+    """Test successful retrieval of organization invitations."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+    org_id = uuid.uuid4()
+
+    mock_invitations_data = {
+        "invitations": [
+            {
+                "id": str(uuid.uuid4()),
+                "organization_id": str(org_id),
+                "organization_name": "Test Org",
+                "invited_email": "invitee@example.com",
+                "inviter_id": str(mock_current_user.id),
+                "inviter_name": "Inviter User",
+                "inviter_email": "inviter@example.com",
+                "role_id": str(uuid.uuid4()),
+                "role_name": "Member",
+                "status": "pending",
+                "is_expired": False,
+                "expires_at": "2023-01-02T00:00:00",
+                "accepted_at": None,
+                "created_at": "2023-01-01T00:00:00",
+                "updated_at": "2023-01-01T00:00:00",
+            }
+        ],
+        "total": 1,
+        "page": 1,
+        "limit": 10,
+        "total_pages": 1,
+    }
+
+    with patch(
+        "app.api.modules.v1.organization.routes.organization_route.OrganizationService",
+    ) as mock_org_service:
+        mock_instance = mock_org_service.return_value
+        mock_instance.get_organization_invitations = AsyncMock(return_value=mock_invitations_data)
+
+        response = await get_organization_invitations(
+            organization_id=org_id,
+            status_filter="pending",
+            page=1,
+            limit=10,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = json.loads(response.body)
+        assert body["status"] == "SUCCESS"
+        assert len(body["data"]["invitations"]) == 1
+        assert body["data"]["invitations"][0]["invited_email"] == "invitee@example.com"
+        assert body["data"]["invitations"][0]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_invite_user_invalid_domain():
+    """Test that inviting a user with a non-company email fails."""
+    # This test relies on the schema validation which happens before the route handler
+    # We can test the schema directly or mock the validator if we want to test the route integration
+    # For integration testing, we would need to mock is_company_email or use a real one
+
+    from pydantic import ValidationError
+
+    from app.api.modules.v1.organization.schemas.invitation_schema import InvitationCreate
+
+    with patch(
+        "app.api.modules.v1.organization.schemas.invitation_schema.is_company_email"
+    ) as mock_validator:
+        mock_validator.return_value = False
+
+        with pytest.raises(ValidationError) as excinfo:
+            InvitationCreate(invited_email="test@qmail.com", role_name="Member")
+
+        assert "Only company email addresses are allowed" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_cancel_invitation_success():
+    """Test successful cancellation of an invitation."""
+    mock_db = AsyncMock()
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = uuid.uuid4()
+    org_id = uuid.uuid4()
+    invitation_id = uuid.uuid4()
+
+    # Mock invitation object
+    mock_invitation = MagicMock()
+    mock_invitation.id = invitation_id
+    mock_invitation.organization_id = org_id
+    mock_invitation.status.value = "cancelled"
+    mock_invitation.invited_email = "invitee@example.com"
+
+    # Mock db.get to return the invitation
+    # The route calls db.get(Invitation, invitation_id)
+    # We need to make sure db.get returns our mock invitation
+    mock_db.get.return_value = mock_invitation
+
+    with (
+        patch(
+            "app.api.modules.v1.organization.routes.organization_route.check_user_permission",
+            new_callable=AsyncMock,
+        ) as mock_check_perm,
+        patch(
+            "app.api.modules.v1.organization.service.invitation_service.InvitationCRUD.cancel_invitation",
+            new_callable=AsyncMock,
+        ) as mock_cancel,
+    ):
+        mock_check_perm.return_value = True
+        mock_cancel.return_value = mock_invitation
+
+        from app.api.modules.v1.organization.routes.organization_route import cancel_invitation
+
+        response = await cancel_invitation(
+            organization_id=org_id,
+            invitation_id=invitation_id,
+            current_user=mock_current_user,
+            db=mock_db,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = json.loads(response.body)
+        assert body["status"] == "SUCCESS"
+        assert body["message"] == "Invitation cancelled successfully"
