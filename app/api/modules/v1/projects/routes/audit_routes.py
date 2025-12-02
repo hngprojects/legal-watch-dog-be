@@ -1,22 +1,22 @@
-# app/api/modules/v1/projects/routes/audit_routes.py
 """
 API endpoints for Project Audit Logs
 Provides compliance monitoring and audit trail queries
 """
 
 import csv
-import os
 from datetime import datetime
 from io import StringIO
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.dependencies.auth import (
+    get_current_user,
+    require_permission,
+)
 from app.api.db.database import get_db as get_session
 from app.api.modules.v1.projects.models.project_audit_log import AuditAction
 from app.api.modules.v1.projects.repositories.audit_repository import (
@@ -28,12 +28,13 @@ from app.api.modules.v1.projects.schemas.audit_schemas import (
     AuditStatsResponse,
 )
 from app.api.modules.v1.projects.services.audit_service import ProjectAuditService
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.permissions import Permission
 
-router = APIRouter(tags=["Audit"])
+router = APIRouter(prefix="/projects/audit", tags=["Audit"])
 
 
-# ===== DEPENDENCY INJECTION =====
-
+# DEPENDENCY INJECTION
 
 def get_audit_service(
     session: AsyncSession = Depends(get_session),
@@ -42,85 +43,14 @@ def get_audit_service(
     return ProjectAuditService(repository)
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")  # your login endpoint
-
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    JWT_SECRET = os.getenv("JWT_SECRET")
-    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
-
-    if not JWT_SECRET or not JWT_ALGORITHM:
-        raise RuntimeError("JWT_SECRET and JWT_ALGORITHM must be set in environment")
-
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id: str = payload.get("user_id")
-        org_id: str = payload.get("org_id")
-        role: str = payload.get("role")
-        email: str = payload.get("email")
-        if not user_id or not org_id:
-            raise credentials_exception
-        return {
-            "user_id": UUID(user_id),
-            "org_id": UUID(org_id),
-            "role": role,
-            "email": email,
-        }
-    except JWTError:
-        raise credentials_exception
-
-
-# ===== ENDPOINTS =====
-
-
-@router.get("/projects/{project_id}", response_model=AuditLogListResponse)
-async def get_project_audit_logs(
-    project_id: UUID,
-    action: Optional[AuditAction] = None,
-    user_id: Optional[UUID] = None,
-    date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None,
-    page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    audit_service: ProjectAuditService = Depends(get_audit_service),
-):
-    """Get audit logs for a specific project"""
-    logs, total = await audit_service.get_project_audit_logs(
-        project_id=project_id,
-        action=action,
-        user_id=user_id,
-        date_from=date_from,
-        date_to=date_to,
-        page=page,
-        limit=limit,
-    )
-
-    log_responses = [AuditLogResponse.from_orm(log) for log in logs]
-    pagination = {
-        "page": page,
-        "limit": limit,
-        "total_items": total,
-        "total_pages": (total + limit - 1) // limit,
-        "has_next": page * limit < total,
-        "has_prev": page > 1,
-    }
-
-    return AuditLogListResponse(data=log_responses, pagination=pagination)
-
+# ENDPOINTS
 
 @router.get("/jurisdictions/{jurisdiction_id}", response_model=AuditLogListResponse)
 async def get_jurisdiction_audit_logs(
     jurisdiction_id: UUID,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """Get audit logs for a specific jurisdiction"""
@@ -146,18 +76,12 @@ async def get_organization_audit_logs(
     date_to: Optional[datetime] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=200),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_permission(Permission.VIEW_AUDIT)),
     audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
-    """Get all audit logs for the current user's organization (Admin only)"""
-    if current_user["role"] != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can view organization-wide audit logs",
-        )
-
+    """Get all audit logs for the current user's organization (requires VIEW_AUDIT permission)"""
     logs, total = await audit_service.get_organization_audit_logs(
-        org_id=current_user["org_id"],
+        org_id=current_user.organization_id,
         action=action,
         date_from=date_from,
         date_to=date_to,
@@ -179,13 +103,13 @@ async def get_organization_audit_logs(
 @router.get("/logs/{log_id}", response_model=AuditLogResponse)
 async def get_audit_log_by_id(
     log_id: int,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """Get a specific audit log entry by ID via service layer"""
 
     log = await audit_service.get_audit_log_by_id(
-        log_id=log_id, org_id=current_user["org_id"]
+        log_id=log_id, org_id=current_user.organization_id
     )
 
     if not log:
@@ -198,18 +122,12 @@ async def get_audit_log_by_id(
 async def get_audit_statistics(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    current_user: dict[str, UUID | str] = Depends(get_current_user),
+    current_user: User = Depends(require_permission(Permission.VIEW_AUDIT)),
     audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """Get audit log statistics for compliance reporting (Admin only)"""
-    if current_user["role"] != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can view audit statistics",
-        )
-
     return await audit_service.get_audit_statistics(
-        org_id=current_user["org_id"], date_from=date_from, date_to=date_to
+        org_id=current_user.organization_id, date_from=date_from, date_to=date_to
     )
 
 
@@ -218,18 +136,12 @@ async def export_audit_logs(
     format: str = Query("csv", pattern="^(csv|json)$"),
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
-    current_user: dict[str, UUID | str] = Depends(get_current_user),
+    current_user: User = Depends(require_permission(Permission.VIEW_AUDIT)),
     audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """Export audit logs for compliance reporting (Admin only)"""
-    if current_user["role"] != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can export audit logs",
-        )
-
     logs, _ = await audit_service.get_organization_audit_logs(
-        org_id=current_user["org_id"],
+        org_id=current_user.organization_id,
         date_from=date_from,
         date_to=date_to,
         page=1,
@@ -272,7 +184,6 @@ async def export_audit_logs(
 
         output.seek(0)
 
-        # Create filename and headers separately to shorten line length
         filename = f"audit_logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
         headers = {"Content-Disposition": f"attachment; filename={filename}"}
 
@@ -298,3 +209,39 @@ async def export_audit_logs(
             for log in logs
         ]
         return JSONResponse(content={"logs": logs_data})
+
+
+@router.get("/{project_id}", response_model=AuditLogListResponse)
+async def get_project_audit_logs(
+    project_id: UUID,
+    action: Optional[AuditAction] = None,
+    user_id: Optional[UUID] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    audit_service: ProjectAuditService = Depends(get_audit_service),
+):
+    """Get audit logs for a specific project"""
+    logs, total = await audit_service.get_project_audit_logs(
+        project_id=project_id,
+        action=action,
+        user_id=user_id,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        limit=limit,
+    )
+
+    log_responses = [AuditLogResponse.from_orm(log) for log in logs]
+    pagination = {
+        "page": page,
+        "limit": limit,
+        "total_items": total,
+        "total_pages": (total + limit - 1) // limit,
+        "has_next": page * limit < total,
+        "has_prev": page > 1,
+    }
+
+    return AuditLogListResponse(data=log_responses, pagination=pagination)

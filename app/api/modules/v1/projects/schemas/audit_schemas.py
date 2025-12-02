@@ -1,4 +1,3 @@
-# app/api/modules/v1/projects/schemas/audit_schemas.py
 """
 Pydantic schemas for Project Audit Log API responses
 """
@@ -10,16 +9,15 @@ from pydantic import BaseModel, Field
 
 from app.api.modules.v1.projects.models.project_audit_log import AuditAction
 
-# ===== RESPONSE SCHEMAS =====
 
-
+# RESPONSE SCHEMAS
 class AuditLogResponse(BaseModel):
     """Response schema for a single audit log entry"""
 
     log_id: int
-    project_id: Optional[int]
-    jurisdiction_id: Optional[int]
-    source_id: Optional[int]
+    project_id: Optional[UUID]
+    jurisdiction_id: Optional[UUID]
+    source_id: Optional[UUID]
     org_id: UUID
     user_id: UUID
     action: AuditAction
@@ -36,7 +34,7 @@ class AuditLogResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "log_id": 123,
-                "project_id": 1,
+                "project_id": "550e8400-e29b-41d4-a716-446655440001",
                 "org_id": "550e8400-e29b-41d4-a716-446655440000",
                 "user_id": "123e4567-e89b-12d3-a456-426614174000",
                 "action": "project_created",
@@ -61,7 +59,7 @@ class AuditLogListResponse(BaseModel):
                 "data": [
                     {
                         "log_id": 123,
-                        "project_id": 1,
+                        "project_id": "550e8400-e29b-41d4-a716-446655440001",
                         "action": "project_created",
                         "created_at": "2025-11-20T10:00:00Z",
                     }
@@ -75,9 +73,7 @@ class AuditLogListResponse(BaseModel):
             }
         }
 
-
-# ===== QUERY SCHEMAS =====
-
+# QUERY SCHEMAS
 
 class AuditLogQueryParams(BaseModel):
     """Query parameters for filtering audit logs"""
@@ -89,9 +85,7 @@ class AuditLogQueryParams(BaseModel):
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=50, ge=1, le=100)
 
-
-# ===== STATISTICS SCHEMAS =====
-
+# STATISTICS SCHEMAS
 
 class AuditStatsResponse(BaseModel):
     """Statistics for audit logs (compliance reporting)"""

@@ -1,4 +1,3 @@
-# app/api/modules/v1/projects/models/project_audit_log.py
 """
 Project Audit Log Model
 Tracks all project/jurisdiction/prompt/source operations
@@ -6,13 +5,17 @@ Tracks all project/jurisdiction/prompt/source operations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+if TYPE_CHECKING:
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import (
+        Jurisdiction,
+    )
+from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 
 
 class AuditAction(str, Enum):
@@ -51,8 +54,10 @@ class ProjectAuditLog(SQLModel, table=True):
     log_id: Optional[int] = Field(default=None, primary_key=True)
 
     # Relationships
-    project_id: uuid.UUID = Field(default=None, foreign_key="projects.id", index=True)
-    jurisdiction_id: uuid.UUID = Field(
+    project_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="projects.id", index=True
+    )
+    jurisdiction_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="jurisdictions.id", index=True
     )
     jurisdiction: Optional["Jurisdiction"] = Relationship(
@@ -84,7 +89,7 @@ class ProjectAuditLog(SQLModel, table=True):
     # Change details (JSONB)
     details: Dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSONB),
+         sa_column=Column(JSONB().with_variant(SQLiteJSON, "sqlite")),
         description="JSON object with before/after values, field changes, etc.",
     )
 
@@ -93,10 +98,8 @@ class ProjectAuditLog(SQLModel, table=True):
     user_agent: Optional[str] = Field(default=None, max_length=500)
 
     # Timestamp
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-
     created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), server_default=func.now())
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
     )
 
     # ===== ROBUSTNESS HELPERS =====

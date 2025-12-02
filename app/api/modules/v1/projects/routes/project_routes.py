@@ -12,12 +12,15 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
+from app.api.core.dependencies.auth import get_current_user, require_permission
 from app.api.db.database import get_db
-from app.api.modules.v1.projects.routes.audit_routes import router as audit_router
+from app.api.modules.v1.projects.repositories.audit_repository import (
+    ProjectAuditRepository,
+)
 from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectBase,
     ProjectListResponse,
@@ -26,7 +29,18 @@ from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectUsersResponse,
 )
 from app.api.modules.v1.projects.services.project_service import ProjectService
+from app.api.modules.v1.projects.services.audit_service import ProjectAuditService
+from app.api.modules.v1.projects.services.project_service import (
+    create_project_service,
+    get_project_service,
+    hard_delete_project_service,
+    list_projects_service,
+    restore_project_service,
+    soft_delete_project_service,
+    update_project_service,
+)
 from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.permissions import Permission
 from app.api.utils.response_payloads import (
     error_response,
     success_response,
@@ -35,8 +49,16 @@ from app.api.utils.response_payloads import (
 router = APIRouter(prefix="/organizations/{organization_id}/projects", tags=["Projects"])
 logger = logging.getLogger("app")
 
-# Include audit endpoints
-router.include_router(audit_router, prefix="/audit")
+
+# DEPENDENCY INJECTION
+
+
+def get_audit_service(
+    session: AsyncSession = Depends(get_db),
+) -> ProjectAuditService:
+    """Inject audit service for logging project operations"""
+    repository = ProjectAuditRepository(session)
+    return ProjectAuditService(repository)
 
 
 @router.post(
@@ -47,8 +69,10 @@ router.include_router(audit_router, prefix="/audit")
 async def create_project(
     payload: ProjectBase,
     organization_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """
     Create a new project within the authenticated user's organization.
@@ -80,6 +104,20 @@ async def create_project(
 
         project_service = ProjectService(db)
         project = await project_service.create_project(payload, organization_id, current_user.id)
+
+        # Log the project creation action
+        await audit_service.log_project_created(
+            project_id=project.id,
+            org_id=current_user.organization_id,
+            user_id=current_user.id,
+            details={
+                "title": project.title,
+                "description": project.description,
+                "master_prompt": project.master_prompt,
+            },
+            ip_address=request.client.host if request.client else "unknown",
+            user_agent=request.headers.get("user-agent", "unknown"),
+        )
 
         return success_response(
             status_code=status.HTTP_201_CREATED,
@@ -222,7 +260,7 @@ async def get_project(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Project retrieved successfully",
-            data=ProjectResponse.model_validate(project),
+            data=ProjectResponse.model_validate(project).model_dump(),
         )
 
     except Exception:
@@ -241,8 +279,10 @@ async def update_project(
     project_id: UUID,
     organization_id: UUID,
     payload: ProjectUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """
     Update project information with partial updates.
@@ -282,12 +322,47 @@ async def update_project(
         project_service = ProjectService(db)
         project, message = await project_service.update_project(
             project_id, organization_id, current_user.id, payload
+        # Get the current project state before update (for audit trail)
+        current_project = await get_project_service(
+            db, project_id, current_user.organization_id
+        )
+
+        project = await update_project_service(
+            db, project_id, current_user.organization_id, payload
         )
 
         if project is None:
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
+            )
+
+        # Log the project update with before/after values
+        changes = {}
+        if payload.title is not None and current_project:
+            changes["title"] = {
+                "old": current_project.title,
+                "new": project.title,
+            }
+        if payload.description is not None and current_project:
+            changes["description"] = {
+                "old": current_project.description,
+                "new": project.description,
+            }
+        if payload.master_prompt is not None and current_project:
+            changes["master_prompt"] = {
+                "old": current_project.master_prompt,
+                "new": project.master_prompt,
+            }
+
+        if changes:
+            await audit_service.log_project_updated(
+                project_id=project.id,
+                org_id=current_user.organization_id,
+                user_id=current_user.id,
+                changes=changes,
+                ip_address=request.client.host if request.client else "unknown",
+                user_agent=request.headers.get("user-agent", "unknown"),
             )
 
         return success_response(
@@ -313,12 +388,15 @@ async def update_project(
 @router.delete(
     "/{project_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DELETE_PROJECTS))],
 )
 async def delete_project(
     project_id: UUID,
     organization_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """
     Permanently delete a project from the database.
@@ -347,6 +425,11 @@ async def delete_project(
 
         project_service = ProjectService(db)
         deleted = await project_service.delete_project(project_id, current_user.id, organization_id)
+        # Get project info before deletion for audit trail
+        project = await get_project_service(
+            db, project_id, current_user.organization_id
+        )
+
         deleted = await soft_delete_project_service(
             db, project_id, current_user.organization_id
         )
@@ -355,6 +438,21 @@ async def delete_project(
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
+            )
+
+        # Log the project deletion
+        if project:
+            await audit_service.log_project_deleted(
+                project_id=project.id,
+                org_id=current_user.organization_id,
+                user_id=current_user.id,
+                details={
+                    "title": project.title,
+                    "deletion_type": "soft_delete",
+                    "description": project.description,
+                },
+                ip_address=request.client.host if request.client else "unknown",
+                user_agent=request.headers.get("user-agent", "unknown"),
             )
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -400,7 +498,7 @@ async def restore_project(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Project restored successfully",
-            data=ProjectResponse.model_validate(project),
+            data=ProjectResponse.model_validate(project).model_dump(),
         )
 
     except Exception:
@@ -414,11 +512,14 @@ async def restore_project(
 @router.delete(
     "/{project_id}/permanent",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DELETE_PROJECTS))],
 )
 async def hard_delete_project(
     project_id: UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    audit_service: ProjectAuditService = Depends(get_audit_service),
 ):
     """
     Permanently delete a project (irreversible).
@@ -430,6 +531,11 @@ async def hard_delete_project(
     logger.info(f"hard deleting project_id={project_id}")
 
     try:
+        # Get project info before deletion for audit trail
+        project = await get_project_service(
+            db, project_id, current_user.organization_id
+        )
+
         deleted = await hard_delete_project_service(
             db, project_id, current_user.organization_id
         )
@@ -438,6 +544,21 @@ async def hard_delete_project(
             return error_response(
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Project not found",
+            )
+
+        # Log the permanent project deletion
+        if project:
+            await audit_service.log_project_deleted(
+                project_id=project.id,
+                org_id=current_user.organization_id,
+                user_id=current_user.id,
+                details={
+                    "title": project.title,
+                    "deletion_type": "hard_delete_permanent",
+                    "description": project.description,
+                },
+                ip_address=request.client.host if request.client else "unknown",
+                user_agent=request.headers.get("user-agent", "unknown"),
             )
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,3 @@
-# app/api/modules/v1/projects/repositories/audit_repository.py
 """
 Repository for Project Audit Log database operations
 """
@@ -32,13 +31,13 @@ class ProjectAuditRepository:
         """
         try:
             self.session.add(audit_log)
-            await self.session.flush()  # must await
-            await self.session.commit()  # must await
-            await self.session.refresh(audit_log)  # must await
+            await self.session.flush()
+            await self.session.commit()
+            await self.session.refresh(audit_log)
             return audit_log
         except SQLAlchemyError as e:
             try:
-                await self.session.rollback()  # rollback is async
+                await self.session.rollback()
             except Exception:
                 pass
             logger.error("Failed to write audit log: %s", e, exc_info=True)
@@ -175,4 +174,19 @@ class ProjectAuditRepository:
 
         except Exception:
             logger.exception("Failed to fetch organization audit logs")
-            raise  # re-raises the original exception
+            raise
+
+    async def get_audit_log_by_id(self, log_id: int, org_id: UUID):
+        """
+        Fetch a single audit log by its integer ID constrained to an organization.
+        Returns the ProjectAuditLog or None if not found.
+        """
+        try:
+            stmt = select(ProjectAuditLog).where(
+                ProjectAuditLog.log_id == log_id, ProjectAuditLog.org_id == org_id
+            )
+            result = await self.session.execute(stmt)
+            return result.scalars().first()
+        except Exception:
+            logger.exception("Failed to fetch audit log by id")
+            raise

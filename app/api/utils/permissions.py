@@ -59,6 +59,8 @@ class Permission(str, Enum):
     # Data & Revisions
     VIEW_REVISIONS = "view_revisions"
     EXPORT_DATA = "export_data"
+    # Audit Viewing
+    VIEW_AUDIT = "view_audit"
 
     # API Access
     MANAGE_API_KEYS = "manage_api_keys"
@@ -123,6 +125,7 @@ ADMIN_PERMISSIONS = {
     Permission.REVOKE_PARTICIPANT_ACCESS.value: True,
     Permission.VIEW_REVISIONS.value: True,
     Permission.EXPORT_DATA.value: True,
+    Permission.VIEW_AUDIT.value: True,
     Permission.MANAGE_API_KEYS.value: True,
 }
 
@@ -148,6 +151,7 @@ MANAGER_PERMISSIONS = {
     Permission.INVITE_PARTICIPANTS.value: True,
     Permission.VIEW_REVISIONS.value: True,
     Permission.EXPORT_DATA.value: True,
+    Permission.VIEW_AUDIT.value: True,
 }
 
 

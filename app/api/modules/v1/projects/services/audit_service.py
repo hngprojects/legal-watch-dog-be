@@ -1,4 +1,3 @@
-# app/api/modules/v1/projects/service/audit_service.py
 """
 Audit Service
 Provides logging methods for all project operations
@@ -38,6 +37,10 @@ class ProjectAuditService:
 
     async def get_organization_audit_logs(self, **filters):
         return await self.repository.get_organization_audit_logs(**filters)
+
+    async def get_audit_log_by_id(self, log_id: int, org_id: UUID):
+        """Return a single audit log by its integer ID scoped to an organization."""
+        return await self.repository.get_audit_log_by_id(log_id=log_id, org_id=org_id)
 
     async def _safe_log(self, log: ProjectAuditLog) -> Optional[ProjectAuditLog]:
         """
@@ -101,14 +104,14 @@ class ProjectAuditService:
             date_range=date_range,
         )
 
-    # ===== UTILITIES =====
+    # UTILITIES
 
     @staticmethod
     def _ensure_dict(value: Any) -> Dict[str, Any]:
         """Guarantees details/changes are dictionaries to prevent crashes."""
         return value if isinstance(value, dict) else {}
 
-    # ===== PROJECT ACTIONS =====
+    # PROJECT ACTIONS
 
     async def log_project_created(
         self,
@@ -158,25 +161,27 @@ class ProjectAuditService:
         org_id: UUID,
         user_id: UUID,
         reason: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
+        details = self._ensure_dict(details)
         log = ProjectAuditLog(
             project_id=project_id,
             org_id=org_id,
             user_id=user_id,
             action=AuditAction.PROJECT_DELETED,
-            details={"reason": reason} if reason else {},
+            details=details,
             ip_address=ip_address or "unknown",
             user_agent=user_agent or "unknown",
         )
         return await self._safe_log(log)
 
-    # ===== JURISDICTION ACTIONS =====
+    # JURISDICTION ACTIONS
 
     async def log_jurisdiction_created(
         self,
-        jurisdiction_id: int,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
@@ -199,7 +204,7 @@ class ProjectAuditService:
 
     async def log_jurisdiction_updated(
         self,
-        jurisdiction_id: int,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
@@ -222,12 +227,12 @@ class ProjectAuditService:
 
     async def log_jurisdiction_parent_changed(
         self,
-        jurisdiction_id: int,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
-        old_parent_id: Optional[int],
-        new_parent_id: Optional[int],
+        old_parent_id: Optional[UUID],
+        new_parent_id: Optional[UUID],
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> Optional[ProjectAuditLog]:
@@ -243,7 +248,7 @@ class ProjectAuditService:
         )
         return await self._safe_log(log)
 
-    # ===== PROMPT ACTIONS =====
+    # PROMPT ACTIONS
 
     async def log_master_prompt_updated(
         self,
@@ -268,7 +273,7 @@ class ProjectAuditService:
 
     async def log_override_prompt_updated(
         self,
-        jurisdiction_id: int,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
@@ -289,12 +294,12 @@ class ProjectAuditService:
         )
         return await self._safe_log(log)
 
-    # ===== SOURCE ACTIONS =====
+    # SOURCE ACTIONS
 
     async def log_source_assigned(
         self,
-        source_id: int,
-        jurisdiction_id: int,
+        source_id: UUID,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
@@ -318,8 +323,8 @@ class ProjectAuditService:
 
     async def log_source_unassigned(
         self,
-        source_id: int,
-        jurisdiction_id: int,
+        source_id: UUID,
+        jurisdiction_id: UUID,
         project_id: UUID,
         org_id: UUID,
         user_id: UUID,
