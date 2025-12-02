@@ -334,12 +334,12 @@ async def accept_invitation(
     """
     Accept an organization invitation.
 
-    This endpoint handles the invitation acceptance for authenticated users.
-    It validates the token, verifies the user's email matches the invitation,
-    and adds the user to the organization.
-
-    Requires authentication and validates that the authenticated user's
+    This endpoint requires authentication and validates that the authenticated user's
     email matches the invitation's invited_email to prevent unauthorized access.
+
+    Users must be registered and logged in to accept invitations. If a user receives
+    an invitation but doesn't have an account yet, they should register first, then
+    log in and accept the invitation.
 
     Args:
         token: The unique invitation token.
@@ -347,10 +347,16 @@ async def accept_invitation(
         db: Database session dependency.
 
     Returns:
-        dict: Success message with organization details.
+        dict: Success response (200) with organization details when accepted successfully.
 
     Raises:
-        HTTPException: 400, 403, 404, 410 for various error conditions.
+        HTTPException:
+            - 401: Unauthorized (missing or invalid JWT token)
+            - 400: Bad request (general validation errors)
+            - 403: Forbidden (email mismatch - user trying to accept someone else's invitation)
+            - 404: Not found (invalid invitation token)
+            - 410: Gone (expired invitation)
+            - 500: Internal server error (unexpected errors)
     """
     try:
         invitation = await InvitationCRUD.get_invitation_by_token(db, token)
