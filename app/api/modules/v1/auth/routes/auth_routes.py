@@ -3,11 +3,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
-from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
+from app.api.core.dependencies.auth import get_current_user
 from app.api.core.dependencies.redis_service import check_rate_limit
 from app.api.core.dependencies.registeration_redis import get_redis
 from app.api.core.exceptions import RateLimitExceeded
@@ -33,13 +33,11 @@ from app.api.modules.v1.auth.schemas.verify_otp import (
     VerifyOTPResponse,
 )
 from app.api.modules.v1.auth.service.register_service import RegistrationService
-from app.api.core.dependencies.auth import get_current_user
 from app.api.modules.v1.organization.models.invitation_model import InvitationStatus
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.service.role import RoleCRUD
-from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import (
     error_response,
     success_response,
@@ -405,9 +403,7 @@ async def accept_invitation(
             role_id=role_id,
             is_active=True,
         )
-        await InvitationCRUD.update_invitation_status(
-            db, invitation.id, InvitationStatus.ACCEPTED
-        )
+        await InvitationCRUD.update_invitation_status(db, invitation.id, InvitationStatus.ACCEPTED)
         await db.commit()
 
         logger.info(
