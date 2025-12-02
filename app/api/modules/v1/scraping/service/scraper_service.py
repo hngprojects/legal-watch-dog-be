@@ -6,7 +6,7 @@ analyzing with AI, detecting changes, and persisting data revisions.
 
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +106,7 @@ class ScraperService:
                 logger.error(f"PDF extraction failed: {e}")
                 raw_content_bytes = b"<html><body>PDF extraction failed</body></html>"
 
-        timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp_str = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
         raw_minio_key = f"raw/{project.id}/{source.id}/{timestamp_str}.html"
 
         extraction_result = await self.text_extractor.process_pipeline(
@@ -182,7 +182,7 @@ class ScraperService:
                 ai_markdown_summary=ai_result.get("markdown_summary"),
                 ai_confidence_score=ai_result.get("confidence_score"),
                 was_change_detected=was_change_detected,
-                scraped_at=datetime.utcnow(),
+                scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             self.db.add(new_revision)
             await self.db.flush()
