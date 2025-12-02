@@ -204,8 +204,8 @@ async def _dispatch_due_sources_async(app) -> int:
                 src.next_scrape_time = in_progress_time
 
                 db.add(src)
-                await db.commit()
-
+            await db.commit()
+            for src in due_sources:
                 app.send_task(
                     "app.api.modules.v1.scraping.service.tasks.scrape_source",
                     args=[str(src.id)],
