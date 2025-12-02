@@ -5,7 +5,7 @@ Run this after migrations are complete:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import text
@@ -78,7 +78,7 @@ async def setup_test_data():
                     "regulations, corporate compliance"
                     "requirements, and new filing procedures"
                     "for businesses operating across state lines.",
-                    scraped_at=datetime.utcnow(),
+                    scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     was_change_detected=True,
                     extracted_data={"document_type": "regulatory", "topic": "taxation"},
                 ),
@@ -89,7 +89,7 @@ async def setup_test_data():
                     "for corporations. Includes carbon emission standards,"
                     "renewable energy requirements, and sustainability reporting"
                     "mandates.",
-                    scraped_at=datetime.utcnow(),
+                    scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     was_change_detected=True,
                     extracted_data={"document_type": "environmental", "topic": "climate"},
                 ),
@@ -99,7 +99,7 @@ async def setup_test_data():
                     ai_summary="Labor laws regarding employee rights,"
                     "workplace safety regulations, minimum wage updates,"
                     "and overtime compensation requirements for various industries.",
-                    scraped_at=datetime.utcnow(),
+                    scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     was_change_detected=True,
                     extracted_data={"document_type": "labor", "topic": "employment"},
                 ),
@@ -110,7 +110,7 @@ async def setup_test_data():
                     "information protection, GDPR compliance,"
                     "cybersecurity requirements,"
                     "and breach notification procedures.",
-                    scraped_at=datetime.utcnow(),
+                    scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     was_change_detected=True,
                     extracted_data={"document_type": "privacy", "topic": "data_protection"},
                 ),
@@ -121,7 +121,7 @@ async def setup_test_data():
                     "regulations including HIPAA requirements,"
                     "patient data security, insurance provider"
                     "obligations, and medical records management.",
-                    scraped_at=datetime.utcnow(),
+                    scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     was_change_detected=True,
                     extracted_data={"document_type": "healthcare", "topic": "compliance"},
                 ),

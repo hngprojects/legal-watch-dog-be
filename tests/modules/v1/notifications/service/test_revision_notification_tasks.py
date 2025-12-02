@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -111,7 +111,7 @@ async def test_send_revision_notifications_skips_already_sent():
             user_id=mock_user.id,
             message="Old msg",
             status=NotificationStatus.SENT,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
         mock_session.execute.side_effect = [
