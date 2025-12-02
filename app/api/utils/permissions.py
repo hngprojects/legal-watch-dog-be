@@ -23,6 +23,7 @@ class Permission(str, Enum):
     MANAGE_ORGANIZATION = "manage_organization"
     CONFIGURE_SSO = "configure_sso"
     MANAGE_BILLING = "manage_billing"
+    DELETE_ORGANIZATION = "delete_organization"
 
     # Project Management
     CREATE_PROJECTS = "create_projects"
@@ -96,6 +97,7 @@ ADMIN_PERMISSIONS = {
     Permission.DELETE_ROLES.value: True,
     Permission.VIEW_ROLES.value: True,
     Permission.MANAGE_ORGANIZATION.value: True,
+    Permission.DELETE_ORGANIZATION.value: True,
     Permission.CONFIGURE_SSO.value: True,
     Permission.MANAGE_BILLING.value: True,
     Permission.CREATE_PROJECTS.value: True,

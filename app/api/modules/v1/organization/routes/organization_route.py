@@ -5,7 +5,17 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.role_exceptions import (
+    CannotAssignRoleException,
+    CannotManageHigherRoleException,
+    InsufficientRoleException,
+    MembershipNotFoundException,
+    RoleHierarchyException,
+    RoleNotFoundException,
+    SelfManagementException,
+)
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
     create_organization_custom_errors,
     create_organization_custom_success,
@@ -19,6 +29,7 @@ from app.api.modules.v1.organization.routes.docs.organization_route_docs import 
 )
 from app.api.modules.v1.organization.schemas.invitation_schema import (
     InvitationCreate,
+    InvitationListResponse,
     InvitationResponse,
 )
 from app.api.modules.v1.organization.schemas.member_schema import UpdateMemberRequest
@@ -30,12 +41,14 @@ from app.api.modules.v1.organization.schemas.organization_schema import (
     UpdateMemberStatusRequest,
     UpdateOrganizationRequest,
 )
+from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_service import OrganizationService
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.service.role import RoleCRUD
 from app.api.utils.organization_validations import check_user_permission
 from app.api.utils.response_payloads import error_response, success_response
+from app.api.utils.role_hierarchy import validate_role_hierarchy
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
@@ -279,6 +292,89 @@ async def invite_user(
         )
 
 
+@router.get(
+    "/{organization_id}/invitations",
+    response_model=InvitationListResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_organization_invitations(
+    organization_id: uuid.UUID,
+    status_filter: str = Query(
+        default="pending",
+        description="Filter by status (pending, accepted, declined, expired, all)",
+    ),
+    page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
+    limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all invitations for an organization.
+
+    This endpoint allows admins to view invitations sent for the organization.
+    Results can be filtered by status (default: pending).
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' or 'invite_users' permission in the organization
+
+    Args:
+        organization_id: UUID of the organization
+        status_filter: Status to filter by (default: pending)
+        page: Page number (default: 1)
+        limit: Items per page (default: 10, max: 100)
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        InvitationListResponse: Paginated list of invitations
+    """
+    try:
+        service = OrganizationService(db)
+        result = await service.get_organization_invitations(
+            organization_id=organization_id,
+            requesting_user_id=current_user.id,
+            page=page,
+            limit=limit,
+            status_filter=status_filter,
+        )
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Organization invitations retrieved successfully",
+            data=result,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to get invitations for org_id={organization_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif (
+            "do not have permission" in error_message.lower()
+            or "do not have access" in error_message.lower()
+        ):
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to retrieve invitations for org_id={organization_id}: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve organization invitations. Please try again later.",
+        )
+
+
 @router.patch(
     "/{organization_id}/members/{user_id}/status",
     response_model=dict,
@@ -299,6 +395,7 @@ async def update_member_status(
     Requirements:
     - User must be authenticated
     - User must have 'manage_users' or 'deactivate_users' permission in the organization
+    - User must have higher role level than the target user
 
     Args:
         organization_id: UUID of the organization
@@ -319,10 +416,20 @@ async def update_member_status(
             db, current_user.id, organization_id, "manage_users"
         )
         if not has_permission:
-            raise ValueError("You do not have permission to manage users in this organization")
+            raise InsufficientRoleException(
+                "You do not have permission to manage users in this organization"
+            )
 
         if current_user.id == user_id:
-            raise ValueError("You cannot change your own membership status through this endpoint.")
+            raise SelfManagementException("You cannot change your own membership status")
+
+        await validate_role_hierarchy(
+            db=db,
+            current_user_id=current_user.id,
+            target_user_id=user_id,
+            organization_id=organization_id,
+            action="deactivate",
+        )
 
         await UserOrganizationCRUD.set_membership_status(
             db=db,
@@ -338,27 +445,56 @@ async def update_member_status(
             message=f"{user_id} {status_message} successfully in org {organization_id}.",
         )
 
+    except (
+        RoleHierarchyException,
+        InsufficientRoleException,
+        SelfManagementException,
+    ) as e:
+        logger.warning(
+            f"Authorization error updating status for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
+    except MembershipNotFoundException as e:
+        logger.warning(
+            f"Membership not found for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
+    except RoleNotFoundException as e:
+        logger.warning(
+            f"Role not found for user_id={user_id} in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
     except ValueError as e:
         logger.warning(
-            f"Failed update status for user_id={user_id} in org_id={organization_id}: {str(e)}"
+            f"Validation error updating status for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
         )
-        error_message = str(e)
-
-        if "not found" in error_message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        elif "do not have permission" in error_message.lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        else:
-            status_code = status.HTTP_400_BAD_REQUEST
-
+        await db.rollback()
         return error_response(
-            status_code=status_code,
-            message=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(e),
         )
 
     except Exception as e:
         logger.error(
-            f"Error updating user_id={user_id} status in org_id={organization_id}: {str(e)}",
+            f"Unexpected error updating user_id={user_id} status "
+            f"in org_id={organization_id}: {str(e)}",
             exc_info=True,
         )
         await db.rollback()
@@ -388,6 +524,8 @@ async def update_member_role(
     Requirements:
     - User must be authenticated
     - User must have 'assign_roles' permission in the organization
+    - User must have higher role level than the target user
+    - User must be able to assign the new role
 
     Args:
         organization_id: UUID of the organization
@@ -408,16 +546,29 @@ async def update_member_role(
             db, current_user.id, organization_id, "assign_roles"
         )
         if not has_permission:
-            raise ValueError("You do not have permission to assign roles in this organization")
+            raise InsufficientRoleException(
+                "You do not have permission to assign roles in this organization"
+            )
 
         if current_user.id == user_id:
-            raise ValueError("You cannot change your own role through this endpoint.")
+            raise SelfManagementException("change your own role")
 
         role = await RoleCRUD.get_role_by_name_and_organization(
             db, payload.role_name, organization_id
         )
         if not role:
-            raise ValueError(f"Role '{payload.role_name}' not found in this organization")
+            raise RoleNotFoundException(
+                f"Role '{payload.role_name}' not found in this organization"
+            )
+
+        await validate_role_hierarchy(
+            db=db,
+            current_user_id=current_user.id,
+            target_user_id=user_id,
+            organization_id=organization_id,
+            action="assign_role",
+            new_role_name=payload.role_name,
+        )
 
         await UserOrganizationCRUD.update_user_role_in_organization(
             db=db,
@@ -432,35 +583,54 @@ async def update_member_role(
             message=f"{user_id} role updated: {payload.role_name} in org {organization_id}.",
         )
 
+    except (
+        CannotManageHigherRoleException,
+        CannotAssignRoleException,
+        InsufficientRoleException,
+        SelfManagementException,
+    ) as e:
+        logger.warning(
+            f"Authorization error updating role for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
+    except (MembershipNotFoundException, RoleNotFoundException) as e:
+        logger.warning(
+            f"Not found error updating role for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
     except ValueError as e:
         logger.warning(
-            f"Failed update role for user_id={user_id} in org_id={organization_id}: {str(e)}"
+            f"Validation error updating role for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
         )
-        error_message = str(e)
-
-        if "not found" in error_message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        elif "do not have permission" in error_message.lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        elif "role not found" in error_message.lower():
-            status_code = status.HTTP_400_BAD_REQUEST
-        else:
-            status_code = status.HTTP_400_BAD_REQUEST
-
+        await db.rollback()
         return error_response(
-            status_code=status_code,
-            message=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(e),
         )
 
     except Exception as e:
         logger.error(
-            f"Error updating role for user_id={user_id} in org_id={organization_id}: {str(e)}",
+            f"Unexpected error updating role for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}",
             exc_info=True,
         )
         await db.rollback()
         return error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Failed to updaterole. Please try again later.",
+            message="Failed to update role. Please try again later.",
         )
 
 
@@ -488,6 +658,7 @@ async def update_member_details(
     Requirements:
     - User must be authenticated
     - User must have 'manage_users' permission in the organization
+    - User must have higher role level than the target user (role hierarchy)
 
     Args:
         organization_id: UUID of the organization
@@ -507,7 +678,18 @@ async def update_member_details(
             db, current_user.id, organization_id, "manage_users"
         )
         if not has_permission:
-            raise ValueError("You do not have permission to manage users in this organization")
+            raise InsufficientRoleException(
+                "You do not have permission to manage users in this organization"
+            )
+
+        if current_user.id != user_id:
+            await validate_role_hierarchy(
+                db=db,
+                current_user_id=current_user.id,
+                target_user_id=user_id,
+                organization_id=organization_id,
+                action="manage",
+            )
 
         # Prepare update dictionaries
         user_updates = {}
@@ -546,27 +728,43 @@ async def update_member_details(
             },
         )
 
+    except (CannotManageHigherRoleException, InsufficientRoleException) as e:
+        logger.warning(
+            f"Authorization error updating details for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
+    except (MembershipNotFoundException, RoleNotFoundException) as e:
+        logger.warning(
+            f"Not found error updating details for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
     except ValueError as e:
         logger.warning(
-            f"Failed update details for user_id={user_id} in org_id={organization_id}: {str(e)}"
+            f"Validation error updating details for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}"
         )
-        error_message = str(e)
-
-        if "not found" in error_message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        elif "do not have permission" in error_message.lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        else:
-            status_code = status.HTTP_400_BAD_REQUEST
-
+        await db.rollback()
         return error_response(
-            status_code=status_code,
-            message=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(e),
         )
 
     except Exception as e:
         logger.error(
-            f"Error updating details for user_id={user_id} in org_id={organization_id}: {str(e)}",
+            f"Unexpected error updating details for user_id={user_id} "
+            f"in org_id={organization_id}: {str(e)}",
             exc_info=True,
         )
         await db.rollback()
@@ -595,6 +793,7 @@ async def delete_member(
     Requirements:
     - User must be authenticated
     - User must have 'manage_users' permission in the organization
+    - User must have higher role level than the target user
     - Cannot delete yourself
 
     Args:
@@ -614,10 +813,20 @@ async def delete_member(
             db, current_user.id, organization_id, "manage_users"
         )
         if not has_permission:
-            raise ValueError("You do not have permission to manage users in this organization")
+            raise InsufficientRoleException(
+                "You do not have permission to manage users in this organization"
+            )
 
         if current_user.id == user_id:
-            raise ValueError("You cannot delete yourself from the organization")
+            raise SelfManagementException("You cannot delete yourself from the organization")
+
+        await validate_role_hierarchy(
+            db=db,
+            current_user_id=current_user.id,
+            target_user_id=user_id,
+            organization_id=organization_id,
+            action="delete",
+        )
 
         await UserOrganizationCRUD.soft_delete_member(
             db=db,
@@ -628,29 +837,47 @@ async def delete_member(
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    except (
+        CannotManageHigherRoleException,
+        InsufficientRoleException,
+        SelfManagementException,
+    ) as e:
+        logger.warning(
+            f"Authorization error deleting member user_id={user_id} "
+            f"from org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
+    except (MembershipNotFoundException, RoleNotFoundException) as e:
+        logger.warning(
+            f"Not found error deleting member user_id={user_id} "
+            f"from org_id={organization_id}: {str(e)}"
+        )
+        await db.rollback()
+        return error_response(
+            status_code=e.status_code,
+            message=e.message,
+        )
+
     except ValueError as e:
         logger.warning(
-            f"Failed to delete member user_id={user_id} from org_id={organization_id}: {str(e)}"
+            f"Validation error deleting member user_id={user_id} "
+            f"from org_id={organization_id}: {str(e)}"
         )
-        error_message = str(e)
-
-        if "not found" in error_message.lower() or "not a member" in error_message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        elif "do not have permission" in error_message.lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        elif "cannot delete yourself" in error_message.lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        else:
-            status_code = status.HTTP_400_BAD_REQUEST
-
+        await db.rollback()
         return error_response(
-            status_code=status_code,
-            message=error_message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=str(e),
         )
 
     except Exception as e:
         logger.error(
-            f"Error deleting member user_id={user_id} from org_id={organization_id}: {str(e)}",
+            f"Unexpected error deleting member user_id={user_id} "
+            f"from org_id={organization_id}: {str(e)}",
             exc_info=True,
         )
         await db.rollback()
@@ -870,3 +1097,101 @@ async def delete_organization(
 
 delete_organization._custom_errors = delete_organization_custom_errors
 delete_organization._custom_success = delete_organization_custom_success
+
+
+@router.delete(
+    "/{organization_id}/invitations/{invitation_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def cancel_invitation(
+    organization_id: uuid.UUID,
+    invitation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel a pending invitation.
+
+    Requirements:
+    - User must be authenticated
+    - User must have 'manage_users' or 'invite_users' permission
+    - Invitation must be in PENDING status
+
+    Args:
+        organization_id: UUID of the organization
+        invitation_id: UUID of the invitation to cancel
+        current_user: Authenticated user from JWT token
+        db: Database session dependency
+
+    Returns:
+        Success response confirming cancellation
+
+    Raises:
+        HTTPException: 400 for validation errors, 403 for forbidden,
+                      404 for not found, 500 for server errors
+    """
+    try:
+        # Check permissions
+        has_manage = await check_user_permission(
+            db, current_user.id, organization_id, "manage_users"
+        )
+        has_invite = await check_user_permission(
+            db, current_user.id, organization_id, "invite_users"
+        )
+
+        if not (has_manage or has_invite):
+            raise ValueError("You do not have permission to cancel invitations")
+
+        # Verify invitation belongs to organization
+        invitation = await db.get(Invitation, invitation_id)
+        if not invitation:
+            raise ValueError("Invitation not found")
+
+        if invitation.organization_id != organization_id:
+            raise ValueError("Invitation does not belong to this organization")
+
+        # Cancel invitation
+        cancelled_invitation = await InvitationCRUD.cancel_invitation(
+            db=db,
+            invitation_id=invitation_id,
+            requesting_user_id=current_user.id,
+        )
+
+        await db.commit()
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Invitation cancelled successfully",
+            data={
+                "invitation_id": str(cancelled_invitation.id),
+                "invited_email": cancelled_invitation.invited_email,
+                "status": cancelled_invitation.status.value,
+            },
+        )
+
+    except ValueError as e:
+        logger.warning(f"Failed to cancel invitation {invitation_id}: {str(e)}")
+        error_message = str(e)
+
+        if "not found" in error_message.lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "permission" in error_message.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        return error_response(
+            status_code=status_code,
+            message=error_message,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error cancelling invitation {invitation_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Failed to cancel invitation. Please try again later.",
+        )

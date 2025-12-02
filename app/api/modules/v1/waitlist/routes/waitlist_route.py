@@ -23,8 +23,16 @@ async def signup_waitlist(
 ):
     """
     Add a user to the waitlist.
-    -organization_email: Valid organization email address to add to waitlist
-    -organization_name: Name of the organization
+
+    Validates:
+    - organization_email: Must be a valid, real email address (not test/dummy/disposable emails)
+    - organization_name: Must contain only letters, spaces, and common punctuation (no numbers)
+
+    Returns:
+    - 201: Successfully added to waitlist
+    - 422: Validation error (invalid email or organization name format)
+    - 400: Duplicate email
+    - 500: Server error
     """
     try:
         result = await waitlist_service.add_to_waitlist(db, signup)
@@ -37,4 +45,18 @@ async def signup_waitlist(
             data=result.model_dump(),
         )
     except HTTPException as e:
+        logger.warning(
+            f"Waitlist signup failed - Email: {signup.organization_email}, "
+            f"Status: {e.status_code}, Reason: {e.detail}"
+        )
         return error_response(status_code=e.status_code, message=e.detail)
+    except Exception as e:
+        logger.error(
+            f"Unexpected error during waitlist signup - Email: {signup.organization_email}, "
+            f"Error: {str(e)}",
+            exc_info=True,
+        )
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="An unexpected error occurred. Please try again later.",
+        )

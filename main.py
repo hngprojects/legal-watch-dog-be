@@ -11,13 +11,16 @@ from app.api import router as api_router
 from app.api.core.config import settings
 from app.api.core.custom_openapi_docs import custom_openapi
 from app.api.core.exceptions import (
+    RateLimitExceeded,
     general_exception_handler,
     http_exception_handler,
+    rate_limit_exception_handler,
     validation_exception_handler,
 )
 from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
-from app.api.db.database import Base, engine
+from app.api.db.database import AsyncSessionLocal, Base, engine
+from app.api.modules.v1.billing.seed.plan_seed import seed_billing_plans
 from app.api.utils.response_payloads import success_response
 
 setup_logging()
@@ -28,7 +31,12 @@ async def lifespan(app: FastAPI):
     """Initialize database on startup"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSessionLocal() as session:
+        await seed_billing_plans(session)
+
     yield
+
     await engine.dispose()
 
 
@@ -68,6 +76,7 @@ app.add_middleware(
     excluded_paths=["/api/v1/waitlist", "/health", "/", "/docs"],
 )
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 

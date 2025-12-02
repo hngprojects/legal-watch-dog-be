@@ -158,7 +158,7 @@ refresh_token._custom_success = refresh_custom_success  # type: ignore
     "/logout",
     response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
-    responses=logout_responses,  # type: ignore
+    responses=logout_responses,
 )
 async def logout(
     request: Request,
@@ -169,22 +169,29 @@ async def logout(
     Logout the current user by invalidating their tokens.
 
     This endpoint:
-    - Blacklists the user's current access token.
-    - Blacklists the user's current refresh token.
-    - Clears authentication cookies.
+
+    - Blacklists the user's current access token
+    - Blacklists the user's current refresh token
 
     Args:
-        request (Request): HTTP request object for cookie clearing.
-        current_user (User): Currently authenticated user from dependency.
-        db (AsyncSession, optional): Database session dependency.
+        request: HTTP request to extract token from header
+        current_user: Currently authenticated user from dependency.
+        db: Database session dependency.
+
 
     Returns:
         JSON response confirming logout or error details.
     """
     try:
+        auth_header = request.headers.get("authorization")
+        token = None
+
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "")
+
         login_service = LoginService(db)
 
-        await login_service.logout(user_id=str(current_user.id))
+        await login_service.logout(user_id=str(current_user.id), token=token)
 
         response_data = {
             "status": "SUCCESS",
@@ -220,5 +227,5 @@ async def logout(
         )
 
 
-logout._custom_errors = logout_custom_errors  # type: ignore
-logout._custom_success = logout_custom_success  # type: ignore
+logout._custom_errors = logout_custom_errors
+logout._custom_success = logout_custom_success

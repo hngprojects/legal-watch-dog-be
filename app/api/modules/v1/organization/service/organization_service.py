@@ -9,6 +9,8 @@ from sqlmodel import func, select
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.organization.models.invitation_model import Invitation
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.organization.service.invitation_service import InvitationCRUD
 from app.api.modules.v1.organization.service.organization_repository import OrganizationCRUD
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
@@ -85,7 +87,14 @@ class OrganizationService:
                 industry=industry,
             )
 
-            admin_role = await RoleCRUD.create_admin_role(
+            owner_role = await RoleCRUD.create_owner_role(
+                db=self.db,
+                organization_id=organization.id,
+                role_name="Owner",
+                description="Organization owner with full permissions",
+            )
+
+            await RoleCRUD.create_admin_role(
                 db=self.db,
                 organization_id=organization.id,
                 role_name="Admin",
@@ -109,7 +118,7 @@ class OrganizationService:
                 db=self.db,
                 user_id=user_id,
                 organization_id=organization.id,
-                role_id=admin_role.id,
+                role_id=owner_role.id,
                 is_active=True,
             )
 
@@ -117,14 +126,14 @@ class OrganizationService:
 
             logger.info(
                 f"Successfully created organization id={organization.id} "
-                f"for user_id={user_id} with admin role"
+                f"for user_id={user_id} with owner role"
             )
 
             return {
                 "organization_id": str(organization.id),
                 "organization_name": organization.name,
                 "user_id": str(user_id),
-                "role": admin_role.name,
+                "role": owner_role.name,
             }
 
         except ValueError as e:
@@ -287,7 +296,7 @@ class OrganizationService:
                 if existing_org and existing_org.id != organization_id:
                     raise ValueError("You already have an organization with this name")
 
-            updated_organization = await OrganizationCRUD.update(
+            updated_organization: Organization = await OrganizationCRUD.update(
                 db=self.db,
                 organization_id=organization_id,
                 name=name,
@@ -297,7 +306,7 @@ class OrganizationService:
 
             await self.db.commit()
 
-            membership = await UserOrganizationCRUD.get_user_organization(
+            membership: UserOrganization | None = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
             role = await self.db.get(Role, membership.role_id) if membership else None
@@ -309,6 +318,7 @@ class OrganizationService:
                 "name": updated_organization.name,
                 "industry": updated_organization.industry,
                 "settings": updated_organization.settings,
+                "plan": updated_organization.plan,
                 "billing_info": updated_organization.billing_info,
                 "is_active": updated_organization.is_active,
                 "created_at": updated_organization.created_at.isoformat(),
@@ -615,6 +625,13 @@ class OrganizationService:
         )
 
         try:
+            has_permission = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "delete_organization"
+            )
+
+            if not has_permission:
+                raise ValueError("You do not have permission to delete this organization")
+
             organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
             if not organization:
                 raise ValueError("Organization not found")
@@ -669,3 +686,96 @@ class OrganizationService:
             )
             await self.db.rollback()
             raise Exception("Failed to delete organization")
+
+    async def get_organization_invitations(
+        self,
+        organization_id: uuid.UUID,
+        requesting_user_id: uuid.UUID,
+        page: int = 1,
+        limit: int = 10,
+        status_filter: Optional[str] = "pending",
+    ) -> dict:
+        """
+        Get all invitations for an organization (paginated).
+
+        Args:
+            organization_id: Organization UUID
+            requesting_user_id: UUID of the user requesting the data
+            page: Page number (default: 1)
+            limit: Items per page (default: 10)
+            status_filter: Filter by status (default: "pending", use "all" for no filter)
+
+        Returns:
+            dict: Dictionary with paginated invitations and metadata
+
+        Raises:
+            ValueError: If validation fails
+        """
+        logger.info(
+            f"Fetching invitations for org_id={organization_id} by user_id={requesting_user_id}"
+        )
+
+        try:
+            # Verify organization exists
+            organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
+            if not organization:
+                raise ValueError("Organization not found")
+
+            if hasattr(organization, "deleted_at") and organization.deleted_at:
+                raise ValueError("Organization has been deleted")
+
+            # Verify user has access to the organization
+            membership = await UserOrganizationCRUD.get_user_organization(
+                self.db, requesting_user_id, organization_id
+            )
+
+            if not membership or not membership.is_active:
+                raise ValueError("You do not have access to this organization")
+
+            # Check if user has permission to view invitations
+            # Allow both 'manage_users' and 'invite_users' permissions
+            has_manage = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "manage_users"
+            )
+            has_invite = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "invite_users"
+            )
+
+            if not (has_manage or has_invite):
+                raise ValueError(
+                    "You do not have permission to view invitations for this organization"
+                )
+
+            skip = (page - 1) * limit
+
+            # Get invitations from CRUD
+            result = await InvitationCRUD.get_organization_invitations(
+                db=self.db,
+                organization_id=organization_id,
+                skip=skip,
+                limit=limit,
+                status_filter=status_filter,
+            )
+
+            invitations = result["invitations"]
+            total = result["total"]
+
+            pagination = calculate_pagination(total=total, page=page, limit=limit)
+
+            logger.info(
+                f"Successfully retrieved {len(invitations)}invitations for org_id={organization_id}"
+            )
+
+            return {"invitations": invitations, **pagination}
+
+        except ValueError as e:
+            logger.warning(
+                f"Validation error fetching invitations for org_id={organization_id}: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching invitations for org_id={organization_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise Exception("Failed to retrieve organization invitations")
