@@ -189,10 +189,6 @@ async def test_get_organization_invitations_success():
 @pytest.mark.asyncio
 async def test_invite_user_invalid_domain():
     """Test that inviting a user with a non-company email fails."""
-    # This test relies on the schema validation which happens before the route handler
-    # We can test the schema directly or mock the validator if we want to test the route integration
-    # For integration testing, we would need to mock is_company_email or use a real one
-
     from pydantic import ValidationError
 
     from app.api.modules.v1.organization.schemas.invitation_schema import InvitationCreate
@@ -217,16 +213,12 @@ async def test_cancel_invitation_success():
     org_id = uuid.uuid4()
     invitation_id = uuid.uuid4()
 
-    # Mock invitation object
     mock_invitation = MagicMock()
     mock_invitation.id = invitation_id
     mock_invitation.organization_id = org_id
     mock_invitation.status.value = "cancelled"
     mock_invitation.invited_email = "invitee@example.com"
 
-    # Mock db.get to return the invitation
-    # The route calls db.get(Invitation, invitation_id)
-    # We need to make sure db.get returns our mock invitation
     mock_db.get.return_value = mock_invitation
 
     with (
