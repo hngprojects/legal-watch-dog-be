@@ -625,6 +625,13 @@ class OrganizationService:
         )
 
         try:
+            has_permission = await check_user_permission(
+                self.db, requesting_user_id, organization_id, "delete_organization"
+            )
+
+            if not has_permission:
+                raise ValueError("You do not have permission to delete this organization")
+
             organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
             if not organization:
                 raise ValueError("Organization not found")

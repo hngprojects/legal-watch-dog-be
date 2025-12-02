@@ -161,7 +161,6 @@ def require_any_permission(*permissions: Permission):
     ) -> User:
         user, role = user_role
 
-        # Check if user has ANY of the required permissions
         has_permission = any(role.permissions.get(perm.value, False) for perm in permissions)
 
         if not has_permission:
