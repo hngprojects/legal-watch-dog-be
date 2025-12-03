@@ -547,7 +547,7 @@ class OrganizationService:
             requesting_user_id: UUID of the user requesting the data
             page: Page number (default: 1)
             limit: Items per page (default: 10)
-            active_only: Only return active memberships (default: True)
+            active_only: Only return active users (optional)
             membership_active: Filter by membership active status (optional)
             roles: List of role names to filter by (optional)
 
