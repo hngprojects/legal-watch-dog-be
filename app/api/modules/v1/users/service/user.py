@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import not_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
@@ -377,7 +377,7 @@ class UserCRUD:
                 .join(Role, Role.id == UserOrganization.role_id, isouter=True)
                 .where(
                     UserOrganization.user_id == user_id,
-                    not_(UserOrganization.is_deleted),
+                    UserOrganization.is_deleted.is_(False),
                     UserOrganization.is_active,
                     Organization.is_active,
                     Organization.deleted_at.is_(None),

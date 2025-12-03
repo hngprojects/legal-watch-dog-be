@@ -107,3 +107,9 @@ Index(
     unique=True,
     postgresql_where=Organization.deleted_at.is_(None),
 )
+
+Index(
+    "ix_org_active_not_deleted",
+    Organization.is_active,
+    postgresql_where=Organization.deleted_at.is_(None),
+)
