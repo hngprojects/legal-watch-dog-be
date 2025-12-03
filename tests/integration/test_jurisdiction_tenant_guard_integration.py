@@ -67,7 +67,7 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
 
     async def fake_billing_guard(organization_id, db=None):
         return None
-    
+
     def fake_get_current_user():
         return SimpleNamespace(organization_id=org_id)
 
