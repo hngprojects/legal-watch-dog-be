@@ -954,8 +954,8 @@ async def get_all_users_in_organization(
     organization_id: uuid.UUID,
     page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
     limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
-    is_active: Optional[bool] = Query(default=None, description="Only return active members"),
-    is_member: Optional[bool] = Query(
+    user_active: Optional[bool] = Query(default=None, description="Only return active members"),
+    membership_is_active: Optional[bool] = Query(
         default=None, description="Filter by membership active status (True/False/None for all)"
     ),
     roles: Optional[str] = Query(
@@ -978,8 +978,8 @@ async def get_all_users_in_organization(
         organization_id: UUID of the organization
         page: Page number (default: 1)
         limit: Items per page (default: 10, max: 100)
-        is_ative: Only return active members (default: True)
-        is_member: Filter by membership active status (optional)
+        user_active: Only return active members (default: True)
+        membership_is_active: Filter by membership active status (optional)
         role_names: Comma-separated role names to filter by (e.g., 'Admin,Manager')
         current_user: Authenticated user from JWT token
         db: Database session dependency
@@ -1007,9 +1007,9 @@ async def get_all_users_in_organization(
             requesting_user_id=current_user.id,
             page=page,
             limit=limit,
-            active_only=is_active,
+            active_only=user_active,
             roles=parsed_role_names,
-            membership_active=is_member,
+            membership_active=membership_is_active,
         )
 
         return success_response(

@@ -243,13 +243,13 @@ class UserOrganizationCRUD:
             if missing:
                 logger.warning(f"Roles not found in org {organization_id}: {missing}")
 
-        count_query = (
-            sa_select(func.count())
-            .select_from(UserOrganization)
-            .where(
-                UserOrganization.organization_id == organization_id,
-                UserOrganization.is_deleted.is_(False),
-            )
+        count_query = sa_select(func.count())
+        count_query = count_query.select_from(UserOrganization).join(
+            User, User.id == UserOrganization.user_id
+        )
+        count_query = count_query.where(
+            UserOrganization.organization_id == organization_id,
+            UserOrganization.is_deleted.is_(False),
         )
 
         if membership_active is not None:
@@ -257,6 +257,9 @@ class UserOrganizationCRUD:
 
         if role_ids:
             count_query = count_query.where(UserOrganization.role_id.in_(role_ids))
+
+        if active_only is not None:
+            count_query = count_query.where(User.is_active == active_only)
 
         total = (await db.execute(count_query)).scalar() or 0
 
