@@ -325,7 +325,7 @@ request_new_otp._custom_success = request_new_otp_custom_success
 
 @router.post(
     "/invitations/{token}/accept",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_302_FOUND,
     response_model=None,
 )
 async def accept_invitation(
