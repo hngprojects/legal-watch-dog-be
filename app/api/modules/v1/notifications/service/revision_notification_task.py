@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
 
 from app.api.core.dependencies.send_mail import send_email
-from app.api.db.database import AsyncSessionLocal, engine
+from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.notifications.models.revision_notification import (
     Notification,
@@ -193,8 +193,6 @@ async def send_revision_notifications(revision_id: str):
     except SQLAlchemyError as e:
         logger.error(f"Database error sending notifications for revision {revision_id}: {str(e)}")
         raise
-    finally:
-        await engine.dispose()
 
 
 @shared_task(bind=True, name="send_revision_notifications", max_retries=3)
@@ -220,4 +218,5 @@ def send_revision_notifications_task(self, revision_id: str):
     except Exception as exc:
         logger.error(f"Error processing notifications for revision {revision_id}: {str(exc)}")
         raise self.retry(exc=exc, countdown=60)
-    
+    finally:
+        loop.close()
