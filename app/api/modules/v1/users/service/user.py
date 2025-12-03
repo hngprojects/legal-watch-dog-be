@@ -375,7 +375,13 @@ class UserCRUD:
                 select(UserOrganization, Organization, Role)
                 .join(Organization, Organization.id == UserOrganization.organization_id)
                 .join(Role, Role.id == UserOrganization.role_id, isouter=True)
-                .where(UserOrganization.user_id == user_id)
+                .where(
+                    UserOrganization.user_id == user_id,
+                    UserOrganization.is_deleted.is_(False),
+                    UserOrganization.is_active.is_(True),
+                    Organization.is_active.is_(True),
+                    Organization.deleted_at.is_(None),
+                )
             )
 
             result = await db.execute(stmt)
