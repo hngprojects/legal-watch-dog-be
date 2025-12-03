@@ -60,8 +60,7 @@ class ProjectUserDetail(BaseModel):
     avatar_url: Optional[str] = None
     added_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectUsersResponse(BaseModel):

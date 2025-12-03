@@ -3,7 +3,7 @@ from typing import List
 from uuid import UUID
 
 import phonenumbers
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.api.utils.validators import is_company_email
 
@@ -61,8 +61,7 @@ class ContactUsDetail(BaseModel):
     message: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ContactUsResponse(BaseModel):

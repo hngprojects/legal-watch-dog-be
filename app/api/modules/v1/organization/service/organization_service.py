@@ -642,8 +642,8 @@ class OrganizationService:
             user_role = await self.get_user_role_in_organization(
                 requesting_user_id, organization_id
             )
-            if user_role != "Admin":
-                raise ValueError("Only organization admins can delete organizations")
+            if user_role != "Owner":
+                raise ValueError("Only organization owners can delete organizations")
 
             active_members_result = await UserOrganizationCRUD.get_all_users_in_organization(
                 db=self.db, organization_id=organization_id, skip=0, limit=1000, active_only=True

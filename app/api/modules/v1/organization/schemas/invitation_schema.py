@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
 from app.api.utils.validators import is_company_email
@@ -35,8 +35,7 @@ class InvitationResponse(SQLModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)  # type: ignore
 
 
 class InvitationListItem(SQLModel):
@@ -58,8 +57,7 @@ class InvitationListItem(SQLModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)  # type: ignore
 
 
 class InvitationListResponse(SQLModel):
@@ -71,5 +69,4 @@ class InvitationListResponse(SQLModel):
     limit: int
     total_pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)  # type: ignore

@@ -99,7 +99,6 @@ ADMIN_PERMISSIONS = {
     Permission.DELETE_ROLES.value: True,
     Permission.VIEW_ROLES.value: True,
     Permission.MANAGE_ORGANIZATION.value: True,
-    Permission.DELETE_ORGANIZATION.value: True,
     Permission.CONFIGURE_SSO.value: True,
     Permission.MANAGE_BILLING.value: True,
     Permission.CREATE_PROJECTS.value: True,
@@ -154,9 +153,12 @@ MANAGER_PERMISSIONS = {
     Permission.VIEW_AUDIT.value: True,
 }
 
+OWNER_PERMISSIONS = {**ADMIN_PERMISSIONS, Permission.DELETE_ORGANIZATION.value: True}
+
 
 class RoleTemplates:
     TEMPLATES = {
+        "owner": OWNER_PERMISSIONS,
         "admin": ADMIN_PERMISSIONS,
         "manager": MANAGER_PERMISSIONS,
         "user": USER_PERMISSIONS,

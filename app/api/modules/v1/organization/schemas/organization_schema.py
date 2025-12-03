@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 class CreateOrganizationRequest(BaseModel):
@@ -65,8 +65,9 @@ class CreateOrganizationRequest(BaseModel):
 
         return v
 
-    class Config:
-        json_schema_extra = {"example": {"name": "Acme Corporation", "industry": "Technology"}}
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"name": "Acme Corporation", "industry": "Technology"}}
+    )
 
 
 class CreateOrganizationResponse(BaseModel):
@@ -78,8 +79,8 @@ class CreateOrganizationResponse(BaseModel):
     role: str
     message: str
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "organization_id": "123e4567-e89b-12d3-a456-426614174000",
                 "organization_name": "Acme Corporation",
@@ -88,6 +89,7 @@ class CreateOrganizationResponse(BaseModel):
                 "message": "Organization created successfully",
             }
         }
+    )
 
 
 class UpdateOrganizationRequest(BaseModel):
@@ -208,14 +210,15 @@ class UpdateOrganizationRequest(BaseModel):
             return v
         return v
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Acme Corporation Updated",
                 "industry": "Software Development",
                 "is_active": True,
             }
         }
+    )
 
 
 class OrganizationDetailResponse(BaseModel):
@@ -234,8 +237,8 @@ class OrganizationDetailResponse(BaseModel):
     settings: dict
     billing_info: dict
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "Acme Corporation",
@@ -251,6 +254,7 @@ class OrganizationDetailResponse(BaseModel):
                 "billing_info": {},
             }
         }
+    )
 
 
 class UpdateMemberStatusRequest(BaseModel):
@@ -258,8 +262,7 @@ class UpdateMemberStatusRequest(BaseModel):
 
     is_active: bool = Field(..., description="New active status for the member")
 
-    class Config:
-        json_schema_extra = {"example": {"is_active": True}}
+    model_config = ConfigDict(json_schema_extra={"example": {"is_active": True}})
 
 
 class UpdateMemberRoleRequest(BaseModel):
@@ -267,8 +270,7 @@ class UpdateMemberRoleRequest(BaseModel):
 
     role_name: str = Field(..., description="New role name to assign to the member")
 
-    class Config:
-        json_schema_extra = {"example": {"role_name": "Manager"}}
+    model_config = ConfigDict(json_schema_extra={"example": {"role_name": "Manager"}})
 
 
 class OrganizationUserItem(BaseModel):

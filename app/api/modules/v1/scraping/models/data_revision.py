@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 from uuid import UUID, uuid4
 
@@ -27,7 +27,9 @@ class DataRevision(SQLModel, table=True):
     ai_summary: Optional[str] = Field(default=None)
     ai_markdown_summary: Optional[str] = Field(default=None)
     ai_confidence_score: Optional[float] = Field(default=None)
-    scraped_at: datetime = Field(default_factory=datetime.utcnow)
+    scraped_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
     was_change_detected: bool = Field(default=False)
 
     search_vector: Optional[str] = Field(

@@ -6,7 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.permissions import ADMIN_PERMISSIONS, MANAGER_PERMISSIONS, USER_PERMISSIONS
+from app.api.utils.permissions import (
+    ADMIN_PERMISSIONS,
+    MANAGER_PERMISSIONS,
+    OWNER_PERMISSIONS,
+    USER_PERMISSIONS,
+)
 
 logger = logging.getLogger("app")
 
@@ -93,7 +98,7 @@ class RoleCRUD:
                 name=role_name,
                 organization_id=organization_id,
                 description=description,
-                permissions=ADMIN_PERMISSIONS,
+                permissions=OWNER_PERMISSIONS,
             )
 
             db.add(role)
