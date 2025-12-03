@@ -978,7 +978,7 @@ async def get_all_users_in_organization(
         organization_id: UUID of the organization
         page: Page number (default: 1)
         limit: Items per page (default: 10, max: 100)
-        user_active: Only return active members (default: True)
+        user_active: Only return active members (optional)
         membership_is_active: Filter by membership active status (optional)
         role_names: Comma-separated role names to filter by (e.g., 'Admin,Manager')
         current_user: Authenticated user from JWT token
