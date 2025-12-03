@@ -38,9 +38,6 @@ async def search_data_revisions(
         SearchResponse: Search results with matching revisions and metadata
     """
 
-    if not tenant.user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     # Optionally, enforce organization filter for multi-tenant isolation
     membership = await db.scalar(
         select(UserOrganization).where(
