@@ -535,7 +535,9 @@ class OrganizationService:
         requesting_user_id: uuid.UUID,
         page: int = 1,
         limit: int = 10,
-        active_only: bool = True,
+        active_only: Optional[bool] = None,
+        membership_active: Optional[bool] = None,
+        roles: Optional[list[str]] = None,
     ) -> dict:
         """
         Get all users in an organization (paginated).
@@ -546,6 +548,8 @@ class OrganizationService:
             page: Page number (default: 1)
             limit: Items per page (default: 10)
             active_only: Only return active memberships (default: True)
+            membership_active: Filter by membership active status (optional)
+            roles: List of role names to filter by (optional)
 
         Returns:
             dict: Dictionary with paginated users and metadata
@@ -578,6 +582,8 @@ class OrganizationService:
                 skip=skip,
                 limit=limit,
                 active_only=active_only,
+                membership_active=membership_active,
+                role_names=roles,
             )
 
             users = result["users"]

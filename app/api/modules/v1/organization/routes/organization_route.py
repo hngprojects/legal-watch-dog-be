@@ -1,5 +1,6 @@
 import logging
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -953,7 +954,13 @@ async def get_all_users_in_organization(
     organization_id: uuid.UUID,
     page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
     limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
-    active_only: bool = Query(default=True, description="Only return active members"),
+    is_active: Optional[bool] = Query(default=None, description="Only return active members"),
+    is_member: Optional[bool] = Query(
+        default=None, description="Filter by membership active status (True/False/None for all)"
+    ),
+    roles: Optional[str] = Query(
+        default=None, description="Comma-separated role names to filter by (e.g., 'Admin,Manager')"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -972,6 +979,8 @@ async def get_all_users_in_organization(
         page: Page number (default: 1)
         limit: Items per page (default: 10, max: 100)
         active_only: Only return active members (default: True)
+        membership_active: Filter by membership active status (optional)
+        role_names: Comma-separated role names to filter by (e.g., 'Admin,Manager')
         current_user: Authenticated user from JWT token
         db: Database session dependency
 
@@ -983,13 +992,24 @@ async def get_all_users_in_organization(
                       404 for not found, 500 for server errors
     """
     try:
+        parsed_role_names = None
+        if roles:
+            parsed_role_names = [name.strip() for name in roles.split(",") if name.strip()]
+            if not parsed_role_names:
+                return error_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid role names format. Must be comma-separated role names.",
+                )
+
         service = OrganizationService(db)
         result = await service.get_organization_users(
             organization_id=organization_id,
             requesting_user_id=current_user.id,
             page=page,
             limit=limit,
-            active_only=active_only,
+            active_only=is_active,
+            roles=parsed_role_names,
+            membership_active=is_member,
         )
 
         return success_response(
