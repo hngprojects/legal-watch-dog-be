@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard
 from app.api.db.database import get_db
+from app.api.modules.v1.organization.models.user_organization_model import (
+    UserOrganization,
+)
 from app.api.modules.v1.search.schemas.search_schema import (
     SearchRequest,
     SearchResponse,
@@ -38,9 +42,16 @@ async def search_data_revisions(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     # Optionally, enforce organization filter for multi-tenant isolation
-    org_id = getattr(tenant.user, "organization_id", None)
-    if not org_id:
-        raise HTTPException(status_code=403, detail="User does not belong to an organization")
+    membership = await db.scalar(
+        select(UserOrganization).where(
+            UserOrganization.user_id == tenant.user.id, UserOrganization.is_active
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=403, detail="User does not belong to an active organization"
+        )
+    org_id = membership.organization_id
 
     service = SearchService(db)
     return await service.search(request, org_id=org_id)
