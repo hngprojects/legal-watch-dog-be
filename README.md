@@ -422,7 +422,7 @@ act -v pull_request
 To start the Celery server locally on Linux or macOS, run the following commands:
 
 ```bash
-celery -A app.celery_app:celery_app worker -l info
+celery -A app.celery_app:celery_app worker --pool=prefork --concurrency=10 -l info
 ```
 and
 ```bash
@@ -433,7 +433,7 @@ in two different terminal windows.
 If you're on Windows, you may need to run the following commands:
 
 ```bash
-python -m celery -A app.celery_app:celery_app worker -P gevent -l info
+python -m celery -A app.celery_app:celery_app worker --pool=threads --concurrency=10 -l info
 ```
 and
 ```bash
