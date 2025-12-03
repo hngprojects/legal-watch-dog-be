@@ -220,5 +220,4 @@ def send_revision_notifications_task(self, revision_id: str):
     except Exception as exc:
         logger.error(f"Error processing notifications for revision {revision_id}: {str(exc)}")
         raise self.retry(exc=exc, countdown=60)
-    finally:
-        loop.close()
+    
