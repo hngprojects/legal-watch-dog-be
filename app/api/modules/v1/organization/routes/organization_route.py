@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.core.role_exceptions import (
     CannotAssignRoleException,
     CannotManageHigherRoleException,
@@ -131,6 +132,7 @@ create_organization._custom_success = create_organization_custom_success
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
     responses=update_organization_responses,
+    dependencies=[Depends(require_billing_access)],
 )
 async def update_organization(
     organization_id: uuid.UUID,
@@ -216,6 +218,7 @@ update_organization._custom_success = update_organization_custom_success
     "/{organization_id}/invitations",
     response_model=InvitationResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_billing_access)],
 )
 async def invite_user(
     background_task: BackgroundTasks,
@@ -296,6 +299,7 @@ async def invite_user(
     "/{organization_id}/invitations",
     response_model=InvitationListResponse,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def get_organization_invitations(
     organization_id: uuid.UUID,
@@ -379,6 +383,7 @@ async def get_organization_invitations(
     "/{organization_id}/members/{user_id}/status",
     response_model=dict,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def update_member_status(
     organization_id: uuid.UUID,
@@ -508,6 +513,7 @@ async def update_member_status(
     "/{organization_id}/members/{user_id}/role",
     response_model=dict,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def update_member_role(
     organization_id: uuid.UUID,
@@ -638,6 +644,7 @@ async def update_member_role(
     "/{organization_id}/members/{user_id}",
     response_model=dict,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def update_member_details(
     organization_id: uuid.UUID,
@@ -777,6 +784,7 @@ async def update_member_details(
 @router.delete(
     "/{organization_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_billing_access)],
 )
 async def delete_member(
     organization_id: uuid.UUID,
@@ -890,6 +898,7 @@ async def delete_member(
 @router.get(
     "/{organization_id}",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def get_organization(
     organization_id: uuid.UUID,
@@ -948,6 +957,7 @@ async def get_organization(
 @router.get(
     "/{organization_id}/users",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def get_all_users_in_organization(
     organization_id: uuid.UUID,
@@ -1027,8 +1037,9 @@ async def get_all_users_in_organization(
 
 @router.delete(
     "/{organization_id}",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
     responses=delete_organization_responses,
+    dependencies=[Depends(require_billing_access)],
 )
 async def delete_organization(
     organization_id: uuid.UUID,
@@ -1102,6 +1113,7 @@ delete_organization._custom_success = delete_organization_custom_success
 @router.delete(
     "/{organization_id}/invitations/{invitation_id}",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_billing_access)],
 )
 async def cancel_invitation(
     organization_id: uuid.UUID,

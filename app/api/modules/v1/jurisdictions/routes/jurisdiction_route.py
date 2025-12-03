@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
@@ -30,7 +31,7 @@ logger = logging.getLogger("app")
 router = APIRouter(
     prefix="/organizations/{organization_id}/jurisdictions",
     tags=["Jurisdictions"],
-    dependencies=[Depends(TenantGuard), Depends(OrgResourceGuard)],
+    dependencies=[Depends(TenantGuard), Depends(OrgResourceGuard), Depends(require_billing_access)],
 )
 
 service = JurisdictionService()
