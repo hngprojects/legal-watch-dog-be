@@ -5,26 +5,20 @@ OTP for Registration - Legal Watchdog
 {% endblock %}
 
 {% block preheader %}
-Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Legal WatchDog") }}.
+Your OTP is {{ otp | default("234567") }} for {{ APP_NAME | default("Legal WatchDog") }}.
 {% endblock %}
 
 {% block header %}
 <tr>
   <td>
-    <div
-      style="
+    <div style="
         text-align: center;
         padding: 42px 28px;
         margin-bottom: 30px;
-      "
-    >
-    <img
-        src="{{ APP_URL }}/static/email/template-icons/logo.png"
-        alt="Legal WatchDog logo"
-        style="width: 60px; display: inline-block; vertical-align: middle;"
-      />
-      <p
-        style="
+      ">
+      <img src="{{ APP_URL }}/static/email/template-icons/logo.png" alt="Legal WatchDog logo"
+        style="width: 60px; display: inline-block; vertical-align: middle;" />
+      <p style="
           margin: 0;
           margin-left: 10px;
           font-size: 30px;
@@ -33,8 +27,7 @@ Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Leg
           line-height: 38px;
           display: inline-block;
           vertical-align: middle;
-        "
-      >
+        ">
         WatchDog
       </p>
     </div>
@@ -62,18 +55,16 @@ Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Leg
       </tr>
       <tr>
         <td style="padding: 24px 0;">
-          <div
-            style="
+          <div style="
               margin: 0 auto 24px;
               padding: 10px 40px;
               border: 1px solid #d9d9d9;
               border-radius: 16px;
               text-align: center;
               max-width: fit-content;
-            "
-          >
+            ">
             <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1f1f1f">
-              {{ reset_code | default("234 567") }}
+              {{ otp | default("234567") }}
             </p>
           </div>
         </td>
@@ -81,7 +72,17 @@ Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Leg
       <tr>
         <td style="padding-bottom: 16px;">
           <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
-            This code will expire in {{ otp_expiry_minutes | default(16)  }} minutes.<br><br>
+            {% set mins = otp_expiry_minutes | default(16) %}
+
+            {% if mins >= 60 %}
+              {% set hours = (mins // 60) %}
+              This code will expire in {{ hours }} hour{{ 's' if hours > 1 }}.
+            {% else %}
+              This code will expire in {{ mins }} minutes.
+            {% endif %}
+
+
+            <br><br>
             If you did not request this, please ignore this email.
           </p>
         </td>
