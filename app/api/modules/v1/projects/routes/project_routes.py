@@ -413,7 +413,7 @@ async def delete_project(
             project_id, current_user.organization_id
         )
 
-        # Perform a soft-delete 
+        # Perform a soft-delete
         payload = ProjectUpdate.model_validate({"is_deleted": True})
         project_after_soft_delete, _msg = await service.update_project(
             project_id, organization_id, current_user.id, payload

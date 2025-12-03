@@ -103,15 +103,13 @@ class Jurisdiction(SQLModel, table=True):
     prompt: Optional[str] = Field(default=None, sa_column=Text)
     scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
-    
     country: Optional[str] = Field(default=None, max_length=100)
     state: Optional[str] = Field(default=None, max_length=100)
     city: Optional[str] = Field(default=None, max_length=100)
 
-    
     is_active: bool = Field(default=True, nullable=False)
 
-    # Soft-delete fields 
+    # Soft-delete fields
     scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(
@@ -120,7 +118,7 @@ class Jurisdiction(SQLModel, table=True):
     deleted_at: Optional[datetime] = None
     is_deleted: bool = Field(default=False)
 
-    # Timestamps 
+    # Timestamps
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now()),
@@ -148,14 +146,13 @@ class Jurisdiction(SQLModel, table=True):
 
     sources: List["Source"] = Relationship(back_populates="jurisdiction")
 
-
     audit_logs: List["ProjectAuditLog"] = Relationship(back_populates="jurisdiction")
 
     def __repr__(self):
         return f"<Jurisdiction id={self.id} name={self.name} project_id={self.project_id}>"
 
 
-# Hierarchy validation logic 
+# Hierarchy validation logic
 @event.listens_for(Jurisdiction, "before_update")
 @event.listens_for(Jurisdiction, "before_insert")
 def validate_hierarchy(mapper, connection, target):
