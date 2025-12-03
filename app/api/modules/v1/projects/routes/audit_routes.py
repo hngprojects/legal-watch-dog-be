@@ -36,6 +36,7 @@ router = APIRouter(prefix="/projects/audit", tags=["Audit"])
 
 # DEPENDENCY INJECTION
 
+
 def get_audit_service(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectAuditService:
@@ -44,6 +45,7 @@ def get_audit_service(
 
 
 # ENDPOINTS
+
 
 @router.get("/jurisdictions/{jurisdiction_id}", response_model=AuditLogListResponse)
 async def get_jurisdiction_audit_logs(
@@ -149,7 +151,6 @@ async def export_audit_logs(
     )
 
     if format == "csv":
-
         output = StringIO()
         writer = csv.writer(output)
 
@@ -187,9 +188,7 @@ async def export_audit_logs(
         filename = f"audit_logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
         headers = {"Content-Disposition": f"attachment; filename={filename}"}
 
-        return StreamingResponse(
-            iter([output.getvalue()]), media_type="text/csv", headers=headers
-        )
+        return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers=headers)
 
     else:  # JSON
         from fastapi.responses import JSONResponse

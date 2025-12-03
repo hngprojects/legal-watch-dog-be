@@ -2,6 +2,7 @@
 Project Audit Log Model
 Tracks all project/jurisdiction/prompt/source operations
 """
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -54,9 +55,7 @@ class ProjectAuditLog(SQLModel, table=True):
     log_id: Optional[int] = Field(default=None, primary_key=True)
 
     # Relationships
-    project_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="projects.id", index=True
-    )
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     jurisdiction_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="jurisdictions.id", index=True
     )
@@ -64,14 +63,10 @@ class ProjectAuditLog(SQLModel, table=True):
         sa_relationship_kwargs={"lazy": "selectin"}
     )
 
-    source_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="sources.id", index=True
-    )
+    source_id: Optional[uuid.UUID] = Field(default=None, foreign_key="sources.id", index=True)
 
     # Organization context (multi-tenancy)
-    org_id: uuid.UUID = Field(
-        foreign_key="organizations.id", index=True, nullable=False
-    )
+    org_id: uuid.UUID = Field(foreign_key="organizations.id", index=True, nullable=False)
 
     # Actor (who performed the action)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
@@ -89,7 +84,7 @@ class ProjectAuditLog(SQLModel, table=True):
     # Change details (JSONB)
     details: Dict[str, Any] = Field(
         default_factory=dict,
-         sa_column=Column(JSONB().with_variant(SQLiteJSON, "sqlite")),
+        sa_column=Column(JSONB().with_variant(SQLiteJSON, "sqlite")),
         description="JSON object with before/after values, field changes, etc.",
     )
 
@@ -112,9 +107,7 @@ class ProjectAuditLog(SQLModel, table=True):
     @classmethod
     def validate_action(cls, action: str) -> bool:
         """Return True if action is a valid AuditAction"""
-        return action in AuditAction.__members__ or action in [
-            a.value for a in AuditAction
-        ]
+        return action in AuditAction.__members__ or action in [a.value for a in AuditAction]
 
     class Config:
         json_schema_extra = {

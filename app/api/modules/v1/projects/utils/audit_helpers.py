@@ -1,7 +1,7 @@
-# app/api/modules/v1/projects/utils/audit_helpers.py
 """
 Helper utilities for audit logging
 """
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -80,9 +80,7 @@ def sanitize_sensitive_data(
         Sanitized details dictionary
     """
     if not isinstance(details, dict):
-        logger.warning(
-            "sanitize_sensitive_data received non-dict details: %s", type(details)
-        )
+        logger.warning("sanitize_sensitive_data received non-dict details: %s", type(details))
         return {}
 
     if sensitive_fields is None:

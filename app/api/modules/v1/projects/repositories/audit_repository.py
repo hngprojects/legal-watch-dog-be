@@ -1,6 +1,7 @@
 """
 Repository for Project Audit Log database operations
 """
+
 import logging
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -58,9 +59,7 @@ class ProjectAuditRepository:
         """
         try:
             # Base query
-            stmt = select(ProjectAuditLog).where(
-                ProjectAuditLog.project_id == project_id
-            )
+            stmt = select(ProjectAuditLog).where(ProjectAuditLog.project_id == project_id)
 
             if action:
                 stmt = stmt.where(ProjectAuditLog.action == action)
@@ -78,11 +77,7 @@ class ProjectAuditRepository:
 
             # Pagination
             offset = (page - 1) * limit
-            stmt = (
-                stmt.order_by(ProjectAuditLog.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-            )
+            stmt = stmt.order_by(ProjectAuditLog.created_at.desc()).offset(offset).limit(limit)
 
             logs_result = await self.session.execute(stmt)
             logs = logs_result.scalars().all()
@@ -90,9 +85,7 @@ class ProjectAuditRepository:
             return logs, total_count
 
         except Exception as e:
-            logger.error(
-                "Failed to fetch project audit logs: %s", str(e), exc_info=True
-            )
+            logger.error("Failed to fetch project audit logs: %s", str(e), exc_info=True)
             raise RuntimeError("Audit repository read failed") from e
 
     async def get_jurisdiction_audit_logs(
@@ -103,9 +96,7 @@ class ProjectAuditRepository:
 
         """
         try:
-            stmt = select(ProjectAuditLog).where(
-                ProjectAuditLog.jurisdiction_id == jurisdiction_id
-            )
+            stmt = select(ProjectAuditLog).where(ProjectAuditLog.jurisdiction_id == jurisdiction_id)
 
             # Count total
             count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -114,11 +105,7 @@ class ProjectAuditRepository:
 
             # Pagination
             offset = (page - 1) * limit
-            stmt = (
-                stmt.order_by(ProjectAuditLog.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-            )
+            stmt = stmt.order_by(ProjectAuditLog.created_at.desc()).offset(offset).limit(limit)
 
             logs_result = await self.session.execute(stmt)
             logs = logs_result.scalars().all()
@@ -126,9 +113,7 @@ class ProjectAuditRepository:
             return logs, total_count
 
         except Exception as e:
-            logger.error(
-                "Failed to fetch jurisdiction audit logs: %s", str(e), exc_info=True
-            )
+            logger.error("Failed to fetch jurisdiction audit logs: %s", str(e), exc_info=True)
             raise RuntimeError("Audit repository read failed") from e
 
     async def get_organization_audit_logs(
@@ -161,11 +146,7 @@ class ProjectAuditRepository:
 
             # Pagination
             offset = (page - 1) * limit
-            stmt = (
-                stmt.order_by(ProjectAuditLog.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-            )
+            stmt = stmt.order_by(ProjectAuditLog.created_at.desc()).offset(offset).limit(limit)
 
             logs_result = await self.session.execute(stmt)
             logs = logs_result.scalars().all()

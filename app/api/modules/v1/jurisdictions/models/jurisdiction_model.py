@@ -3,16 +3,16 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, Text, UniqueConstraint, Column, DateTime, event, func
+from sqlalchemy import JSON, CheckConstraint, Column, DateTime, Text, UniqueConstraint, event, func
 from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
 logger = logging.getLogger("app")
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.project_audit_log.models.project_audit_log_model import ProjectAuditLog
     from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.scraping.models.source_model import Source
-    from app.api.modules.v1.project_audit_log.models.project_audit_log_model import ProjectAuditLog
 
 
 class Jurisdiction(SQLModel, table=True):
@@ -97,25 +97,22 @@ class Jurisdiction(SQLModel, table=True):
         ondelete="SET NULL",
     )
 
-    # RESTORED from second file (max_length, nullable=False, index=True)
     name: str = Field(max_length=255, nullable=False, index=True)
 
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
     scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
-    # Location fields (from second file)
+    
     country: Optional[str] = Field(default=None, max_length=100)
     state: Optional[str] = Field(default=None, max_length=100)
     city: Optional[str] = Field(default=None, max_length=100)
 
-    # RESTORED: nullable=False (from second file)
+    
     is_active: bool = Field(default=True, nullable=False)
 
-    # Soft-delete fields (from first file)
-    scrape_output: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSON)
-    )
+    # Soft-delete fields 
+    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
@@ -123,7 +120,7 @@ class Jurisdiction(SQLModel, table=True):
     deleted_at: Optional[datetime] = None
     is_deleted: bool = Field(default=False)
 
-    # Timestamps — preserved *exactly* from first file
+    # Timestamps 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now()),
@@ -151,14 +148,14 @@ class Jurisdiction(SQLModel, table=True):
 
     sources: List["Source"] = Relationship(back_populates="jurisdiction")
 
-    # Added from second file
+
     audit_logs: List["ProjectAuditLog"] = Relationship(back_populates="jurisdiction")
 
     def __repr__(self):
         return f"<Jurisdiction id={self.id} name={self.name} project_id={self.project_id}>"
 
 
-# Hierarchy validation logic — unchanged from first file
+# Hierarchy validation logic 
 @event.listens_for(Jurisdiction, "before_update")
 @event.listens_for(Jurisdiction, "before_insert")
 def validate_hierarchy(mapper, connection, target):
@@ -166,16 +163,13 @@ def validate_hierarchy(mapper, connection, target):
     Validate parent-child hierarchy to prevent self-parenting or circular references.
     """
     logger.debug(
-        f"Validating hierarchy for jurisdiction {target.id} "
-        f"(parent_id={target.parent_id})"
+        f"Validating hierarchy for jurisdiction {target.id} (parent_id={target.parent_id})"
     )
 
     table = mapper.local_table
 
     if target.parent_id is not None and target.parent_id == target.id:
-        logger.warning(
-            f"Jurisdiction {target.id} attempted to set parent_id to itself."
-        )
+        logger.warning(f"Jurisdiction {target.id} attempted to set parent_id to itself.")
         raise ValueError("A jurisdiction cannot be its own parent.")
 
     parent_id = target.parent_id
@@ -184,20 +178,14 @@ def validate_hierarchy(mapper, connection, target):
 
     while parent_id is not None and depth < MAX_HIERARCHY_DEPTH:
         parent_row = (
-            connection.execute(
-                table.select().where(table.c.id == parent_id)
-            )
-            .mappings()
-            .fetchone()
+            connection.execute(table.select().where(table.c.id == parent_id)).mappings().fetchone()
         )
 
         if parent_row is None:
             logger.debug(f"Parent id {parent_id} not found; stopping traversal.")
             break
 
-        logger.debug(
-            f"Traversing hierarchy: parent {parent_id} -> {parent_row['parent_id']}"
-        )
+        logger.debug(f"Traversing hierarchy: parent {parent_id} -> {parent_row['parent_id']}")
 
         if parent_row["id"] == target.id:
             logger.warning(

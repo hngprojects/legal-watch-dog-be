@@ -27,13 +27,9 @@ class Source(SQLModel, table=True):
 
     __tablename__ = "sources"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False
-    )
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True, nullable=False)
 
-    jurisdiction_id: uuid.UUID = Field(
-        foreign_key="jurisdictions.id", nullable=False, index=True
-    )
+    jurisdiction_id: uuid.UUID = Field(foreign_key="jurisdictions.id", nullable=False, index=True)
 
     name: str = Field(max_length=255, nullable=False)
     url: str = Field(max_length=2048, nullable=False)
@@ -44,8 +40,6 @@ class Source(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     auth_details_encrypted: Optional[str] = Field(default=None)
-    scraping_rules: Dict = Field(
-        default_factory=dict, sa_column=Column(JSON, nullable=False)
-    )
+    scraping_rules: Dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

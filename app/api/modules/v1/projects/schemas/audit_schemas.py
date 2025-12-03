@@ -1,6 +1,7 @@
 """
 Pydantic schemas for Project Audit Log API responses
 """
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -73,7 +74,9 @@ class AuditLogListResponse(BaseModel):
             }
         }
 
+
 # QUERY SCHEMAS
+
 
 class AuditLogQueryParams(BaseModel):
     """Query parameters for filtering audit logs"""
@@ -85,7 +88,9 @@ class AuditLogQueryParams(BaseModel):
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=50, ge=1, le=100)
 
+
 # STATISTICS SCHEMAS
+
 
 class AuditStatsResponse(BaseModel):
     """Statistics for audit logs (compliance reporting)"""

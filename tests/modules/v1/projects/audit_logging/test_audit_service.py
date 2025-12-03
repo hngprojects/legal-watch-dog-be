@@ -104,9 +104,9 @@ async def setup_audit_data(pg_async_session: AsyncSession):
         )
         pg_async_session.add(log)
         logs.append(log)
-    
+
     await pg_async_session.commit()
-    
+
     # Refresh all objects
     await pg_async_session.refresh(org)
     await pg_async_session.refresh(user)
@@ -129,13 +129,13 @@ async def test_get_project_audit_logs(
 ):
     """Test retrieving project audit logs."""
     project = setup_audit_data["project"]
-    
+
     logs, total = await audit_service.get_project_audit_logs(
         project_id=project.id,
         page=1,
         limit=10,
     )
-    
+
     assert total >= 3
     assert len(logs) >= 3
     for log in logs:
@@ -150,14 +150,14 @@ async def test_get_project_audit_logs_with_filter(
 ):
     """Test filtering logs by action."""
     project = setup_audit_data["project"]
-    
+
     logs, total = await audit_service.get_project_audit_logs(
         project_id=project.id,
         action=AuditAction.PROJECT_CREATED,
         page=1,
         limit=10,
     )
-    
+
     assert total >= 1
     for log in logs:
         assert log.action == AuditAction.PROJECT_CREATED
@@ -170,13 +170,13 @@ async def test_get_organization_audit_logs(
 ):
     """Test retrieving organization-wide logs."""
     org = setup_audit_data["org"]
-    
+
     logs, total = await audit_service.get_organization_audit_logs(
         org_id=org.id,
         page=1,
         limit=100,
     )
-    
+
     assert total >= 3
     for log in logs:
         assert log.org_id == org.id
@@ -190,12 +190,12 @@ async def test_get_audit_log_by_id(
     """Test retrieving specific log by ID."""
     org = setup_audit_data["org"]
     log_id = setup_audit_data["logs"][0].log_id
-    
+
     log = await audit_service.get_audit_log_by_id(
         log_id=log_id,
         org_id=org.id,
     )
-    
+
     assert log is not None
     assert log.log_id == log_id
 
@@ -207,11 +207,11 @@ async def test_get_audit_statistics(
 ):
     """Test audit statistics generation."""
     org = setup_audit_data["org"]
-    
+
     stats = await audit_service.get_audit_statistics(
         org_id=org.id,
     )
-    
+
     assert stats.total_logs >= 3
     assert isinstance(stats.by_action, dict)
     assert isinstance(stats.by_user, dict)
@@ -226,7 +226,7 @@ async def test_log_project_created(
     org = setup_audit_data["org"]
     user = setup_audit_data["user"]
     project = setup_audit_data["project"]
-    
+
     log = await audit_service.log_project_created(
         project_id=project.id,
         org_id=org.id,
@@ -234,7 +234,7 @@ async def test_log_project_created(
         details={"title": "New Project"},
         ip_address="10.0.0.1",
     )
-    
+
     assert log is not None
     assert log.action == AuditAction.PROJECT_CREATED
 
@@ -248,14 +248,14 @@ async def test_log_project_updated(
     org = setup_audit_data["org"]
     user = setup_audit_data["user"]
     project = setup_audit_data["project"]
-    
+
     log = await audit_service.log_project_updated(
         project_id=project.id,
         org_id=org.id,
         user_id=user.id,
         changes={"title": {"old": "A", "new": "B"}},
     )
-    
+
     assert log is not None
     assert log.action == AuditAction.PROJECT_UPDATED
 
@@ -269,13 +269,13 @@ async def test_log_project_deleted(
     org = setup_audit_data["org"]
     user = setup_audit_data["user"]
     project = setup_audit_data["project"]
-    
+
     log = await audit_service.log_project_deleted(
         project_id=project.id,
         org_id=org.id,
         user_id=user.id,
         details={"title": "Deleted", "deletion_type": "soft"},
     )
-    
+
     assert log is not None
     assert log.action == AuditAction.PROJECT_DELETED
