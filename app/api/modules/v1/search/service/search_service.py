@@ -26,12 +26,13 @@ class SearchService:
         """
         self.db = db
 
-    async def search(self, search_request: SearchRequest) -> SearchResponse:
+    async def search(self, search_request: SearchRequest, org_id: str = None) -> SearchResponse:
         """
         Perform full-text search on data revisions.
 
         Args:
             search_request: Search parameters including query, filters, and pagination
+            org_id: Optional organization ID to enforce multi-tenant isolation
 
         Returns:
             SearchResponse: Paginated search results with relevance scores
@@ -47,11 +48,16 @@ class SearchService:
             relevance_score_col,
         ).filter(DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery)))
 
+        if org_id:
+            statement = statement.filter(DataRevision.organization_id == org_id)
+
         statement = self._apply_filters(statement, search_request)
 
         count_statement = select(func.count()).filter(
             DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery))
         )
+        if org_id:
+            count_statement = count_statement.filter(DataRevision.organization_id == org_id)
         count_statement = self._apply_filters(count_statement, search_request)
         count_result = await self.db.execute(count_statement)
         total_count_value = count_result.scalar()
