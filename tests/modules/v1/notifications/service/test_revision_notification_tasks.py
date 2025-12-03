@@ -26,10 +26,7 @@ async def test_send_revision_notifications_creates_and_sends_email():
             "app.api.modules.v1.notifications.service.revision_notification_task.AsyncSessionLocal",
             return_value=mock_ctx,
         ),
-        patch(
-            "app.api.modules.v1.notifications.service.revision_notification_task.engine",
-            new=MagicMock(dispose=AsyncMock()),
-        ),
+       
     ):
         mock_revision = MagicMock()
         mock_revision.id = revision_id
@@ -94,10 +91,7 @@ async def test_send_revision_notifications_skips_already_sent():
             "app.api.modules.v1.notifications.service.revision_notification_task.AsyncSessionLocal",
             return_value=mock_ctx,
         ),
-        patch(
-            "app.api.modules.v1.notifications.service.revision_notification_task.engine",
-            new=MagicMock(dispose=AsyncMock()),
-        ),
+      
     ):
         mock_revision = MagicMock(source_id=uuid.uuid4())
         mock_source = MagicMock(jurisdiction_id=uuid.uuid4())
