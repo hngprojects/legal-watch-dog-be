@@ -95,8 +95,6 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
             request=request,
             access_token=result["access_token"],
             refresh_token=result["refresh_token"],
-            access_token_max_age=172800,
-            refresh_token_max_age=2592000,
         )
 
         return response
