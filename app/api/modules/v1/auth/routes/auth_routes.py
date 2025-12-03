@@ -2,7 +2,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +39,7 @@ from app.api.modules.v1.organization.service.invitation_service import Invitatio
 from app.api.modules.v1.organization.service.user_organization_service import UserOrganizationCRUD
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.users.service.role import RoleCRUD
+from app.api.modules.v1.users.service.user import UserCRUD
 from app.api.utils.response_payloads import (
     error_response,
     success_response,
@@ -328,37 +330,42 @@ request_new_otp._custom_success = request_new_otp_custom_success
 )
 async def accept_invitation(
     token: str,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
 ):
     """
     Accept an organization invitation.
 
-    This endpoint requires authentication and validates that the authenticated user's
-    email matches the invitation's invited_email to prevent unauthorized access.
+    This endpoint handles invitation acceptance for both registered and unregistered users:
+    - Registered & authenticated users: Validates email match and adds to organization
+    - Unregistered users or unauthenticated: Redirects to registration page with token
 
-    Users must be registered and logged in to accept invitations. If a user receives
-    an invitation but doesn't have an account yet, they should register first, then
-    log in and accept the invitation.
+    SECURITY: For authenticated users, validates that their email matches the invitation's
+    invited_email to prevent unauthorized access.
 
     Args:
         token: The unique invitation token.
-        current_user: The authenticated user (from JWT token).
         db: Database session dependency.
+        current_user: The authenticated user (optional, from JWT token if provided).
 
     Returns:
-        dict: Success response (200) with organization details when accepted successfully.
+        dict: Success response (200) for authenticated users with organization details
+        RedirectResponse: Redirect (302) for unauthenticated users to signup page
 
     Raises:
         HTTPException:
-            - 401: Unauthorized (missing or invalid JWT token)
             - 400: Bad request (general validation errors)
-            - 403: Forbidden (email mismatch - user trying to accept someone else's invitation)
+            - 403: Forbidden (authenticated user's email doesn't match invitation)
             - 404: Not found (invalid invitation token)
             - 410: Gone (expired invitation)
             - 500: Internal server error (unexpected errors)
     """
     try:
+        try:
+            user_from_token = current_user
+        except HTTPException:
+            user_from_token = None
+
         invitation = await InvitationCRUD.get_invitation_by_token(db, token)
         if not invitation:
             raise ValueError("Invitation not found or invalid.")
@@ -373,59 +380,71 @@ async def accept_invitation(
             await db.commit()
             raise ValueError("Invitation has expired.")
 
-        if current_user.email.lower() != invitation.invited_email.lower():
-            logger.warning(
-                f"Unauthorized invitation acceptance attempt: user={current_user.email}, "
-                f"invited={invitation.invited_email}, token={token}"
-            )
-            raise ValueError(
-                "This invitation was sent to a different email address. "
-                "You can only accept invitations sent to your email."
-            )
+        user = await UserCRUD.get_by_email(db, invitation.invited_email)
 
-        existing_membership = await UserOrganizationCRUD.get_user_organization(
-            db, current_user.id, invitation.organization_id
-        )
-        if existing_membership:
+        if user and user_from_token:
+            if user_from_token.email.lower() != invitation.invited_email.lower():
+                logger.warning(
+                    f"Unauthorized invitation acceptance attempt: user={user_from_token.email}, "
+                    f"invited={invitation.invited_email}, token={token}"
+                )
+                raise ValueError(
+                    "This invitation was sent to a different email address. "
+                    "You can only accept invitations sent to your email."
+                )
+
+            existing_membership = await UserOrganizationCRUD.get_user_organization(
+                db, user_from_token.id, invitation.organization_id
+            )
+            if existing_membership:
+                await InvitationCRUD.update_invitation_status(
+                    db, invitation.id, InvitationStatus.ACCEPTED
+                )
+                await db.commit()
+                return success_response(
+                    status_code=status.HTTP_200_OK,
+                    message="You are already a member of this organization. Invitation accepted.",
+                    data={"organization_id": str(invitation.organization_id)},
+                )
+
+            role_id = invitation.role_id
+            if not role_id:
+                default_role = await RoleCRUD.get_default_user_role(db, invitation.organization_id)
+                role_id = default_role.id
+
+            await UserOrganizationCRUD.add_user_to_organization(
+                db=db,
+                user_id=user_from_token.id,
+                organization_id=invitation.organization_id,
+                role_id=role_id,
+                is_active=True,
+            )
             await InvitationCRUD.update_invitation_status(
                 db, invitation.id, InvitationStatus.ACCEPTED
             )
             await db.commit()
-            return success_response(
-                status_code=status.HTTP_200_OK,
-                message="You are already a member of this organization. Invitation accepted.",
-                data={"organization_id": str(invitation.organization_id)},
+
+            logger.info(
+                f"Invitation accepted: user={user_from_token.email}, "
+                f"org_id={invitation.organization_id}, token={token}"
             )
 
-        role_id = invitation.role_id
-        if not role_id:
-            default_role = await RoleCRUD.get_default_user_role(db, invitation.organization_id)
-            role_id = default_role.id
-
-        await UserOrganizationCRUD.add_user_to_organization(
-            db=db,
-            user_id=current_user.id,
-            organization_id=invitation.organization_id,
-            role_id=role_id,
-            is_active=True,
-        )
-        await InvitationCRUD.update_invitation_status(db, invitation.id, InvitationStatus.ACCEPTED)
-        await db.commit()
-
-        logger.info(
-            f"Invitation accepted: user={current_user.email}, "
-            f"org_id={invitation.organization_id}, token={token}"
-        )
-
-        return success_response(
-            status_code=status.HTTP_200_OK,
-            message="Invitation accepted. You have been added to the organization.",
-            data={
-                "organization_id": str(invitation.organization_id),
-                "organization_name": invitation.organization_name,
-                "role_name": invitation.role_name,
-            },
-        )
+            return success_response(
+                status_code=status.HTTP_302_FOUND,
+                message="Invitation accepted. You have been added to the organization.",
+                data={
+                    "organization_id": str(invitation.organization_id),
+                    "organization_name": invitation.organization_name,
+                    "role_name": invitation.role_name,
+                },
+            )
+        else:
+            registration_url = f"{settings.APP_URL}/signup?token={token}"
+            logger.info(
+                "Unregistered/unauthenticated user for invitation. "
+                f"Redirecting to: {registration_url}"
+            )
+            return RedirectResponse(url=registration_url, status_code=status.HTTP_302_FOUND)
 
     except ValueError as e:
         logger.warning(f"Invitation acceptance failed for token={token}: {str(e)}")
