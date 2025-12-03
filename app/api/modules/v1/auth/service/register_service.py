@@ -100,9 +100,7 @@ class RegistrationService:
                 ttl_seconds=settings.REDIS_REGISTER_TTL,
             )
 
-            await self._send_otp_email(
-                payload.email, otp_code, background_tasks, settings.REDIS_REGISTER_TTL
-            )
+            await self._send_otp_email(payload.email, otp_code, background_tasks)
 
             logger.info("Successfully initiated user registration for email=%s", payload.email)
 
@@ -226,11 +224,7 @@ class RegistrationService:
             raise Exception("An error occurred during registration completion. Please try again.")
 
     async def _send_otp_email(
-        self,
-        email: str,
-        otp_code: str,
-        background_tasks: BackgroundTasks,
-        expiry_seconds: Optional[int] = None,
+        self, email: str, otp_code: str, background_tasks: BackgroundTasks
     ) -> None:
         """
         Send OTP verification email to user.
@@ -243,13 +237,9 @@ class RegistrationService:
             otp_code: Generated OTP code to send
             background_tasks: background tasks handler for async sending
         """
-        expiry_seconds = expiry_seconds or settings.REDIS_REGISTER_TTL
-        otp_expiry_minutes = expiry_seconds // 60
-
         context = {
             "email": email,
             "otp": otp_code,
-            "otp_expiry_minutes": otp_expiry_minutes,
         }
 
         background_tasks.add_task(send_email, "otp.html", "OTP for Registration", email, context)
@@ -301,7 +291,7 @@ class RegistrationService:
                 ttl_seconds=settings.REDIS_RESEND_TTL,
             )
 
-            await self._send_otp_email(email, otp_code, background_tasks, settings.REDIS_RESEND_TTL)
+            await self._send_otp_email(email, otp_code, background_tasks)
 
             logger.info("Resent OTP successfully for email=%s", email)
 

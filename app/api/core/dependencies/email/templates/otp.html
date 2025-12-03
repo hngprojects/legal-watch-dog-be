@@ -8,6 +8,39 @@ OTP for Registration - Legal Watchdog
 Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Legal WatchDog") }}.
 {% endblock %}
 
+{% block header %}
+<tr>
+  <td>
+    <div
+      style="
+        text-align: center;
+        padding: 42px 28px;
+        margin-bottom: 30px;
+      "
+    >
+    <img
+        src="{{ APP_URL }}/static/email/template-icons/logo.png"
+        alt="Legal WatchDog logo"
+        style="width: 60px; display: inline-block; vertical-align: middle;"
+      />
+      <p
+        style="
+          margin: 0;
+          margin-left: 10px;
+          font-size: 30px;
+          font-weight: 700;
+          color: #401903;
+          line-height: 38px;
+          display: inline-block;
+          vertical-align: middle;
+        "
+      >
+        WatchDog
+      </p>
+    </div>
+  </td>
+</tr>
+{% endblock %}
 
 {% block content_body %}
 <tr>
@@ -48,7 +81,7 @@ Your OTP is {{ reset_code | default("234 567") }} for {{ APP_NAME | default("Leg
       <tr>
         <td style="padding-bottom: 16px;">
           <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
-            This code will expire in {{ otp_expiry_minutes }} minutes.<br><br>
+            This code will expire in {{ otp_expiry_minutes | default(16)  }} minutes.<br><br>
             If you did not request this, please ignore this email.
           </p>
         </td>
