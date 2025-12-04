@@ -10,7 +10,7 @@ from app.api.utils.key_utils import generate_raw_key, hash_key
 
 class ApiKeyService:
     @staticmethod
-    async def create_api_key(db: AsyncSession, organization_id, description=None):
+    async def create_api_key(db: AsyncSession, organization_id: "UUID", description: "Optional[str]" = None):
         raw_key = generate_raw_key()
         key_hash = hash_key(raw_key)
 
