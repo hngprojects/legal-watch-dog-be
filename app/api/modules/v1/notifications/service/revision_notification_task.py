@@ -13,6 +13,7 @@ from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdict
 from app.api.modules.v1.notifications.models.revision_notification import (
     Notification,
     NotificationStatus,
+    NotificationType,
 )
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
@@ -91,6 +92,11 @@ async def send_revision_notifications(revision_id: str):
             notifications_skipped = 0
             notifications_failed = 0
 
+            notification_title = f"New Change Detected: {source.name}"
+            notification_message = (
+                revision.ai_summary or "A new revision was detected for this source."
+            )
+
             for user_id in user_ids:
                 user_result = await session.execute(select(User).where(User.id == user_id))
                 user = user_result.scalar_one_or_none()
@@ -132,7 +138,12 @@ async def send_revision_notifications(revision_id: str):
                     notification = Notification(
                         revision_id=revision_uuid,
                         user_id=user.id,
-                        message=revision.ai_summary or "New revision available",
+                        notification_type=NotificationType.CHANGE_DETECTED,
+                        title=notification_title,
+                        message=notification_message,
+                        source_id=source.id,
+                        jurisdiction_id=jurisdiction.id,
+                        organization_id=getattr(project, "organization_id", None),
                         status=NotificationStatus.PENDING,
                         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     )
@@ -146,7 +157,8 @@ async def send_revision_notifications(revision_id: str):
                 email_context = {
                     "user_name": user.name or getattr(user, "username", "User"),
                     "ai_summary": revision.ai_summary,
-                    "subject": "New Revision Available",
+                    "source_name": source.name,
+                    "subject": notification_title,
                 }
                 try:
                     success = await send_email(

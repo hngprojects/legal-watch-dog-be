@@ -158,10 +158,10 @@ class GoogleOAuthService:
 
         Returns:
             Dictionary with:
-                - access_token: JWT access token (15 min expiry)
+                - access_token: JWT access token (2 day expiry)
                 - refresh_token: JWT refresh token (30 day expiry)
                 - token_type: "bearer"
-                - expires_in: Access token expiry in seconds (900)
+                - expires_in: Access token expiry in seconds (172800)
                 - user: User profile object
                 - is_new_user: Whether user was just created
 
@@ -265,7 +265,7 @@ class GoogleOAuthService:
                 "access_token": tokens["access_token"],
                 "refresh_token": tokens["refresh_token"],
                 "token_type": "bearer",
-                "expires_in": 900,
+                "expires_in": 172800,
                 "user": user,
                 "is_new_user": is_new_user,
             }
@@ -355,7 +355,7 @@ class GoogleOAuthService:
             user_id=str(user.id),
             organization_id=None,
             role_id=None,
-            expires_delta=timedelta(minutes=15),
+            expires_delta=timedelta(days=2),
         )
 
         refresh_token = create_access_token(
