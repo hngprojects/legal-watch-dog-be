@@ -26,12 +26,13 @@ class SearchService:
         """
         self.db = db
 
-    async def search(self, search_request: SearchRequest) -> SearchResponse:
+    async def search(self, search_request: SearchRequest, org_id: str = None) -> SearchResponse:
         """
         Perform full-text search on data revisions.
 
         Args:
             search_request: Search parameters including query, filters, and pagination
+            org_id: Optional organization ID to enforce multi-tenant isolation
 
         Returns:
             SearchResponse: Paginated search results with relevance scores
@@ -42,22 +43,25 @@ class SearchService:
             DataRevision.search_vector, to_tsquery("english", tsquery)
         ).label("relevance_score")
 
-        statement = select(
-            DataRevision,
-            relevance_score_col,
-        ).filter(DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery)))
+        base_filters = [
+            DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery)),
+        ]
+
+        if org_id:
+            base_filters.append(DataRevision.organization_id == org_id)
+
+        statement = select(DataRevision, relevance_score_col).filter(*base_filters)
 
         statement = self._apply_filters(statement, search_request)
 
-        count_statement = select(func.count()).filter(
-            DataRevision.search_vector.op("@@")(to_tsquery("english", tsquery))
-        )
+        count_statement = select(func.count()).select_from(DataRevision).filter(*base_filters)
+
         count_statement = self._apply_filters(count_statement, search_request)
+
         count_result = await self.db.execute(count_statement)
         total_count_value = count_result.scalar()
         total_count = total_count_value if total_count_value is not None else 0
 
-        # Calculate pagination
         offset = (search_request.page - 1) * search_request.limit
         total_pages = (total_count + search_request.limit - 1) // search_request.limit
 
@@ -67,6 +71,7 @@ class SearchService:
             .offset(offset)
             .limit(search_request.limit)
         )
+
         results_result = await self.db.execute(statement)
         results = results_result.all()
 
