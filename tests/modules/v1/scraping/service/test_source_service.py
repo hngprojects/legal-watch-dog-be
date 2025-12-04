@@ -58,11 +58,11 @@ def sample_jurisdiction(sample_project, sample_jurisdiction_id):
 def configure_prompt_validation(sample_jurisdiction, sample_project):
     """Configure AsyncSession.get to satisfy prompt validation requirements."""
 
-    def _configure(mock_db, *, jurisdiction=None, project=None, repeats: int = 1):
+    def _configure(mock_db, *, jurisdiction=None, project=None, validation_calls: int = 1):
         jurisdiction_obj = jurisdiction or sample_jurisdiction
         project_obj = project or sample_project
         side_effect = []
-        for _ in range(repeats):
+        for _ in range(validation_calls):
             side_effect.extend([jurisdiction_obj, project_obj])
 
         mock_db.get = AsyncMock(side_effect=side_effect)
@@ -630,8 +630,8 @@ class TestSourceServiceBulkCreate:
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
-        unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
-        configure_prompt_validation(mock_db, repeats=unique_ids)
+        unique_jurisdiction_count = len({source.jurisdiction_id for source in sample_bulk_sources})
+        configure_prompt_validation(mock_db, repeats=unique_jurisdiction_count)
 
         # Mock execute to return empty list (no existing URLs)
         async def mock_execute(query):

@@ -513,7 +513,7 @@ class SourceService:
             jurisdiction_id (uuid.UUID): Jurisdiction identifier associated with the source.
 
         Returns:
-            None: The method raises an exception when validation fails and returns None otherwise.
+            None
 
         Raises:
             HTTPException: 404 if jurisdiction or project cannot be located.
