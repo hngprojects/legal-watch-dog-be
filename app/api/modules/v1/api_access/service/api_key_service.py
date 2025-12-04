@@ -17,7 +17,7 @@ class ApiKeyService:
         model = ApiKey(key_hash=key_hash, organization_id=organization_id, description=description)
 
         db.add(model)
-        await db.commit()
+        await db.flush()
         await db.refresh(model)
 
         return {"raw_key": raw_key, "api_key": model}
