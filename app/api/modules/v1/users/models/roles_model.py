@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
+from sqlalchemy import Column, DateTime, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -30,7 +31,19 @@ class Role(SQLModel, table=True):
 
     permissions: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default="{}"),
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+
+    hierarchy_level: int = Field(
+        default=1, ge=1, le=10, description="Role hierarchy level (1=lowest, 10=highest)"
+    )
+
+    template_name: Optional[str] = Field(
+        default=None, max_length=50, description="Name of template used to create this role"
+    )
+
+    is_custom: bool = Field(
+        default=False, description="Whether this is a custom role or system role"
     )
 
     created_at: datetime = Field(
