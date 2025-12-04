@@ -6,6 +6,7 @@ from sqlmodel import Field, SQLModel
 
 
 class ApiKey(SQLModel, table=True):
+    __tablename__ = "api_keys"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     key_hash: str = Field(index=True, unique=True)
 
