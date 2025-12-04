@@ -46,6 +46,11 @@ from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     update_source_patch_responses,
     update_source_responses,
 )
+from app.api.modules.v1.scraping.schemas.baseline_schema import (
+    BaselineAcceptanceRequest,
+    BaselineHistoryResponse,
+    BaselineResponse,
+)
 from app.api.modules.v1.scraping.schemas.data_revision_schema import (
     DataRevisionResponse,
     PaginatedRevisions,
@@ -539,7 +544,11 @@ async def manual_scrape_trigger(
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Scrape executed successfully",
-            data={"source_id": str(source.id), "status": "COMPLETED", "result": scrape_result},
+            data={
+                "source_id": str(source.id),
+                "status": "COMPLETED",
+                "result": scrape_result,
+            },
         )
 
     except Exception as e:
@@ -554,3 +563,68 @@ async def manual_scrape_trigger(
 
 manual_scrape_trigger._custom_errors = manual_scrape_trigger_custom_errors
 manual_scrape_trigger._custom_success = manual_scrape_trigger_custom_success
+
+
+@router.post(
+    "/revisions/{revision_id}/accept-baseline",
+    status_code=status.HTTP_200_OK,
+    response_model=BaselineResponse,
+)
+async def accept_baseline(
+    revision_id: uuid.UUID,
+    request: BaselineAcceptanceRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mark a specific revision as the accepted baseline for its source.
+    This will unset any previously accepted baseline for the same source.
+    """
+    source_service = SourceService()
+    return await source_service.accept_revision_as_baseline(
+        db, revision_id, request, current_user.id
+    )
+
+
+@router.get(
+    "/{source_id}/baseline",
+    status_code=status.HTTP_200_OK,
+    response_model=Optional[BaselineResponse],
+)
+async def get_source_baseline(
+    source_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve the currently accepted baseline for a source.
+    Returns null if no baseline has been accepted.
+    """
+    source_service = SourceService()
+    return await source_service.get_current_baseline(db, source_id)
+
+
+@router.get(
+    "/{source_id}/baseline-history",
+    status_code=status.HTTP_200_OK,
+    response_model=BaselineHistoryResponse,
+)
+async def get_baseline_history(
+    source_id: uuid.UUID,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve history of accepted baselines for a source.
+    """
+    source_service = SourceService()
+    history, total = await source_service.get_baseline_history(db, source_id, skip, limit)
+
+    return BaselineHistoryResponse(
+        revisions=history,
+        total=total,
+        page=(skip // limit) + 1,
+        limit=limit,
+    )

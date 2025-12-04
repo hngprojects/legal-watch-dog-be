@@ -38,7 +38,6 @@ class DataRevision(SQLModel, table=True):
     baseline_accepted_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
     baseline_notes: Optional[str] = Field(default=None, max_length=500)
 
-
     search_vector: Optional[str] = Field(
         default=None, sa_column=Column(TSVECTOR, nullable=True, server_default=text("NULL"))
     )
@@ -47,4 +46,3 @@ class DataRevision(SQLModel, table=True):
         Index("idx_data_revisions_search_vector", "search_vector", postgresql_using="gin"),
         Index("idx_data_revisions_source_baseline", "source_id", "is_baseline"),
     )
-

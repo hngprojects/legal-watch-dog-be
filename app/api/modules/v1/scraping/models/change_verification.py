@@ -27,18 +27,15 @@ class ChangeVerification(SQLModel, table=True):
     change_diff_id: UUID = Field(foreign_key="change_diff.diff_id", index=True)
     verified_by: UUID = Field(foreign_key="users.id")
     is_false_positive: bool = Field(
-        default=False,
-        description="True if the detected change was not meaningful"
+        default=False, description="True if the detected change was not meaningful"
     )
     feedback_reason: Optional[str] = Field(
-        default=None,
-        max_length=500,
-        description="User's explanation for the verification decision"
+        default=None, max_length=500, description="User's explanation for the verification decision"
     )
     suppression_rule_id: Optional[UUID] = Field(
         default=None,
         foreign_key="suppression_rules.id",
-        description="Link to suppression rule created from this feedback"
+        description="Link to suppression rule created from this feedback",
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)

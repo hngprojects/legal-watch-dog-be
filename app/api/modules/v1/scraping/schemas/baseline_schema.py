@@ -13,9 +13,7 @@ class BaselineAcceptanceRequest(BaseModel):
     """Request schema for accepting a revision as baseline."""
 
     notes: Optional[str] = Field(
-        None,
-        max_length=500,
-        description="Optional notes explaining why this baseline was accepted"
+        None, max_length=500, description="Optional notes explaining why this baseline was accepted"
     )
 
 
