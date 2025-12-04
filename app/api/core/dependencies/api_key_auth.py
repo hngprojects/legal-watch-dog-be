@@ -9,7 +9,7 @@ from app.api.modules.v1.api_access.service.api_key_service import ApiKeyService
 from app.api.utils.key_utils import hash_key
 
 
-async def require_api_key(x_api_key: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def require_api_key(x_api_key: str = Header(None, alias="X-API-Key"), db: AsyncSession = Depends(get_db)):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API key")
 
