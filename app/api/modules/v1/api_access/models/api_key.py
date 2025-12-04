@@ -10,7 +10,7 @@ class ApiKey(SQLModel, table=True):
     key_hash: str = Field(index=True, unique=True)
 
     # The organization this key belongs to
-    organization_id: UUID
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
 
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
