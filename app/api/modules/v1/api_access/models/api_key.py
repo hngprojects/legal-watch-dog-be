@@ -1,8 +1,8 @@
-
-from uuid import uuid4, UUID
-from datetime import datetime,timezone
+from datetime import datetime, timezone
 from typing import Optional
-from sqlmodel import SQLModel, Field
+from uuid import UUID, uuid4
+
+from sqlmodel import Field, SQLModel
 
 
 class ApiKey(SQLModel, table=True):
@@ -13,7 +13,7 @@ class ApiKey(SQLModel, table=True):
     organization_id: UUID
 
     is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     description: Optional[str] = None
