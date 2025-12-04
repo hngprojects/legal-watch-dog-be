@@ -186,6 +186,7 @@ async def send_revision_notifications(revision_id: str):
                         title=notification_title,
                         message=notification_message,
                         source_id=source.id,
+                        jurisdiction_id=jurisdiction.id,
                         organization_id=getattr(project, "organization_id", None),
                         status=NotificationStatus.PENDING,
                         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
