@@ -19,6 +19,7 @@ class NotificationBase(BaseModel):
 
     revision_id: Optional[uuid.UUID] = None
     source_id: Optional[uuid.UUID] = None
+    jurisdiction_id: Optional[uuid.UUID] = None
     organization_id: Optional[uuid.UUID] = None
     change_diff_id: Optional[uuid.UUID] = None
 

@@ -24,6 +24,7 @@ get_notifications_responses = {
                                         "change_diff_id": "456e7890-e12b-34d5-a678-426614174000",
                                         "action_url": "https://dashboard.example.com/notifications/123e4567-e89b-12d3-a456-426614174000",
                                         "source_id": "789e0123-e45b-67d8-a901-426614174000",
+                                        "jurisdiction_id": "789e0123-e45b-67d8-a901-426614174000",
                                         "created_at": "2024-01-15T10:30:00Z",
                                         "updated_at": "2024-01-15T10:30:00Z",
                                     }
@@ -156,6 +157,7 @@ get_notification_responses = {
                                 "change_diff_id": "456e7890-e12b-34d5-a678-426614174000",
                                 "action_url": "https://dashboard.example.com/notifications/123e4567-e89b-12d3-a456-426614174000",
                                 "source_id": "789e0123-e45b-67d8-a901-426614174000",
+                                "jurisdiction_id": "789e0123-e45b-67d8-a901-426614174000",
                                 "created_at": "2024-01-15T10:30:00Z",
                                 "updated_at": "2024-01-15T10:30:00Z",
                             },
@@ -432,6 +434,7 @@ update_notification_responses = {
                                 "change_diff_id": "456e7890-e12b-34d5-a678-426614174000",
                                 "action_url": "https://dashboard.example.com/notifications/123e4567-e89b-12d3-a456-426614174000",
                                 "source_id": "789e0123-e45b-67d8-a901-426614174000",
+                                "jurisdiction_id": "789e0123-e45b-67d8-a901-426614174000",
                                 "created_at": "2024-01-15T10:30:00Z",
                                 "updated_at": "2024-01-15T10:30:00Z",
                             },

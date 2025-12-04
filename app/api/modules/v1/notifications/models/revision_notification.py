@@ -93,6 +93,13 @@ class Notification(SQLModel, table=True):
         description="Link to organization if applicable",
     )
 
+    jurisdiction_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="jurisdictions.id",
+        index=True,
+        description="Link to jurisdiction if applicable",
+    )
+
     change_diff_id: Optional[uuid.UUID] = Field(
         default=None,
         foreign_key="change_diff.diff_id",
