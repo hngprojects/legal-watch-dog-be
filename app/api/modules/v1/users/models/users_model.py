@@ -61,7 +61,7 @@ class User(SQLModel, table=True):
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    
+
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
