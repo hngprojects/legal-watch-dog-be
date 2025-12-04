@@ -40,6 +40,7 @@ if config.config_file_name is not None:
 # This ensures migrations use the same database as your application
 if hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
     db_url = settings.DATABASE_URL
+    db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 elif settings.DB_TYPE == "postgresql":
     db_url = (
         f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
