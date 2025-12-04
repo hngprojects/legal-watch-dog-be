@@ -168,6 +168,13 @@ def pg_sync_session():
     if not settings.DATABASE_URL:
         pytest.skip("Postgres DB not configured for tests")
 
+    if "watchdog_test" not in settings.DATABASE_URL:
+        raise ValueError(
+            f"❌ SAFETY CHECK FAILED: Test fixture will only connect to 'watchdog_test' database. "
+            f"Current DATABASE_URL: {settings.DATABASE_URL}. "
+            f"Please verify your environment configuration."
+        )
+
     # Convert async URL to sync URL for sync engine
     sync_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     engine = create_engine(sync_url, echo=False)
@@ -194,16 +201,27 @@ async def pg_async_session():
     """
     Provide an async PostgreSQL session using `asyncpg`. This fixture creates and
     tears down tables for tests that require an async session.
-    Uses configuration from .env.test file.
+    Uses configuration from DATABASE_URL or individual env vars.
     """
-    test_db_user = config("DB_USER", default="postgres")
-    test_db_pass = config("DB_PASS", default="password")
-    test_db_host = config("DB_HOST", default="localhost")
-    test_db_port = config("DB_PORT", default=5432, cast=int)
-    test_db_name = config("DB_NAME", default="watchdog_test")
-    test_db_url = (
-        f"postgresql://{test_db_user}:{test_db_pass}@{test_db_host}:{test_db_port}/{test_db_name}"
-    )
+    database_url = config("DATABASE_URL", default="")
+
+    if database_url and "postgresql" in database_url:
+        test_db_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    else:
+        test_db_user = config("DB_USER", default="postgres")
+        test_db_pass = config("DB_PASS", default="password")
+        test_db_host = config("DB_HOST", default="localhost")
+        test_db_port = config("DB_PORT", default=5432, cast=int)
+        test_db_name = config("DB_NAME", default="watchdog_test")
+        test_db_url = f"postgresql://{test_db_user}:{test_db_pass}@{test_db_host}:{test_db_port}/{test_db_name}"
+
+    if "watchdog_test" not in test_db_url:
+        raise ValueError(
+            f"❌ SAFETY CHECK FAILED: Test fixture will only connect to 'watchdog_test' database. "
+            f"Current URL points to: {test_db_url}. "
+            f"Please verify your DATABASE_URL or DB_NAME environment variable."
+        )
+
     # convert sync URL to asyncpg format
     async_url = test_db_url.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_url, echo=False)
