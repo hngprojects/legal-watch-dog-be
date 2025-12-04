@@ -320,121 +320,112 @@ async def mock_celery_scraper_worker():
 
     async with AsyncSessionLocal() as db_session:
         try:
-            # Mock aiosmtplib.send to prevent actual email sending
-            with patch("aiosmtplib.send", new_callable=AsyncMock) as mock_smtp:
-                mock_smtp.return_value = None
+            # Using real SMTP configuration from .env
+            print("[INFO] Using real SMTP configuration for email delivery")
 
-                # Create test data and mock source
-                source, _, _, _, user = await create_test_entities(db_session, initial_mock_html)
-                source_id = str(source.id)
-                user_id = str(user.id)
-                print()
+            # Create test data and mock source
+            source, _, _, _, user = await create_test_entities(db_session, initial_mock_html)
+            source_id = str(source.id)
+            user_id = str(user.id)
+            print()
 
-                # --- RUN 1: Initial Scrape (Mock April 2025) ---
-                print("-" * 80)
-                print("[RUN 1] Initial Extraction (April 2025 Rates)")
-                print("-" * 80)
-                revision1 = await run_single_scrape(
-                    db_session, source_id, scrape_num=1, timeout=60.0
-                )
-                if not revision1:
-                    return False
+            # --- RUN 1: Initial Scrape (Mock April 2025) ---
+            print("-" * 80)
+            print("[RUN 1] Initial Extraction (April 2025 Rates)")
+            print("-" * 80)
+            revision1 = await run_single_scrape(
+                db_session, source_id, scrape_num=1, timeout=60.0
+            )
+            if not revision1:
+                return False
 
-                # --- VALIDATION 1 ---
-                initial_check_ok = revision1.was_change_detected
-                if initial_check_ok:
-                    print("[V1 OK] Change detected in first run (as New Record).")
-                else:
-                    print("[V1 FAIL] Initial run failed to detect change.")
-                    return False
+            # --- VALIDATION 1 ---
+            initial_check_ok = revision1.was_change_detected
+            if initial_check_ok:
+                print("[V1 OK] Change detected in first run (as New Record).")
+            else:
+                print("[V1 FAIL] Initial run failed to detect change.")
+                return False
 
-                print()
+            print()
 
-                # --- UPDATE MOCK DATA FOR CHANGE (Simulate New Content) ---
-                print("-" * 80)
-                print("[UPDATE] Simulating Data Change (November 2025 Rate Increase)")
-                print("-" * 80)
+            # --- UPDATE MOCK DATA FOR CHANGE (Simulate New Content) ---
+            print("-" * 80)
+            print("[UPDATE] Simulating Data Change (November 2025 Rate Increase)")
+            print("-" * 80)
 
-                # Update the source's scraping rules with new mock HTML
-                source.scraping_rules = {
-                    "mock_html": updated_mock_html,
-                    "expected_type": "text/html",
-                }
-                db_session.add(source)
-                await db_session.commit()
-                print(f"[OK] Updated source {source_id} with new mock HTML.")
-                print()
+            # Update the source's scraping rules with new mock HTML
+            source.scraping_rules = {
+                "mock_html": updated_mock_html,
+                "expected_type": "text/html",
+            }
+            db_session.add(source)
+            await db_session.commit()
+            print(f"[OK] Updated source {source_id} with new mock HTML.")
+            print()
 
-                # --- RUN 2: Second Scrape (With Changed Data) ---
-                print("-" * 80)
-                print("[RUN 2] Second Scrape - Should Detect Changes")
-                print("-" * 80)
-                revision2 = await run_single_scrape(
-                    db_session, source_id, scrape_num=2, timeout=60.0
-                )
-                if not revision2:
-                    return False
+            # --- RUN 2: Second Scrape (With Changed Data) ---
+            print("-" * 80)
+            print("[RUN 2] Second Scrape - Should Detect Changes")
+            print("-" * 80)
+            revision2 = await run_single_scrape(
+                db_session, source_id, scrape_num=2, timeout=60.0
+            )
+            if not revision2:
+                return False
 
-                # Manually trigger notifications since Celery task is skipped in test
-                print("[TEST] Manually triggering notifications for revision:", revision2.id)
-                from app.api.modules.v1.notifications.service.revision_notification_task import send_revision_notifications
-                await send_revision_notifications(str(revision2.id))
+            # Manually trigger notifications since Celery task is skipped in test
+            print("[TEST] Manually triggering notifications for revision:", revision2.id)
+            from app.api.modules.v1.notifications.service.revision_notification_task import send_revision_notifications
+            await send_revision_notifications(str(revision2.id))
 
-                # ===== VALIDATION 2: CHANGE DETECTION =====
-                print("-" * 80)
-                print("[VALIDATION] Change Detection & Notification Results")
-                print("-" * 80)
+            # ===== VALIDATION 2: CHANGE DETECTION =====
+            print("-" * 80)
+            print("[VALIDATION] Change Detection & Notification Results")
+            print("-" * 80)
 
-                # 1. Did AI flag the change?
-                change_flag_ok = revision2.was_change_detected
-                if change_flag_ok:
-                    print("[V2 OK] AI Change Flag: Change correctly detected.")
-                else:
-                    print("[V2 FAIL] AI Change Flag: Change was NOT detected!")
+            # 1. Did AI flag the change?
+            change_flag_ok = revision2.was_change_detected
+            if change_flag_ok:
+                print("[V2 OK] AI Change Flag: Change correctly detected.")
+            else:
+                print("[V2 FAIL] AI Change Flag: Change was NOT detected!")
 
-                # 2. Was Diff Record Created?
-                diff_query = select(ChangeDiff).where(
-                    ChangeDiff.new_revision_id == revision2.id
-                )
-                diff_res = await db_session.execute(diff_query)
-                diff_record = diff_res.scalars().first()
+            # 2. Was Diff Record Created?
+            diff_query = select(ChangeDiff).where(
+                ChangeDiff.new_revision_id == revision2.id
+            )
+            diff_res = await db_session.execute(diff_query)
+            diff_record = diff_res.scalars().first()
 
-                diff_record_ok = bool(diff_record)
-                if diff_record_ok:
-                    print(f"[V2 OK] ChangeDiff Record created: {diff_record.diff_id}")
-                else:
-                    print("[V2 FAIL] ChangeDiff Record was NOT created!")
+            diff_record_ok = bool(diff_record)
+            if diff_record_ok:
+                print(f"[V2 OK] ChangeDiff Record created: {diff_record.diff_id}")
+            else:
+                print("[V2 FAIL] ChangeDiff Record was NOT created!")
 
-                # 3. Check Notifications and Email
-                print()
-                print("[CHECK] Notification Trigger & Email Validation")
-                notification_ok, email_ready = await check_notifications(
-                    db_session, user_id, source_id, str(revision2.id)
-                )
+            # 3. Check Notifications and Email
+            print()
+            print("[CHECK] Notification Trigger & Email Validation")
+            notification_ok, email_ready = await check_notifications(
+                db_session, user_id, source_id, str(revision2.id)
+            )
 
-                # 4. Verify SMTP was called for email sending
-                email_sent_ok = False
-                if mock_smtp.called:
-                    print("[V3 OK] SMTP send was triggered (email notification sent)")
-                    email_sent_ok = True
-                else:
-                    print("[V3 INFO] SMTP send not called (email may be disabled or pending)")
+            # 4. Print Comparison Data
+            print()
+            print("[CHECK] FULL AI Result JSON Comparison")
 
-                # 5. Print Comparison Data
-                print()
-                print("[CHECK] FULL AI Result JSON Comparison")
+            full_data1 = revision1.extracted_data
+            full_data2 = revision2.extracted_data
 
-                full_data1 = revision1.extracted_data
-                full_data2 = revision2.extracted_data
+            print(f"  Run 1 FULL AI RESULT (Initial):\n{json.dumps(full_data1, indent=2)}")
+            print()
+            print(f"  Run 2 FULL AI RESULT (Changed):\n{json.dumps(full_data2, indent=2)}")
+            print()
 
-                print(f"  Run 1 FULL AI RESULT (Initial):\n{json.dumps(full_data1, indent=2)}")
-                print()
-                print(f"  Run 2 FULL AI RESULT (Changed):\n{json.dumps(full_data2, indent=2)}")
-                print()
-
-                # 6. Final Summary
-                all_ok = change_flag_ok and diff_record_ok and notification_ok
-                test_passed = all_ok
+            # 5. Final Summary
+            all_ok = change_flag_ok and diff_record_ok and notification_ok
+            test_passed = all_ok
 
         except Exception as e:
             print(f"[ERROR] Test failed: {e}")
