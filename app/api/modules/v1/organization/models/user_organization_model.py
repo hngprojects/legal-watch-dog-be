@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime, UniqueConstraint
+from sqlalchemy import Column, DateTime, Index, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -80,3 +80,11 @@ class UserOrganization(SQLModel, table=True):
     )
 
     role: "Role" = Relationship(sa_relationship_kwargs={"passive_deletes": True})
+
+
+Index(
+    "ix_user_org_active_memberships",
+    UserOrganization.user_id,
+    UserOrganization.is_active,
+    postgresql_where=UserOrganization.is_deleted.is_(False),
+)

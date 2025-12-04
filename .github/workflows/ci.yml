@@ -89,6 +89,17 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+      - name: Check for multiple Alembic heads
+        run: |
+          source .venv/bin/activate
+          HEAD_COUNT=$(uv run alembic heads | grep "head" | wc -l)
+          if [ "$HEAD_COUNT" -gt 1 ]; then
+            echo "❌ Multiple Alembic heads detected!"
+            uv run alembic heads
+            exit 1
+          fi
+          echo "✔ No multiple heads detected."
+
       - name: Run database migrations
         run: |
           source .venv/bin/activate

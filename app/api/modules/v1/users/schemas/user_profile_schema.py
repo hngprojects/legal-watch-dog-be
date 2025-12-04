@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UpdateUserProfileRequest(BaseModel):
@@ -13,13 +13,14 @@ class UpdateUserProfileRequest(BaseModel):
         None, max_length=500, description="URL to user's avatar image"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Alicia Smith",
                 "avatar_url": "https://storage.example.com/avatars/user123.png",
             }
         }
+    )
 
 
 class UserProfileResponse(BaseModel):
@@ -34,8 +35,8 @@ class UserProfileResponse(BaseModel):
     created_at: str
     updated_at: str
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "email": "alicia@legalwatchdog.org",
@@ -47,3 +48,4 @@ class UserProfileResponse(BaseModel):
                 "updated_at": "2024-01-01T00:00:00Z",
             }
         }
+    )

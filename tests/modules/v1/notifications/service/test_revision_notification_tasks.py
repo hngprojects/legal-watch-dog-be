@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -25,10 +25,6 @@ async def test_send_revision_notifications_creates_and_sends_email():
         patch(
             "app.api.modules.v1.notifications.service.revision_notification_task.AsyncSessionLocal",
             return_value=mock_ctx,
-        ),
-        patch(
-            "app.api.modules.v1.notifications.service.revision_notification_task.engine",
-            new=MagicMock(dispose=AsyncMock()),
         ),
     ):
         mock_revision = MagicMock()
@@ -94,10 +90,6 @@ async def test_send_revision_notifications_skips_already_sent():
             "app.api.modules.v1.notifications.service.revision_notification_task.AsyncSessionLocal",
             return_value=mock_ctx,
         ),
-        patch(
-            "app.api.modules.v1.notifications.service.revision_notification_task.engine",
-            new=MagicMock(dispose=AsyncMock()),
-        ),
     ):
         mock_revision = MagicMock(source_id=uuid.uuid4())
         mock_source = MagicMock(jurisdiction_id=uuid.uuid4())
@@ -111,7 +103,7 @@ async def test_send_revision_notifications_skips_already_sent():
             user_id=mock_user.id,
             message="Old msg",
             status=NotificationStatus.SENT,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
         mock_session.execute.side_effect = [
