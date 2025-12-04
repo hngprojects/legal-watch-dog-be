@@ -38,13 +38,13 @@ if config.config_file_name is not None:
 
 # Override sqlalchemy.url with the URL from your application settings
 # This ensures migrations use the same database as your application
-if settings.DB_TYPE == "postgresql":
+if hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
+    db_url = settings.DATABASE_URL
+elif settings.DB_TYPE == "postgresql":
     db_url = (
         f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
         f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
     )
-elif hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
-    db_url = settings.DATABASE_URL
 else:
     db_url = f"sqlite:///{BASE_DIR}/db.sqlite3"
 
