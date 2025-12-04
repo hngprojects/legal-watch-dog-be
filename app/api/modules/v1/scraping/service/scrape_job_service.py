@@ -9,7 +9,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.db.database import AsyncSessionLocal

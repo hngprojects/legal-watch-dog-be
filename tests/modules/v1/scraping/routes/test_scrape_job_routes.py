@@ -10,13 +10,13 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 
 from app.api.core.dependencies.auth import get_current_user
-from app.api.modules.v1.scraping.service.scrape_job_service import ScrapeJobService
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
 from app.api.modules.v1.scraping.models.source_model import Source, SourceType
+from app.api.modules.v1.scraping.service.scrape_job_service import ScrapeJobService
 from app.api.modules.v1.users.models.users_model import User
 from main import app
 
@@ -641,10 +641,6 @@ class TestBackgroundScrapeTask:
         """Test that background task updates job to COMPLETED on success."""
         from sqlmodel import select
 
-        from app.api.modules.v1.scraping.service.scrape_job_service import (
-            ScrapeJobService,
-        )
-
         job = ScrapeJob(
             id=uuid.uuid4(),
             source_id=sample_source.id,
@@ -692,10 +688,6 @@ class TestBackgroundScrapeTask:
         """Test that background task updates job to FAILED on scrape error."""
         from sqlmodel import select
 
-        from app.api.modules.v1.scraping.service.scrape_job_service import (
-            ScrapeJobService,
-        )
-
         job = ScrapeJob(
             id=uuid.uuid4(),
             source_id=sample_source.id,
@@ -737,9 +729,6 @@ class TestBackgroundScrapeTask:
     @pytest.mark.asyncio
     async def test_background_task_handles_missing_job(self, pg_async_session):
         """Test that background task handles non-existent job gracefully."""
-        from app.api.modules.v1.scraping.service.scrape_job_service import (
-            ScrapeJobService,
-        )
 
         non_existent_job_id = uuid.uuid4()
         non_existent_source_id = uuid.uuid4()

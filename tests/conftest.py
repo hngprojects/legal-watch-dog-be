@@ -1,16 +1,16 @@
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import os
 import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
 from decouple import config
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
-from dotenv import load_dotenv
 
 env_file = os.path.join(os.path.dirname(__file__), "..", ".env.test")
 if os.path.exists(env_file):
