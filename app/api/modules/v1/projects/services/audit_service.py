@@ -339,7 +339,7 @@ class ProjectAuditService:
             project_id (UUID): Project id.
             org_id (UUID): Organization id.
             user_id (UUID): User who updated the project.
-            changes (Dict[str, Any]): A dictionary describing changes; 
+            changes (Dict[str, Any]): A dictionary describing changes;
                 This will be stored under the 'changes' key.
             ip_address (Optional[str]): IP address.
             user_agent (Optional[str]): User agent.
