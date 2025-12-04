@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import nest_asyncio
 from celery import shared_task
@@ -53,7 +53,7 @@ async def _expire_trials_async():
 
     async with AsyncSessionLocal() as db:
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             statement = select(BillingAccount).where(
                 BillingAccount.trial_ends_at <= now, BillingAccount.status == BillingStatus.TRIALING
@@ -116,7 +116,7 @@ async def _update_billing_status_async():
 
     async with AsyncSessionLocal() as db:
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # Get all billing accounts with subscriptions
             statement = select(BillingAccount).where(
@@ -217,7 +217,7 @@ async def _send_trial_reminders_async():
 
     async with AsyncSessionLocal() as db:
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # 3-day reminder
             three_days_from_now = now + timedelta(days=3)

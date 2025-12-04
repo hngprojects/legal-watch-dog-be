@@ -26,7 +26,7 @@ from app.api.modules.v1.auth.schemas.login import (
 )
 from app.api.modules.v1.auth.service.login_service import LoginService
 from app.api.modules.v1.users.models.users_model import User
-from app.api.utils.cookie_helper import clear_auth_cookies
+from app.api.utils.cookie_helper import clear_auth_cookies, set_auth_cookies
 from app.api.utils.response_payloads import error_response, success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -77,18 +77,27 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
 
         result = await login_service.login(email=email, password=password, ip_address=client_ip)
 
-        token_data = {
-            "access_token": result["access_token"],
-            "refresh_token": result["refresh_token"],
-            "token_type": result["token_type"],
-            "expires_in": result["expires_in"],
-        }
-
-        return success_response(
+        response = JSONResponse(
+            content={
+                "message": "Login successful",
+                "data": {
+                    "access_token": result["access_token"],
+                    "refresh_token": result["refresh_token"],
+                    "token_type": result["token_type"],
+                    "expires_in": result["expires_in"],
+                },
+            },
             status_code=status.HTTP_200_OK,
-            message="Login successful",
-            data=token_data,
         )
+
+        set_auth_cookies(
+            response=response,
+            request=request,
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+        )
+
+        return response
 
     except HTTPException as e:
         logger.warning("Login failed for email=%s: %s", login_data.email, e.detail)

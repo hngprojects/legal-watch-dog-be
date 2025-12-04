@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import select
 
@@ -24,7 +24,7 @@ async def simulate_trial_expiration():
             return
 
         # 2️⃣ Set trial to expired yesterday
-        billing_account.trial_ends_at = datetime.utcnow() - timedelta(days=1)
+        billing_account.trial_ends_at = datetime.now(timezone.utc) - timedelta(days=1)
         db.add(billing_account)
         await db.commit()
         print(f"Trial set to expire at: {billing_account.trial_ends_at}")

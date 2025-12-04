@@ -6,7 +6,7 @@ analyzing with AI, detecting changes, and persisting data revisions.
 
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +106,7 @@ class ScraperService:
                 logger.error(f"PDF extraction failed: {e}")
                 raw_content_bytes = b"<html><body>PDF extraction failed</body></html>"
 
-        timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp_str = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
         raw_minio_key = f"raw/{project.id}/{source.id}/{timestamp_str}.html"
 
         extraction_result = await self.text_extractor.process_pipeline(
@@ -173,6 +173,8 @@ class ScraperService:
                 }
 
         try:
+            is_baseline = not last_revision
+
             new_revision = DataRevision(
                 source_id=source.id,
                 minio_object_key=extraction_result["raw_key"],
@@ -182,7 +184,8 @@ class ScraperService:
                 ai_markdown_summary=ai_result.get("markdown_summary"),
                 ai_confidence_score=ai_result.get("confidence_score"),
                 was_change_detected=was_change_detected,
-                scraped_at=datetime.utcnow(),
+                is_baseline=is_baseline,
+                scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             self.db.add(new_revision)
             await self.db.flush()
@@ -213,4 +216,6 @@ class ScraperService:
             "status": "success",
             "change_detected": was_change_detected,
             "change_summary": diff_patch.get("change_summary"),
+            "data_revision_id": str(new_revision.id),
+            "is_baseline": is_baseline,
         }

@@ -1,10 +1,12 @@
 import logging
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.core.role_exceptions import (
     CannotAssignRoleException,
     CannotManageHigherRoleException,
@@ -51,6 +53,11 @@ from app.api.utils.response_payloads import error_response, success_response
 from app.api.utils.role_hierarchy import validate_role_hierarchy
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
+org_router = APIRouter(
+    prefix="/organizations/{organization_id}",
+    tags=["Organizations"],
+    dependencies=[Depends(require_billing_access)],
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +133,8 @@ create_organization._custom_errors = create_organization_custom_errors
 create_organization._custom_success = create_organization_custom_success
 
 
-@router.patch(
-    "/{organization_id}",
+@org_router.patch(
+    "",
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
     responses=update_organization_responses,
@@ -212,8 +219,8 @@ update_organization._custom_errors = update_organization_custom_errors
 update_organization._custom_success = update_organization_custom_success
 
 
-@router.post(
-    "/{organization_id}/invitations",
+@org_router.post(
+    "/invitations",
     response_model=InvitationResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -292,8 +299,8 @@ async def invite_user(
         )
 
 
-@router.get(
-    "/{organization_id}/invitations",
+@org_router.get(
+    "/invitations",
     response_model=InvitationListResponse,
     status_code=status.HTTP_200_OK,
 )
@@ -375,8 +382,8 @@ async def get_organization_invitations(
         )
 
 
-@router.patch(
-    "/{organization_id}/members/{user_id}/status",
+@org_router.patch(
+    "/members/{user_id}/status",
     response_model=dict,
     status_code=status.HTTP_200_OK,
 )
@@ -504,8 +511,8 @@ async def update_member_status(
         )
 
 
-@router.patch(
-    "/{organization_id}/members/{user_id}/role",
+@org_router.patch(
+    "/members/{user_id}/role",
     response_model=dict,
     status_code=status.HTTP_200_OK,
 )
@@ -634,8 +641,8 @@ async def update_member_role(
         )
 
 
-@router.patch(
-    "/{organization_id}/members/{user_id}",
+@org_router.patch(
+    "/members/{user_id}",
     response_model=dict,
     status_code=status.HTTP_200_OK,
 )
@@ -774,8 +781,8 @@ async def update_member_details(
         )
 
 
-@router.delete(
-    "/{organization_id}/members/{user_id}",
+@org_router.delete(
+    "/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_member(
@@ -887,8 +894,8 @@ async def delete_member(
         )
 
 
-@router.get(
-    "/{organization_id}",
+@org_router.get(
+    "",
     status_code=status.HTTP_200_OK,
 )
 async def get_organization(
@@ -945,15 +952,21 @@ async def get_organization(
         )
 
 
-@router.get(
-    "/{organization_id}/users",
+@org_router.get(
+    "/users",
     status_code=status.HTTP_200_OK,
 )
 async def get_all_users_in_organization(
     organization_id: uuid.UUID,
     page: int = Query(default=1, ge=1, description="Page number (minimum: 1)"),
     limit: int = Query(default=10, ge=1, le=100, description="Items per page (1-100)"),
-    active_only: bool = Query(default=True, description="Only return active members"),
+    user_active: Optional[bool] = Query(default=None, description="Only return active members"),
+    membership_is_active: Optional[bool] = Query(
+        default=None, description="Filter by membership active status (True/False/None for all)"
+    ),
+    roles: Optional[str] = Query(
+        default=None, description="Comma-separated role names to filter by (e.g., 'Admin,Manager')"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -971,7 +984,9 @@ async def get_all_users_in_organization(
         organization_id: UUID of the organization
         page: Page number (default: 1)
         limit: Items per page (default: 10, max: 100)
-        active_only: Only return active members (default: True)
+        user_active: Only return active members (optional)
+        membership_is_active: Filter by membership active status (optional)
+        role_names: Comma-separated role names to filter by (e.g., 'Admin,Manager')
         current_user: Authenticated user from JWT token
         db: Database session dependency
 
@@ -983,13 +998,24 @@ async def get_all_users_in_organization(
                       404 for not found, 500 for server errors
     """
     try:
+        parsed_role_names = None
+        if roles:
+            parsed_role_names = [name.strip() for name in roles.split(",") if name.strip()]
+            if not parsed_role_names:
+                return error_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid role names format. Must be comma-separated role names.",
+                )
+
         service = OrganizationService(db)
         result = await service.get_organization_users(
             organization_id=organization_id,
             requesting_user_id=current_user.id,
             page=page,
             limit=limit,
-            active_only=active_only,
+            active_only=user_active,
+            roles=parsed_role_names,
+            membership_active=membership_is_active,
         )
 
         return success_response(
@@ -1025,9 +1051,9 @@ async def get_all_users_in_organization(
         )
 
 
-@router.delete(
-    "/{organization_id}",
-    status_code=status.HTTP_200_OK,
+@org_router.delete(
+    "",
+    status_code=status.HTTP_204_NO_CONTENT,
     responses=delete_organization_responses,
 )
 async def delete_organization(
@@ -1099,8 +1125,8 @@ delete_organization._custom_errors = delete_organization_custom_errors
 delete_organization._custom_success = delete_organization_custom_success
 
 
-@router.delete(
-    "/{organization_id}/invitations/{invitation_id}",
+@org_router.delete(
+    "/invitations/{invitation_id}",
     status_code=status.HTTP_200_OK,
 )
 async def cancel_invitation(

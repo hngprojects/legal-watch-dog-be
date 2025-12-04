@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class VerifyOTPRequest(BaseModel):
@@ -15,8 +15,9 @@ class VerifyOTPRequest(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
     code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
 
-    class Config:
-        json_schema_extra = {"example": {"email": "admin@techcorp.com", "code": "123456"}}
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"email": "admin@techcorp.com", "code": "123456"}}
+    )
 
 
 class VerifyOTPResponse(BaseModel):
@@ -35,8 +36,8 @@ class VerifyOTPResponse(BaseModel):
     email: EmailStr
     user_id: uuid.UUID
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "organization_id": "550e8400-e29b-41d4-a716-446655440000",
                 "organization_name": "Tech Corp",
@@ -44,3 +45,4 @@ class VerifyOTPResponse(BaseModel):
                 "user_id": "660e8400-e29b-41d4-a716-446655440000",
             }
         }
+    )

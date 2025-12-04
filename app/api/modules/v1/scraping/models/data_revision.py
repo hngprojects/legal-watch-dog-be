@@ -34,6 +34,7 @@ class DataRevision(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     was_change_detected: bool = Field(default=False)
+    is_baseline: bool = Field(default=False)
 
     search_vector: Optional[str] = Field(
         default=None, sa_column=Column(TSVECTOR, nullable=True, server_default=text("NULL"))

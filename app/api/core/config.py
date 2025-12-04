@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
     LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net")
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
+
+    # Socials
+    SOCIAL_FACEBOOK: str = config("SOCIAL_FACEBOOK", default="https://facebook.com")
+    SOCIAL_TWITTER: str = config("SOCIAL_TWITTER", default="https://twitter.com")
+    SOCIAL_INSTAGRAM: str = config("SOCIAL_INSTAGRAM", default="https://instagram.com")
+    SOCIAL_LINKEDIN: str = config("SOCIAL_LINKEDIN", default="https://linkedin.com")
+    SOCIAL_YOUTUBE: str = config("SOCIAL_YOUTUBE", default="https://youtube.com")
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
@@ -83,12 +91,13 @@ class Settings(BaseSettings):
     SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
     SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
 
-    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9001")
+    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="lwd")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     MINIO_USE_SSL: bool = False
     MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
+    MINIO_PUBLIC_URL: Optional[str] = config("MINIO_PUBLIC_URL", default=None)
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")

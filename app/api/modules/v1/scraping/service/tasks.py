@@ -10,6 +10,7 @@ import json
 import random
 from datetime import datetime, timedelta, timezone
 
+import nest_asyncio
 import redis
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -18,6 +19,9 @@ from sqlmodel import select, update
 from app.api.core.config import settings
 from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
+
+# Apply nest_asyncio to allow asyncio.run() inside Celery tasks
+nest_asyncio.apply()
 
 logger = get_task_logger(__name__)
 
@@ -204,8 +208,8 @@ async def _dispatch_due_sources_async(app) -> int:
                 src.next_scrape_time = in_progress_time
 
                 db.add(src)
-                await db.commit()
-
+            await db.commit()
+            for src in due_sources:
                 app.send_task(
                     "app.api.modules.v1.scraping.service.tasks.scrape_source",
                     args=[str(src.id)],
