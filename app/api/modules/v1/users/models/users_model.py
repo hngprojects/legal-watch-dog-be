@@ -62,6 +62,13 @@ class User(SQLModel, table=True):
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     created_tickets: list["Ticket"] = Relationship(
-        back_populates="created_by_user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="created_by_user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[Ticket.created_by_user_id]",
+        },
     )
-    assigned_tickets: list["Ticket"] = Relationship(back_populates="assigned_to_user")
+    assigned_tickets: list["Ticket"] = Relationship(
+        back_populates="assigned_to_user",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to_user_id]"},
+    )

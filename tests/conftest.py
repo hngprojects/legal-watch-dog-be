@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -184,11 +183,12 @@ def pg_sync_session():
 
 
 @pytest_asyncio.fixture
-async def pg_async_session(event_loop):
+async def pg_async_session():
     """
     Provide an async PostgreSQL session using `asyncpg`. This fixture creates and
     tears down tables for tests that require an async session.
     """
+
     if not settings.DATABASE_URL:
         pytest.skip("Postgres DB not configured for tests")
 
@@ -200,13 +200,9 @@ async def pg_async_session(event_loop):
     )
 
     async with engine.begin() as conn:
-        # First drop all tables to ensure clean state with correct types
-        # Use CASCADE to drop dependent objects
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
-        # Grant permissions on the schema
-        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-        await conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{settings.DB_USER}"'))
+        # Drop all tables individually instead of dropping the schema
+        # This works without requiring schema ownership privileges
+        await conn.run_sync(SQLModel.metadata.drop_all)
         # Then create all tables fresh
         await conn.run_sync(SQLModel.metadata.create_all)
         # Add missing columns that exist in model but not auto-created
@@ -254,13 +250,6 @@ async def pg_async_session(event_loop):
                 await session.commit()
 
     await engine.dispose()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture

@@ -121,8 +121,14 @@ class Ticket(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
-    created_by_user: "User" = Relationship(back_populates="created_tickets")
-    assigned_to_user: Optional["User"] = Relationship(back_populates="assigned_tickets")
+    created_by_user: "User" = Relationship(
+        back_populates="created_tickets",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.created_by_user_id]"},
+    )
+    assigned_to_user: Optional["User"] = Relationship(
+        back_populates="assigned_tickets",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to_user_id]"},
+    )
     organization: "Organization" = Relationship(back_populates="tickets")
     project: "Project" = Relationship(back_populates="tickets")
     data_revision: Optional["DataRevision"] = Relationship(back_populates="tickets")
