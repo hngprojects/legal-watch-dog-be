@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
 
 
 class User(SQLModel, table=True):
@@ -59,4 +60,19 @@ class User(SQLModel, table=True):
     project_users: list["ProjectUser"] = Relationship(back_populates="user")
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    
+    sent_invitations: list["Invitation"] = Relationship(
+        back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    created_tickets: list["Ticket"] = Relationship(
+        back_populates="created_by_user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[Ticket.created_by_user_id]",
+        },
+    )
+    assigned_tickets: list["Ticket"] = Relationship(
+        back_populates="assigned_to_user",
+        sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to_user_id]"},
     )
