@@ -90,9 +90,12 @@ dump.rdb
 .env.dev
 .env.prod
 .env.stage
+.env.test
 ecosystem.config.js
 start_app.sh
 
+
+.github/instructions/
 
 # Celery Beat Scheduler files
 celerybeat-schedule.*
