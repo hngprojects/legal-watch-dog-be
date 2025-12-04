@@ -20,10 +20,12 @@ async def require_api_key(x_api_key: str = Header(None), db: AsyncSession = Depe
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     # expiry check
-    if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
+    now = datetime.now(timezone.utc)
+    if api_key.expires_at and api_key.expires_at < now:
         raise HTTPException(status_code=401, detail="API key expired")
 
-    await ApiKeyService.touch_last_used(db, api_key)
+    if not api_key.last_used_at or (now - api_key.last_used_at).total_seconds() > 3600:
+        await ApiKeyService.touch_last_used(db, api_key)
 
     # Return organization scope
     return api_key
