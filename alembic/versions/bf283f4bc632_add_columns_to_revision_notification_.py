@@ -1,8 +1,8 @@
 """add columns to revision notification table
 
-Revision ID: 6a218a6d6a3e
-Revises: 642bebb50756
-Create Date: 2025-12-04 19:32:55.429831
+Revision ID: bf283f4bc632
+Revises: e051c40163e2
+Create Date: 2025-12-04 20:21:46.774095
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '6a218a6d6a3e'
-down_revision: Union[str, Sequence[str], None] = '642bebb50756'
+revision: str = 'bf283f4bc632'
+down_revision: Union[str, Sequence[str], None] = 'e051c40163e2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -96,3 +96,4 @@ def downgrade() -> None:
         'MENTION', 'CHANGE_DETECTED', 'SCRAPE_FAILED', name='notificationtype'
     )
     notification_type_enum.drop(op.get_bind())
+    # ### end Alembic commands ###
