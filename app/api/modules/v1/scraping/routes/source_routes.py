@@ -15,12 +15,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
-from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     create_source_custom_errors,
     create_source_custom_success,
@@ -37,8 +35,6 @@ from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     get_sources_custom_errors,
     get_sources_custom_success,
     get_sources_responses,
-    manual_scrape_trigger_custom_errors,
-    manual_scrape_trigger_custom_success,
     update_source_custom_errors,
     update_source_custom_success,
     update_source_patch_custom_errors,
@@ -56,11 +52,10 @@ from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceUpdate,
 )
-from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 from app.api.modules.v1.scraping.service.source_service import SourceService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.pagination import calculate_pagination
-from app.api.utils.response_payloads import error_response, success_response
+from app.api.utils.response_payloads import success_response
 
 router = APIRouter(
     prefix="/sources",
@@ -493,64 +488,3 @@ async def get_source_revisions(
 
 get_source_revisions._custom_errors = get_source_revisions_custom_errors
 get_source_revisions._custom_success = get_source_revisions_custom_success
-
-
-@router.post("/{source_id}/scrapes", status_code=status.HTTP_200_OK)
-async def manual_scrape_trigger(
-    source_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Manually triggers a scrape for a specific source.
-
-    WARNING: This runs SYNCHRONOUSLY. The request will wait until
-    scraping, AI extraction, and diffing are complete.
-    This may cause timeouts if the process takes > 60 seconds.
-
-    Args:
-        source_id (UUID): The UUID of the source to scrape
-
-    Returns:
-        JSONResponse: Success response with scrape results or error response
-    """
-    query = select(Source).where(Source.id == source_id)
-    result = await db.execute(query)
-    source = result.scalars().first()
-
-    if not source:
-        return error_response(
-            status_code=status.HTTP_404_NOT_FOUND,
-            message="Source not found",
-            error="SOURCE_NOT_FOUND",
-        )
-
-    if not source.is_active:
-        return error_response(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            message="Cannot scrape inactive source. Please enable it first.",
-            error="SOURCE_INACTIVE",
-        )
-
-    try:
-        service = ScraperService(db)
-        scrape_result = await service.execute_scrape_job(str(source.id))
-
-        return success_response(
-            status_code=status.HTTP_200_OK,
-            message="Scrape executed successfully",
-            data={"source_id": str(source.id), "status": "COMPLETED", "result": scrape_result},
-        )
-
-    except Exception as e:
-        logger.error(f"Manual scrape failed for source {source_id}: {str(e)}")
-        return error_response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Scrape execution failed",
-            error="SCRAPE_EXECUTION_FAILED",
-            errors={"details": str(e)},
-        )
-
-
-manual_scrape_trigger._custom_errors = manual_scrape_trigger_custom_errors
-manual_scrape_trigger._custom_success = manual_scrape_trigger_custom_success
