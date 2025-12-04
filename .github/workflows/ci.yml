@@ -15,9 +15,9 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_USER: postgres
+          POSTGRES_USER: user
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: watchdog_test
+          POSTGRES_DB: dbname
         ports:
           - 5432:5432
         options: >-
@@ -37,7 +37,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/watchdog_test
+      DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/dbname
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: test-secret-key-for-ci
       JWT_ALGORITHM: HS256
