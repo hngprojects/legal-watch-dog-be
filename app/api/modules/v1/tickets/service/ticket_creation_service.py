@@ -125,11 +125,9 @@ class TicketCreationService:
             title = base_title[:title_max_length]
 
         scraped_time = (
-            revision.scraped_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-            if revision.scraped_at
-            else "N/A"
+            revision.scraped_at.strftime("%Y-%m-%d %H:%M:%S UTC") if revision.scraped_at else "N/A"
         )
-        
+
         description = f"""Automatically Generated Ticket
 
 Change Summary:
