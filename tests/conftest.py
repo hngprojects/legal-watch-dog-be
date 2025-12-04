@@ -1,13 +1,20 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import os
 import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
+from decouple import config
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+from dotenv import load_dotenv
+
+env_file = os.path.join(os.path.dirname(__file__), "..", ".env.test")
+if os.path.exists(env_file):
+    load_dotenv(env_file)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -187,13 +194,18 @@ async def pg_async_session():
     """
     Provide an async PostgreSQL session using `asyncpg`. This fixture creates and
     tears down tables for tests that require an async session.
+    Uses configuration from .env.test file.
     """
-
-    if not settings.DATABASE_URL:
-        pytest.skip("Postgres DB not configured for tests")
-
+    test_db_user = config("DB_USER", default="postgres")
+    test_db_pass = config("DB_PASS", default="password")
+    test_db_host = config("DB_HOST", default="localhost")
+    test_db_port = config("DB_PORT", default=5432, cast=int)
+    test_db_name = config("DB_NAME", default="watchdog_test")
+    test_db_url = (
+        f"postgresql://{test_db_user}:{test_db_pass}@{test_db_host}:{test_db_port}/{test_db_name}"
+    )
     # convert sync URL to asyncpg format
-    async_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    async_url = test_db_url.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_url, echo=False)
     async_session_maker_local = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False

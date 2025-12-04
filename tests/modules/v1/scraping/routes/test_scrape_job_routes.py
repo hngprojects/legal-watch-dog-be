@@ -10,6 +10,7 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.modules.v1.scraping.service.scrape_job_service import ScrapeJobService
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
@@ -67,7 +68,7 @@ async def client():
         yield ac
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def auth_headers():
     """Fixture providing authorization headers."""
     return {"Authorization": "Bearer test-token"}
@@ -128,11 +129,11 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         with patch(
-            "app.api.modules.v1.scraping.routes.scrape_routes._run_scrape_background",
+            "app.api.modules.v1.scraping.service.scrape_job_service.ScrapeJobService.queue_scrape_job",
             new_callable=AsyncMock,
         ):
             response = await client.post(
-                f"/api/v1/scrapes/{sample_source.id}",
+                f"/api/v1/sources/{sample_source.id}/scrapes",
                 headers=auth_headers,
             )
 
@@ -163,7 +164,7 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.post(
-            f"/api/v1/scrapes/{non_existent_id}",
+            f"/api/v1/sources/{non_existent_id}/scrapes",
             headers=auth_headers,
         )
 
@@ -187,7 +188,7 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.post(
-            f"/api/v1/scrapes/{inactive_source.id}",
+            f"/api/v1/sources/{inactive_source.id}/scrapes",
             headers=auth_headers,
         )
 
@@ -220,7 +221,7 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.post(
-            f"/api/v1/scrapes/{sample_source.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes",
             headers=auth_headers,
         )
 
@@ -253,7 +254,7 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.post(
-            f"/api/v1/scrapes/{sample_source.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes",
             headers=auth_headers,
         )
 
@@ -284,11 +285,11 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         with patch(
-            "app.api.modules.v1.scraping.routes.scrape_routes._run_scrape_background",
+            "app.api.modules.v1.scraping.service.scrape_job_service.ScrapeJobService.queue_scrape_job",
             new_callable=AsyncMock,
         ):
             response = await client.post(
-                f"/api/v1/scrapes/{sample_source.id}",
+                f"/api/v1/sources/{sample_source.id}/scrapes",
                 headers=auth_headers,
             )
 
@@ -320,11 +321,11 @@ class TestManualScrapeTrigger:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         with patch(
-            "app.api.modules.v1.scraping.routes.scrape_routes._run_scrape_background",
+            "app.api.modules.v1.scraping.service.scrape_job_service.ScrapeJobService.queue_scrape_job",
             new_callable=AsyncMock,
         ):
             response = await client.post(
-                f"/api/v1/scrapes/{sample_source.id}",
+                f"/api/v1/sources/{sample_source.id}/scrapes",
                 headers=auth_headers,
             )
 
@@ -338,7 +339,7 @@ class TestManualScrapeTrigger:
         app.dependency_overrides.clear()
 
         response = await client.post(
-            f"/api/v1/scrapes/{sample_source.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes",
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -372,7 +373,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -411,7 +412,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -448,7 +449,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -486,7 +487,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -512,7 +513,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{non_existent_job_id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{non_existent_job_id}",
             headers=auth_headers,
         )
 
@@ -564,7 +565,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -579,7 +580,7 @@ class TestGetScrapeJobStatus:
 
         job_id = uuid.uuid4()
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job_id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job_id}",
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -612,7 +613,7 @@ class TestGetScrapeJobStatus:
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         response = await client.get(
-            f"/api/v1/scrapes/{sample_source.id}/{job.id}",
+            f"/api/v1/sources/{sample_source.id}/scrapes/{job.id}",
             headers=auth_headers,
         )
 
@@ -640,8 +641,8 @@ class TestBackgroundScrapeTask:
         """Test that background task updates job to COMPLETED on success."""
         from sqlmodel import select
 
-        from app.api.modules.v1.scraping.routes.scrape_routes import (
-            _run_scrape_background,
+        from app.api.modules.v1.scraping.service.scrape_job_service import (
+            ScrapeJobService,
         )
 
         job = ScrapeJob(
@@ -656,10 +657,10 @@ class TestBackgroundScrapeTask:
 
         with (
             patch(
-                "app.api.modules.v1.scraping.routes.scrape_routes.AsyncSessionLocal"
+                "app.api.modules.v1.scraping.service.scrape_job_service.AsyncSessionLocal"
             ) as mock_session_local,
             patch(
-                "app.api.modules.v1.scraping.routes.scrape_routes.ScraperService"
+                "app.api.modules.v1.scraping.service.scrape_job_service.ScraperService"
             ) as mock_scraper,
         ):
             mock_db = AsyncMock()
@@ -672,7 +673,7 @@ class TestBackgroundScrapeTask:
                 return_value={"items_scraped": 5, "data": "test"}
             )
 
-            await _run_scrape_background(job.id, sample_source.id)
+            await ScrapeJobService.execute_scrape_job_background(job.id, sample_source.id)
 
         query = select(ScrapeJob).where(ScrapeJob.id == job.id)
         result = await pg_async_session.execute(query)
@@ -691,8 +692,8 @@ class TestBackgroundScrapeTask:
         """Test that background task updates job to FAILED on scrape error."""
         from sqlmodel import select
 
-        from app.api.modules.v1.scraping.routes.scrape_routes import (
-            _run_scrape_background,
+        from app.api.modules.v1.scraping.service.scrape_job_service import (
+            ScrapeJobService,
         )
 
         job = ScrapeJob(
@@ -707,10 +708,10 @@ class TestBackgroundScrapeTask:
 
         with (
             patch(
-                "app.api.modules.v1.scraping.routes.scrape_routes.AsyncSessionLocal"
+                "app.api.modules.v1.scraping.service.scrape_job_service.AsyncSessionLocal"
             ) as mock_session_local,
             patch(
-                "app.api.modules.v1.scraping.routes.scrape_routes.ScraperService"
+                "app.api.modules.v1.scraping.service.scrape_job_service.ScraperService"
             ) as mock_scraper,
         ):
             mock_db = AsyncMock()
@@ -721,7 +722,7 @@ class TestBackgroundScrapeTask:
             mock_service = mock_scraper.return_value
             mock_service.execute_scrape_job = AsyncMock(side_effect=Exception("Network timeout"))
 
-            await _run_scrape_background(job.id, sample_source.id)
+            await ScrapeJobService.execute_scrape_job_background(job.id, sample_source.id)
 
         query = select(ScrapeJob).where(ScrapeJob.id == job.id)
         result = await pg_async_session.execute(query)
@@ -736,19 +737,21 @@ class TestBackgroundScrapeTask:
     @pytest.mark.asyncio
     async def test_background_task_handles_missing_job(self, pg_async_session):
         """Test that background task handles non-existent job gracefully."""
-        from app.api.modules.v1.scraping.routes.scrape_routes import (
-            _run_scrape_background,
+        from app.api.modules.v1.scraping.service.scrape_job_service import (
+            ScrapeJobService,
         )
 
         non_existent_job_id = uuid.uuid4()
         non_existent_source_id = uuid.uuid4()
 
         with patch(
-            "app.api.modules.v1.scraping.routes.scrape_routes.AsyncSessionLocal"
+            "app.api.modules.v1.scraping.service.scrape_job_service.AsyncSessionLocal"
         ) as mock_session_local:
             mock_db = AsyncMock()
             mock_db.__aenter__ = AsyncMock(return_value=pg_async_session)
             mock_db.__aexit__ = AsyncMock(return_value=None)
             mock_session_local.return_value = mock_db
 
-            await _run_scrape_background(non_existent_job_id, non_existent_source_id)
+            await ScrapeJobService.execute_scrape_job_background(
+                non_existent_job_id, non_existent_source_id
+            )

@@ -30,7 +30,7 @@ def upgrade() -> None:
     sa.Column('error_message', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('data_revision_id', sa.Uuid(), nullable=True),
     sa.Column('is_baseline', sa.Boolean(), nullable=False, server_default='false'),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['data_revision_id'], ['data_revisions.id'], ),
