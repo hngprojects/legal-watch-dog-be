@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
@@ -375,7 +375,13 @@ class UserCRUD:
                 select(UserOrganization, Organization, Role)
                 .join(Organization, Organization.id == UserOrganization.organization_id)
                 .join(Role, Role.id == UserOrganization.role_id, isouter=True)
-                .where(UserOrganization.user_id == user_id)
+                .where(
+                    UserOrganization.user_id == user_id,
+                    UserOrganization.is_deleted.is_(False),
+                    UserOrganization.is_active,
+                    Organization.is_active,
+                    Organization.deleted_at.is_(None),
+                )
             )
 
             result = await db.execute(stmt)

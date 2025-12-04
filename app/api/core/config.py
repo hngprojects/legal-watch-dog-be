@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
 
+    # Socials
+    SOCIAL_FACEBOOK: str = config("SOCIAL_FACEBOOK", default="https://facebook.com")
+    SOCIAL_TWITTER: str = config("SOCIAL_TWITTER", default="https://twitter.com")
+    SOCIAL_INSTAGRAM: str = config("SOCIAL_INSTAGRAM", default="https://instagram.com")
+    SOCIAL_LINKEDIN: str = config("SOCIAL_LINKEDIN", default="https://linkedin.com")
+    SOCIAL_YOUTUBE: str = config("SOCIAL_YOUTUBE", default="https://youtube.com")
+
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
     DB_HOST: str = config("DB_HOST", default="localhost")
