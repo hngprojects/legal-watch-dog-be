@@ -14,16 +14,21 @@ from app.api.modules.v1.billing.models.billing_plan import BillingPlan
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
+from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
+from app.api.modules.v1.scraping.models.change_verification import ChangeVerification
+from app.api.modules.v1.scraping.models.suppression_rule import SuppressionRule, SuppressionRuleType
 from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
 from app.api.modules.v1.hire_specialists.models.specialist_models import SpecialistHire
 from app.api.modules.v1.notifications.models.revision_notification import Notification
+
 
 
 # this is the Alembic Config object, which provides
