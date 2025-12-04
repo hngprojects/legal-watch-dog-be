@@ -113,12 +113,10 @@ class TicketCreationService:
 
         ticket_priority = self._map_risk_to_priority(risk_level)
 
-        # 3. Build title (truncate if needed)
         title_max_length = 255
         base_title = f"Change Detected in {source.name}"
 
         if change_summary and change_summary != "No material changes detected":
-            # Add first 50 chars of summary
             short_summary = change_summary[:50]
             title = f"{base_title}: {short_summary}"
             if len(title) > title_max_length:
@@ -126,51 +124,53 @@ class TicketCreationService:
         else:
             title = base_title[:title_max_length]
 
-        # 4. Build description
-        description = f"""## 🚨 Automatically Generated Ticket
+        scraped_time = (
+            revision.scraped_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+            if revision.scraped_at
+            else "N/A"
+        )
+        
+        description = f"""Automatically Generated Ticket
 
-### 📋 Change Summary
+Change Summary:
 {change_summary}
 
-### ⚠️ Risk Assessment
-**Detected Risk Level:** {risk_level}
-**Ticket Priority:** {ticket_priority.value.upper()}
+Risk Assessment:
+Detected Risk Level: {risk_level}
+Ticket Priority: {ticket_priority.value.upper()}
 
-### 📍 Source Information
-**Source:** {source.name}
-**Jurisdiction:** {jurisdiction.name}
-**Project:** {project.title}
+Source Information:
+Source: {source.name}
+Jurisdiction: {jurisdiction.name}
+Project: {project.title}
 
-### 🔗 Linked Data
-**Data Revision ID:** {revision.id}
-**Scraped At:** {revision.scraped_at.strftime("%Y-%m-%d %H:%M:%S UTC") 
-                    if revision.scraped_at else "N/A"}
+Linked Data:
+Data Revision ID: {revision.id}
+Scraped At: {scraped_time}
 
-### 🤖 AI Analysis Summary
+AI Analysis Summary:
 {revision.ai_summary or "No AI summary available"}
 
 ---
-*This ticket was automatically generated when 
-the monitoring system detected a change in the source.*
+This ticket was automatically generated when the monitoring system
+detected a change in the source.
 """
 
-        # 5. Create ticket
         ticket = Ticket(
             title=title,
             description=description,
             status=TicketStatus.OPEN,
             priority=ticket_priority,
-            is_manual=False,  # Auto-generated
+            is_manual=False,
             data_revision_id=revision.id,
             created_by_user_id=project_user.id,
             assigned_to_user_id=None,
-            organization_id=project.org_id,  # Use project.org_id
+            organization_id=project.org_id,
             project_id=project.id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
 
-        # 6. Save
         self.db.add(ticket)
         await self.db.flush()
         await self.db.refresh(ticket)
