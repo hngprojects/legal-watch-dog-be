@@ -88,7 +88,7 @@ def set_auth_cookies(
     request: Request,
     access_token: Optional[str] = None,
     refresh_token: Optional[str] = None,
-    access_token_max_age: int = 86400,  # 24 hours
+    access_token_max_age: int = 172800,  # 2 days
     refresh_token_max_age: int = 2592000,  # 30 days
 ) -> None:
     """
@@ -99,7 +99,7 @@ def set_auth_cookies(
         request: HTTP request object to determine cookie settings.
         access_token: Access token value (optional).
         refresh_token: Refresh token value (optional).
-        access_token_max_age: Max age for access token cookie in seconds (default: 24 hours).
+        access_token_max_age: Max age for access token cookie in seconds (default: 2 days).
         refresh_token_max_age: Max age for refresh token cookie in seconds (default: 30 days).
 
     Examples:
