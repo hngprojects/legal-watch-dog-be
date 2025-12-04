@@ -6,9 +6,13 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as jurisdiction_routes_module
-from app.api.modules.v1.jurisdictions.service.jurisdiction_service import JurisdictionService
+from app.api.modules.v1.jurisdictions.service.jurisdiction_service import (
+    JurisdictionService,
+    OrgResourceGuard,
+)
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
 
@@ -96,8 +100,6 @@ def _build_app_and_client(fake_user=None, fake_project=None):
     # supplied by the test.
     from fastapi import HTTPException
 
-    from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
-
     def _org_guard_override():
         if (
             fake_user
@@ -173,6 +175,12 @@ def test_org_guard_allows_same_org_access():
     fake_project = SimpleNamespace(id=uuid4(), org_id=org_id)
 
     app, client = _build_app_and_client(fake_user=fake_user, fake_project=fake_project)
+
+    async def fake_billing_guard(organization_id, db=None):
+        return None
+
+    app.dependency_overrides[require_billing_access] = fake_billing_guard
+
     resp = client.get(
         f"/api/v1/organizations/{fake_project.org_id}/jurisdictions/project/{fake_project.id}"
     )

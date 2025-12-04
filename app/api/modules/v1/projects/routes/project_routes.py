@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
 from app.api.modules.v1.projects.schemas.project_schema import (
     ProjectBase,
@@ -31,7 +32,11 @@ from app.api.utils.response_payloads import (
     success_response,
 )
 
-router = APIRouter(prefix="/organizations/{organization_id}/projects", tags=["Projects"])
+router = APIRouter(
+    prefix="/organizations/{organization_id}/projects",
+    tags=["Projects"],
+    dependencies=[Depends(require_billing_access)],
+)
 logger = logging.getLogger("app")
 
 

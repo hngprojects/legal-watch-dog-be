@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
 from app.api.modules.v1.organization.routes.docs.organization_route_docs import (
     get_organization_custom_errors,
@@ -449,6 +450,7 @@ async def get_user_organization_details(
     response_model=OrganizationDetailResponse,
     status_code=status.HTTP_200_OK,
     responses=get_organization_responses,
+    dependencies=[Depends(require_billing_access)],
 )
 async def get_organization_details(
     organization_id: uuid.UUID,
