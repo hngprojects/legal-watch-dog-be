@@ -90,7 +90,8 @@ async def create_source(
         JSONResponse: Standard success response with created source data.
 
     Raises:
-        HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
+        HTTPException: 400 if required prompts are missing or the URL already exists.
+        HTTPException: 500 if creation fails.
 
     Examples:
         ```
@@ -164,7 +165,8 @@ async def bulk_create_sources(
         JSONResponse: Standard success response with list of created sources.
 
     Raises:
-        HTTPException: 400 if any URL already exists, 500 if creation fails.
+        HTTPException: 400 if required prompts are missing or any URL already exists.
+        HTTPException: 500 if creation fails.
 
 
     """
