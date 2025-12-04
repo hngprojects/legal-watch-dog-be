@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 
 class ApiKey(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    key_hash: str
+    key_hash: str = Field(index=True, unique=True)
 
     # The organization this key belongs to
     organization_id: UUID
