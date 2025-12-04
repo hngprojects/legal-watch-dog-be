@@ -1,10 +1,11 @@
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.api.core.exceptions import PasswordReuseError
+from app.api.core.dependencies.redis_service import check_rate_limit
+from app.api.core.exceptions import PasswordReuseError, RateLimitExceeded
 from app.api.db.database import get_db
 from app.api.modules.v1.auth.routes.docs.reset_password_docs import (
     confirm_reset_custom_errors,
@@ -38,6 +39,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/password", tags=["Auth"])
 
+MAX_RESET_REQUEST_ATTEMPTS = 3
+MAX_VERIFY_ATTEMPTS = 5
+MAX_CONFIRM_ATTEMPTS = 5
+RATE_LIMIT_WINDOW_SECONDS = 3600
+IP_RATE_LIMIT_MULTIPLIER = 3
+
 
 @router.post(
     "/resets",
@@ -47,6 +54,7 @@ router = APIRouter(prefix="/auth/password", tags=["Auth"])
 )
 async def request_password_reset(
     payload: PasswordResetRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
@@ -57,6 +65,10 @@ async def request_password_reset(
     - Generates a One-Time Password (OTP) and stores it securely.
     - Sends the OTP to the user's email.
 
+    Rate Limited:
+    - Maximum 3 requests per hour per email.
+    - Maximum 9 requests per hour per IP address.
+
     Args:
         payload (PasswordResetRequest): Contains the user's email.
         background_tasks (BackgroundTasks): For sending the email asynchronously.
@@ -64,10 +76,41 @@ async def request_password_reset(
 
     Returns:
         JSON response confirming whether the reset code was sent.
+
+    Raises:
+        HTTPException: 429 if rate limit exceeded
     """
     logger.info("Password reset requested for email=%s", payload.email)
 
     try:
+        email_allowed = await check_rate_limit(
+            f"password_reset:email:{payload.email}",
+            max_attempts=MAX_RESET_REQUEST_ATTEMPTS,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+        if not email_allowed:
+            logger.warning(f"Rate limit exceeded for password reset email: {payload.email}")
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many requests for this email. Please retry in 1 hour.",
+            )
+
+        ip_address = request.client.host if request.client else None
+        if ip_address:
+            ip_allowed = await check_rate_limit(
+                f"password_reset:ip:{ip_address}",
+                max_attempts=MAX_RESET_REQUEST_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
+                window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+            )
+
+            if not ip_allowed:
+                logger.warning(f"Rate limit exceeded for password reset IP: {ip_address}")
+                raise RateLimitExceeded(
+                    retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                    detail="Too many requests from this IP. Please retry in 1 hour.",
+                )
+
         user = await db.scalar(select(User).where(User.email == payload.email))
 
         if not user:
@@ -93,6 +136,9 @@ async def request_password_reset(
             data={"email": user.email},
         )
 
+    except RateLimitExceeded:
+        raise
+
     except Exception:
         logger.exception("Error during password reset request for email=%s", payload.email)
         return error_response(
@@ -114,6 +160,7 @@ request_password_reset._custom_success = request_reset_custom_success  # type: i
 )
 async def verify_reset_code(
     payload: PasswordResetVerify,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -122,16 +169,51 @@ async def verify_reset_code(
     - Validates the provided code.
     - Returns a temporary reset token if valid.
 
+    Rate Limited:
+    - Maximum 3 requests per hour per email.
+    - Maximum 15 requests per hour per IP address.
+
     Args:
         payload (PasswordResetVerify): Contains email and OTP code.
         db (AsyncSession): Database session dependency.
 
     Returns:
         JSON response containing the temporary reset token.
+
+    Raises:
+        HTTPException: 429 if rate limit exceeded
     """
     logger.info("Verifying password reset code for email=%s", payload.email)
 
     try:
+        email_allowed = await check_rate_limit(
+            f"password_verify:email:{payload.email}",
+            max_attempts=MAX_VERIFY_ATTEMPTS,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+        if not email_allowed:
+            logger.warning(f"Rate limit exceeded for verification email: {payload.email}")
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many verification attempts from this email. Please retry in 1 hour.",
+            )
+
+        ip_address = request.client.host if request.client else None
+        if ip_address:
+            ip_allowed = await check_rate_limit(
+                f"password_verify:ip:{ip_address}",
+                max_attempts=MAX_VERIFY_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
+                window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+            )
+
+            if not ip_allowed:
+                logger.warning(f"Rate limit exceeded for verification IP: {ip_address}")
+                raise RateLimitExceeded(
+                    retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                    detail="Too many verification attempts from this IP. Please retry in 1 hour.",
+                )
+
         reset_token = await service_verify_code(db, payload.email, payload.code)
 
         if not reset_token:
@@ -147,6 +229,9 @@ async def verify_reset_code(
             message="Token verified successfully.",
             data={"reset_token": reset_token},
         )
+
+    except RateLimitExceeded:
+        raise
 
     except Exception:
         logger.exception("Error verifying reset code for email=%s", payload.email)
@@ -168,6 +253,7 @@ verify_reset_code._custom_success = verify_reset_custom_success  # type: ignore
 )
 async def confirm_password_reset(
     payload: PasswordResetConfirm,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -177,16 +263,52 @@ async def confirm_password_reset(
     - Updates the user's password.
     - Prevents reuse of previous passwords.
 
+    Rate Limited:
+    - Maximum 3 requests per hour per email.
+    - Maximum 15 requests per hour per IP address.
+
     Args:
         payload (PasswordResetConfirm): Contains `reset_token` and `new_password`.
         db (AsyncSession): Database session dependency.
 
     Returns:
         JSON response confirming password reset success or failure.
+
+    Raises:
+        HTTPException: 429 if rate limit exceeded
     """
     logger.info("Confirming password reset for reset_token=%s", payload.reset_token[:10])
 
     try:
+        token_allowed = await check_rate_limit(
+            f"password_confirm:token:{payload.reset_token}",
+            max_attempts=MAX_CONFIRM_ATTEMPTS,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+        if not token_allowed:
+            logger.warning("Rate limit exceeded for password confirmation token")
+            raise RateLimitExceeded(
+                retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                detail="Too many confirmation attempts. Please try again in 1 hour",
+            )
+
+        ip_address = request.client.host if request.client else None
+        if ip_address:
+            ip_allowed = await check_rate_limit(
+                f"password_confirm:ip:{ip_address}",
+                max_attempts=MAX_CONFIRM_ATTEMPTS * IP_RATE_LIMIT_MULTIPLIER,
+                window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+            )
+
+            if not ip_allowed:
+                logger.warning(f"Rate limit exceeded for confirmation IP: {ip_address}")
+                raise RateLimitExceeded(
+                    retry_after=RATE_LIMIT_WINDOW_SECONDS,
+                    detail="Too many confirmation attempts from this IP. "
+                    "Please try again in 1 hour.",
+                )
+
         success = await service_reset_password(db, payload.reset_token, payload.new_password)
 
         if not success:
@@ -201,6 +323,9 @@ async def confirm_password_reset(
             status_code=status.HTTP_200_OK,
             message="Password reset successful.",
         )
+
+    except RateLimitExceeded:
+        raise
 
     except PasswordReuseError as e:
         logger.warning("Password reuse attempt during reset: %s", str(e))

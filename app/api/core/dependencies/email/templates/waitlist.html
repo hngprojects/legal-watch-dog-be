@@ -1,75 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>
-You're on the Waitlist - Legal Watchdog
-</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', Arial, sans-serif;
-      background-color: #F8F5F1;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-    table {
-      border-spacing: 0;
-      border-collapse: collapse;
-    }
-    img {
-      border: 0;
-      display: block;
-      outline: none;
-      text-decoration: none;
-    }
-    a {
-      text-decoration: none;
-    }
-    .container {
-      max-width: 445px;
-      width: 100%;
-      margin: 0 auto;
-    }
-    @media only screen and (max-width: 600px) {
-      .container {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-      .header-img {
-        width: 80% !important;
-        max-width: 445px !important;
-        height: auto !important;
-      }
-      .main-heading {
-        font-size: 28px !important;
-        line-height: 36px !important;
-      }
-      .social-icon {
-        padding: 0 8px !important;
-      }
-    }
-  </style>
-</head>
-<body style="margin: 0; padding: 0; background-color: #F8F5F1;">
-  <!-- Preheader Text -->
-  <div style="display: none; font-size: 1px; color: #F8F5F1; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden;">
-    
-Thanks for joining the Legal WatchDog waitlist. You&#39;re now in line for early access.
+{% extends "base.html" %}
 
-  </div>
-  <!-- Main Container -->
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8F5F1;">
-    <tr>
-      <td style="padding: 40px 16px;">
-        <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" align="center" style="max-width: 600px; width: 100%;">
-          
-          <!-- Header -->
-          
+{% block title %}
+You're on the Waitlist - Legal Watchdog
+{% endblock %}
+
+{% block preheader %}
+{{ preheader_text | default("Thanks for joining the Legal WatchDog waitlist. You're now in line for early access.") }}
+{% endblock %}
+
+{% block header %}
 <tr>
   <td>
     <div
@@ -80,7 +19,7 @@ Thanks for joining the Legal WatchDog waitlist. You&#39;re now in line for early
       "
     >
       <img
-        src="{{ app_url }}/static/email/template-icons/email-hero.png"
+        src="{{ APP_URL }}/static/email/template-icons/email-hero.png"
         alt="Joyful Legal WatchDog customer holding an envelope with letters floating around"
         style="width: 320px; max-width: 100%; height: auto; display: block; margin: 0 auto 52px;"
       />
@@ -98,17 +37,13 @@ Thanks for joining the Legal WatchDog waitlist. You&#39;re now in line for early
     </div>
   </td>
 </tr>
+{% endblock %}
 
-          
-          <!-- Content Body -->
-          <tr>
-            <td>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                
+{% block content_body %}
 <tr>
   <td style="padding-bottom: 8px;">
     <p style="margin: 0; font-size: 18px; font-weight: 600; color: #1f1f1f; line-height: 26px;">
-      Hello {{ organization_name | default('there') }},
+      Hello {{ first_name | default("there") }},
     </p>
   </td>
 </tr>
@@ -125,144 +60,15 @@ Thanks for joining the Legal WatchDog waitlist. You&#39;re now in line for early
     </p>
   </td>
 </tr>
+{% endblock %}
 
-              </table>
-            </td>
-          </tr>
-          
-          <!-- CTA Button -->
-          
-
+{% block cta_section %}
 <tr>
   <td style="padding-bottom: 84px; text-align: center;">
-    <a href="https://legalwatch.dog/" target="_blank" rel="noopener noreferrer" 
+    <a href="{{ APP_URL }}" target="_blank" rel="noopener noreferrer" 
         style="display: inline-block; padding: 20px 32px; background-color: #401903; color: #FFFFFF; font-size: 16px; font-weight: 600; border-radius: 8px; text-decoration: none; line-height: 24px;">
-      Visit Website
+       Visit Website
     </a>
   </td>
 </tr>
-
-
-          
-          <!-- Footer Brand Section -->
-          
-<tr>
-  <td style="padding: 0;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-      <tr>
-        <td style="background-color: #3b1f0f; padding: 56px 24px 36px; text-align: center; position: relative;">
-          <img
-            src="{{ app_url }}/static/email/template-icons/bg-icon.png"
-            alt=""
-            width="92"
-            height="92"
-            style="position: absolute; top: 0px; left: 0px; opacity: 0.25; display: block;  transform: rotate(0deg);"
-          />
-          <img
-            src="{{ app_url }}/static/email/template-icons/bg-icon.png"
-            alt=""
-            width="92"
-            height="92"
-            style="position: absolute; right: 0px; bottom: 0px; opacity: 0.25; transform: rotate(0deg); display: block;"
-          />
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-bottom: 16px;">
-            <tr>
-              <td>
-                <img
-                  src="{{ app_url }}/static/email/template-icons/logo.png"
-                  alt="Legal WatchDog logo"
-                  width="44"
-                  height="44"
-                  style="display: block;"
-                />
-              </td>
-              <td>
-                <h2 style="margin: 0; font-size: 32px; font-weight: 700; color: #f4bb87; line-height: 40px;">WatchDog</h2>
-              </td>
-            </tr>
-          </table>
-          <p style="margin: 0 0 26px; font-size: 14px; color: #f4bb87; line-height: 22px;">
-            LegalWatchDog helps us track cross-border regulation updates in hours, not weeks
-          </p>
-          
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-bottom: 26px;">
-            <tr>
-              
-              <td style="padding: 0 12px;">
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="{{ app_url }}/static/email/template-icons/Facebook.svg"
-                    alt="Facebook"
-                    width="11"
-                    height="19"
-                    style="display: block;"
-                  />
-                </a>
-              </td>
-              
-              <td style="padding: 0 12px;">
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="{{ app_url }}/static/email/template-icons/Twitter.svg"
-                    alt="Twitter"
-                    width="18"
-                    height="15"
-                    style="display: block;"
-                  />
-                </a>
-              </td>
-              
-              <td style="padding: 0 12px;">
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="{{ app_url }}/static/email/template-icons/Instagram.svg"
-                    alt="Instagram"
-                    width="19"
-                    height="19"
-                    style="display: block;"
-                  />
-                </a>
-              </td>
-              
-              <td style="padding: 0 12px;">
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="{{ app_url }}/static/email/template-icons/LinkedIn.svg"
-                    alt="LinkedIn"
-                    width="19"
-                    height="18"
-                    style="display: block;"
-                  />
-                </a>
-              </td>
-              
-              <td style="padding: 0 12px;">
-                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="{{ app_url }}/static/email/template-icons/YouTube.svg"
-                    alt="YouTube"
-                    width="20"
-                    height="14"
-                    style="display: block;"
-                  />
-                </a>
-              </td>
-              
-            </tr>
-          </table>
-          
-          <p style="margin: 0; font-size: 14px; color: #f4bb87; line-height: 22px;">
-            Copyright © 2025 LegalWatchDog | All Rights Reserved
-          </p>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+{% endblock %}

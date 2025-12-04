@@ -92,6 +92,33 @@ request_reset_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "email_rate_limit": {
+                        "summary": "Rate Limit Exceeded for Email",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many requests for this email. Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                    "ip_rate_limit": {
+                        "summary": "Rate Limit Exceeded for IP",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many requests from this IP. Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal server error",
         "content": {
@@ -112,7 +139,7 @@ request_reset_responses = {
     },
 }
 
-request_reset_custom_errors = ["403", "404", "422", "500"]
+request_reset_custom_errors = ["403", "404", "422", "429", "500"]
 request_reset_custom_success = {
     "status_code": 200,
     "description": "Password reset code sent successfully to the registered email.",
@@ -203,6 +230,35 @@ verify_reset_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "email_rate_limit": {
+                        "summary": "Rate Limit Exceeded for Email",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many verification attempts from this email. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                    "ip_rate_limit": {
+                        "summary": "Rate Limit Exceeded for IP",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many verification attempts from this IP. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal server error",
         "content": {
@@ -223,7 +279,7 @@ verify_reset_responses = {
     },
 }
 
-verify_reset_custom_errors = ["400", "422", "500"]
+verify_reset_custom_errors = ["400", "422", "429", "500"]
 verify_reset_custom_success = {
     "status_code": 200,
     "description": "Reset token verified successfully.",
@@ -323,6 +379,34 @@ confirm_reset_responses = {
             }
         },
     },
+    429: {
+        "description": "Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "email_rate_limit": {
+                        "summary": "Rate Limit Exceeded for Email",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many confirmation attempts. Please try again in 1 hour",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                    "ip_rate_limit": {
+                        "summary": "Rate Limit Exceeded for IP",
+                        "value": {
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "message": "Too many confirmation attempts from this IP. "
+                            "Please retry in 1 hour.",
+                            "status_code": 429,
+                            "errors": {},
+                        },
+                    },
+                }
+            },
+        },
+    },
     500: {
         "description": "Internal server error",
         "content": {
@@ -343,7 +427,7 @@ confirm_reset_responses = {
     },
 }
 
-confirm_reset_custom_errors = ["400", "422", "500"]
+confirm_reset_custom_errors = ["400", "422", "429", "500"]
 confirm_reset_custom_success = {
     "status_code": 200,
     "description": "Password reset completed successfully.",

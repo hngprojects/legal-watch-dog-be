@@ -23,6 +23,7 @@ class Permission(str, Enum):
     MANAGE_ORGANIZATION = "manage_organization"
     CONFIGURE_SSO = "configure_sso"
     MANAGE_BILLING = "manage_billing"
+    DELETE_ORGANIZATION = "delete_organization"
 
     # Project Management
     CREATE_PROJECTS = "create_projects"
@@ -148,9 +149,12 @@ MANAGER_PERMISSIONS = {
     Permission.EXPORT_DATA.value: True,
 }
 
+OWNER_PERMISSIONS = {**ADMIN_PERMISSIONS, Permission.DELETE_ORGANIZATION.value: True}
+
 
 class RoleTemplates:
     TEMPLATES = {
+        "owner": OWNER_PERMISSIONS,
         "admin": ADMIN_PERMISSIONS,
         "manager": MANAGER_PERMISSIONS,
         "user": USER_PERMISSIONS,

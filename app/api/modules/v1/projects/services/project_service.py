@@ -5,7 +5,7 @@ Business logic for project operations with proper database integration
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,8 @@ from app.api.modules.v1.projects.utils.project_utils import (
     get_project_by_id_including_deleted,
     get_user_by_id,
 )
+from app.api.modules.v1.users.models.users_model import User
+from app.api.utils.organization_validations import check_user_permission
 
 logger = logging.getLogger("app")
 
@@ -63,6 +65,14 @@ class ProjectService:
         Returns:
             Created Project object
         """
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "create_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to create a project")
+
         logger.info(
             f"Creating '{data.title}' for organization_id={organization_id}, user_id={user_id}"
         )
@@ -74,8 +84,15 @@ class ProjectService:
         )
 
         self.db.add(project)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(project)
+
+        project_user = ProjectUser(
+            project_id=project.id,
+            user_id=user_id,
+        )
+
+        self.db.add(project_user)
 
         logger.info(f"Created project with id={project.id}")
 
@@ -156,6 +173,7 @@ class ProjectService:
         self,
         project_id: UUID,
         organization_id: UUID,
+        user_id: UUID,
         data: ProjectUpdate,
     ) -> tuple[Optional[Project], str]:
         """
@@ -167,7 +185,15 @@ class ProjectService:
             organization_id: Organization UUID
             data: Update data
         """
+
         logger.info(f"Updating project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
 
         project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
@@ -212,7 +238,7 @@ class ProjectService:
 
         return project, success_message
 
-    async def delete_project(self, project_id: UUID, organization_id: UUID) -> bool:
+    async def delete_project(self, project_id: UUID, user_id: UUID, organization_id: UUID) -> bool:
         """
         Permanently delete project from database (irreversible).
 
@@ -225,6 +251,13 @@ class ProjectService:
             True if deleted, False if not found
         """
         logger.warning(f"hard deleting project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, user_id, organization_id, "delete_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to delete projects")
 
         project = await get_project_by_id_including_deleted(self.db, project_id, organization_id)
 
@@ -239,35 +272,79 @@ class ProjectService:
 
         return True
 
-    async def get_users(self, project_id: UUID, organization_id: UUID) -> Optional[List[UUID]]:
+    async def get_project_users(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+        page: int = 1,
+        limit: int = 20,
+    ) -> Optional[dict]:
         """
-        Get list of user IDs in project.
+        Get paginated list of users in project with details.
 
         Args:
-            db: Database session
-            project_id: Project UUID
-            organization_id: Organization UUID
+        project_id: Project UUID
+        organization_id: Organization UUID
+        page: Page number (default: 1)
+        limit: Items per page (default: 20)
 
-        Returns:
-            List of user UUIDs if project exists, None otherwise
+        urns:
+        Dictionary with users list and pagination metadata, None if project not found
         """
-        logger.info(f"Fetching users for project_id={project_id}")
+        logger.info(f"Fetching users for project_id={project_id}, page={page}, limit={limit}")
 
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
             logger.warning(f"Project not found: project_id={project_id}")
             return None
 
-        statement = select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
+        statement = (
+            select(
+                ProjectUser.user_id,
+                User.email,
+                User.name,
+                User.avatar_url,
+                ProjectUser.created_at.label("added_at"),
+            )
+            .join(User, ProjectUser.user_id == User.id)
+            .where(ProjectUser.project_id == project_id)
+            .order_by(ProjectUser.created_at.desc())
+        )
+
+        count_statement = select(func.count()).select_from(statement.subquery())
+        total_result = await self.db.execute(count_statement)
+        total = total_result.scalar_one()
+
+        offset = (page - 1) * limit
+        statement = statement.offset(offset).limit(limit)
+
         result = await self.db.execute(statement)
-        user_ids = result.all()
+        user_rows = result.all()
 
-        logger.info(f"Found {len(user_ids)} users in project_id={project_id}")
+        users = []
+        for row in user_rows:
+            users.append(
+                {
+                    "user_id": row.user_id,
+                    "email": row.email,
+                    "name": row.name,
+                    "avatar_url": row.avatar_url,
+                    "added_at": row.added_at.isoformat() if row.added_at else None,
+                }
+            )
 
-        return list(user_ids)
+        logger.info(f"Found {total} users in project_id={project_id}")
+
+        pagination = calculate_pagination(total, page, limit)
+
+        return {"users": users, **pagination}
 
     async def add_user(
-        self, project_id: UUID, user_id: UUID, organization_id: UUID
+        self,
+        project_id: UUID,
+        user_id: UUID,
+        organization_id: UUID,
+        current_user_id: UUID,
     ) -> tuple[bool, str]:
         """
         Add user to project.
@@ -282,6 +359,13 @@ class ProjectService:
             Tuple of (success: bool, message: str)
         """
         logger.info(f"Adding user_id={user_id} to project_id={project_id}")
+
+        has_permission = await check_user_permission(
+            self.db, current_user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
 
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
@@ -308,7 +392,7 @@ class ProjectService:
         return True, "User successfully added to project"
 
     async def remove_user(
-        self, project_id: UUID, user_id: UUID, organization_id: UUID
+        self, project_id: UUID, user_id: UUID, organization_id: UUID, current_user_id: UUID
     ) -> tuple[bool, str]:
         """
         Remove user from project.
@@ -324,6 +408,13 @@ class ProjectService:
         """
         logger.info(f"Removing user_id={user_id} from project_id={project_id}")
 
+        has_permission = await check_user_permission(
+            self.db, current_user_id, organization_id, "edit_projects"
+        )
+
+        if not has_permission:
+            raise ValueError("You do not have permission to edit projects")
+
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
             logger.warning(f"Project not found: project_id={project_id}")
@@ -332,9 +423,8 @@ class ProjectService:
         statement = select(ProjectUser).where(
             and_(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
         )
-        # prefer SQLModel AsyncSession.execute which returns a ScalarResult
         result = await self.db.execute(statement)
-        project_user = result.one_or_none()
+        project_user = result.scalar_one_or_none()
 
         if not project_user:
             logger.warning(f"User not in project: user_id={user_id}, project_id={project_id}")
@@ -343,8 +433,6 @@ class ProjectService:
         await self.db.delete(project_user)
         await self.db.commit()
 
-        logger.info(
-            f"User removed from project successfully: user_id={user_id}, project_id={project_id}"
-        )
+        logger.info(f"Removed user_id={user_id} from project project_id={project_id}")
 
         return True, "User successfully removed from project"

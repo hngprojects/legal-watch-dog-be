@@ -1,12 +1,15 @@
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict
+from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.redis_service import get_redis_client
-from app.api.modules.v1.billing.models import BillingStatus, InvoiceHistory
+from app.api.modules.v1.billing.models import InvoiceHistory
+from app.api.modules.v1.billing.models.billing_account import BillingAccount as BA
 from app.api.modules.v1.billing.service.billing_service import get_billing_service
+from app.api.modules.v1.billing.utils.billings_utils import map_plan_to_plan_info
 
 logger = logging.getLogger(__name__)
 
@@ -77,33 +80,52 @@ async def _handle_invoice_event(db: AsyncSession, data: Dict[str, Any]) -> Dict[
         Exception: If invoice lookup or update fails after logging the error.
     """
     billing_service = get_billing_service(db)
-    stripe_invoice_id = data.get("id")
-    status = data.get("status")
-    amount_paid = data.get("amount_paid") or 0
 
+    stripe_invoice_id = data.get("id")
     if not stripe_invoice_id:
         logger.warning("Invoice event with no id: %s", data)
         return {"action": "invoice_invalid_payload", "details": {}}
 
+    customer_id = data.get("customer")
+    if not customer_id:
+        logger.warning(
+            "Invoice %s has no customer id, cannot link to billing account", stripe_invoice_id
+        )
+        return {
+            "action": "invoice_no_customer",
+            "stripe_invoice_id": stripe_invoice_id,
+        }
+
+    account = await billing_service.find_billing_account_by_customer_id(customer_id)
+    if not account:
+        logger.warning(
+            "No billing account found for stripe_customer_id=%s (invoice=%s)",
+            customer_id,
+            stripe_invoice_id,
+        )
+        return {
+            "action": "invoice_account_not_found",
+            "stripe_invoice_id": stripe_invoice_id,
+            "customer_id": customer_id,
+        }
+
     try:
-        invoice = await billing_service.find_invoice_by_stripe_invoice_id(stripe_invoice_id)
-        if invoice:
-            if status in ("paid", "paidout", "open"):
-                await billing_service.mark_invoice_paid(
-                    invoice_id=invoice.id, amount_paid=amount_paid
-                )
-                return {"action": "invoice_marked_paid", "invoice_id": str(invoice.id)}
-            elif status in ("void", "uncollectible", "draft", "failed"):
-                await billing_service.mark_invoice_failed(invoice_id=invoice.id)
-                return {"action": "invoice_marked_failed", "invoice_id": str(invoice.id)}
-            else:
-                logger.info("Unhandled invoice status=%s for invoice=%s", status, stripe_invoice_id)
-                return {"action": "invoice_status_unhandled", "status": status}
-        else:
-            logger.info("No local invoice found for stripe_invoice_id=%s", stripe_invoice_id)
-            return {"action": "invoice_not_found", "stripe_invoice_id": stripe_invoice_id}
+        invoice = await billing_service.upsert_invoice_from_stripe(
+            account=account,
+            stripe_invoice=data,
+        )
+        return {
+            "action": "invoice_upserted",
+            "invoice_id": str(invoice.id),
+            "stripe_invoice_id": stripe_invoice_id,
+            "status": invoice.status.value,
+        }
     except Exception:
-        logger.exception("Error handling invoice event for stripe_invoice_id=%s", stripe_invoice_id)
+        logger.exception(
+            "Error syncing invoice for stripe_invoice_id=%s customer=%s",
+            stripe_invoice_id,
+            customer_id,
+        )
         raise
 
 
@@ -171,18 +193,6 @@ async def _handle_subscription_event(db: AsyncSession, data: Dict[str, Any]) -> 
     billing_service = get_billing_service(db)
     customer_id = data.get("customer")
     sub_id = data.get("id")
-    current_period_start = data.get("current_period_start")
-    current_period_end = data.get("current_period_end")
-    status = data.get("status")
-    price_id = None
-
-    items = (
-        data.get("items", {}).get("data")
-        if isinstance(data.get("items"), dict)
-        else data.get("items")
-    )
-    if items and isinstance(items, list) and len(items) > 0 and isinstance(items[0], dict):
-        price_id = items[0].get("price", {}).get("id") or items[0].get("price")
 
     if not customer_id:
         logger.warning("Subscription event missing customer: %s", data)
@@ -200,43 +210,13 @@ async def _handle_subscription_event(db: AsyncSession, data: Dict[str, Any]) -> 
             stripe_subscription_id=sub_id,
         )
 
-        mapped_status = None
-        if status in ("active", "trialing"):
-            mapped_status = BillingStatus.ACTIVE
-        elif status in ("past_due",):
-            mapped_status = BillingStatus.PAST_DUE
-        elif status in ("incomplete", "incomplete_expired", "unpaid"):
-            mapped_status = BillingStatus.UNPAID
-        elif status in ("canceled", "cancelled"):
-            mapped_status = BillingStatus.CANCELLED
+        update_values = (
+            await billing_service._build_billing_account_updates_from_stripe_subscription(data)
+        )
 
-        update_values: Dict[str, Any] = {}
-        if current_period_start:
-            try:
-                update_values["current_period_start"] = datetime.fromtimestamp(
-                    int(current_period_start), tz=timezone.utc
-                )
-            except Exception:
-                logger.warning("Failed to parse current_period_start=%s", current_period_start)
-        if current_period_end:
-            try:
-                update_values["current_period_end"] = datetime.fromtimestamp(
-                    int(current_period_end), tz=timezone.utc
-                )
-            except Exception:
-                logger.warning("Failed to parse current_period_end=%s", current_period_end)
-        if price_id:
-            update_values["current_price_id"] = price_id
-        if mapped_status:
-            update_values["status"] = mapped_status
+        update_values["stripe_subscription_id"] = sub_id
 
         if update_values:
-            from sqlalchemy import update
-
-            from app.api.modules.v1.billing.models.billing_account import BillingAccount as BA
-
-            if "status" in update_values and hasattr(update_values["status"], "value"):
-                update_values["status"] = update_values["status"].value
             stmt = (
                 update(BA)
                 .where(BA.id == account.id)
@@ -245,11 +225,47 @@ async def _handle_subscription_event(db: AsyncSession, data: Dict[str, Any]) -> 
             )
             await db.execute(stmt)
             await db.commit()
+            await db.refresh(account)
+
+        current_plan_info = None
+        if account.current_price_id:
+            plan = await billing_service.get_plan_by_stripe_price_id(account.current_price_id)
+            if plan:
+                current_plan_info = map_plan_to_plan_info(plan)
+
+        org_id = getattr(account, "organization_id", None)
+
+        if not org_id:
+            metadata = data.get("metadata") or {}
+            org_id_str = metadata.get("organization_id")
+            if org_id_str:
+                org_id = UUID(org_id_str)
+
+        if org_id:
+            await billing_service._sync_org_billing_from_account(
+                db=db,
+                organization_id=org_id,
+                account=account,
+                plan_info=current_plan_info,
+            )
+        else:
+            logger.warning(
+                "No organization_id found while syncing subscription event for account %s",
+                account.id,
+            )
 
         logger.info(
-            "Processed subscription event for subscription=%s customer=%s", sub_id, customer_id
+            "Processed subscription event for subscription=%s customer=%s (org=%s)",
+            sub_id,
+            customer_id,
+            org_id,
         )
-        return {"action": "subscription_processed", "billing_account_id": str(account.id)}
+        return {
+            "action": "subscription_processed",
+            "billing_account_id": str(account.id),
+            "organization_id": str(org_id) if org_id else None,
+        }
+
     except Exception:
         await db.rollback()
         logger.exception("Error handling subscription event for subscription=%s", sub_id)
@@ -422,8 +438,8 @@ async def process_stripe_event(db: AsyncSession, event: Dict[str, Any]) -> Dict[
     Raises:
         Exception: Not propagated; any handler error is logged and folded into the result.
     """
-    event_id = event.get("id")
-    event_type = event.get("type")
+    event_id: str = event.get("id")
+    event_type: str = event.get("type")
     if not event_id or not event_type:
         logger.warning("Invalid stripe event payload (missing id/type)")
         return {"processed": False, "action": "invalid_event", "details": {}}
@@ -438,6 +454,7 @@ async def process_stripe_event(db: AsyncSession, event: Dict[str, Any]) -> Dict[
     data_obj = event.get("data", {}).get("object", {}) or {}
     result = {"processed": True, "action": "unhandled_event", "event_type": event_type}
 
+    logger.info("Processing stripe event: id=%s type=%s", event_id, event_type)
     try:
         if event_type.startswith("invoice."):
             result = await _handle_invoice_event(db, data_obj)
@@ -471,18 +488,19 @@ async def process_stripe_event(db: AsyncSession, event: Dict[str, Any]) -> Dict[
                 "payment_intent_id": pi_id,
             }
 
-        elif event_type == "invoice_payment.paid":
-            logger.info(
-                "Invoice payment paid (no-op, invoice payments not modelled locally): %s",
-                data_obj.get("id"),
-            )
-            result = {
-                "action": "invoice_payment_paid_noop",
-                "invoice_payment_id": data_obj.get("id"),
+        elif event_type == "invoiceitem.created":
+            logger.info("invoiceitem.created no-op: invoice_item=%s", data_obj)
+            return {
+                "action": "invoiceitem_created_noop",
+                "invoice_item_id": data_obj.get("id"),
             }
 
+        elif event_type.startswith("customer."):
+            logger.info("Customer event no-op: type=%s id=%s", event_type, data_obj.get("id"))
+            result = {"action": "customer_noop", "event_type": event_type}
+
         else:
-            logger.info("Unhandled stripe event type: %s", event_type)
+            logger.info("Unhandled stripe event type: %s, data=%s", event_type, data_obj)
             result = {"action": "unhandled_event_type", "event_type": event_type}
 
         try:

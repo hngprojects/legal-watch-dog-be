@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 from cryptography.fernet import Fernet
 from decouple import Config, RepositoryEnv
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
     LEGAL_WATCH_DOG_BASE_URL: str = config("LEGAL_WATCH_DOG_BASE_URL", default="minamoto.emerj.net")
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
+
+    # Socials
+    SOCIAL_FACEBOOK: str = config("SOCIAL_FACEBOOK", default="https://facebook.com")
+    SOCIAL_TWITTER: str = config("SOCIAL_TWITTER", default="https://twitter.com")
+    SOCIAL_INSTAGRAM: str = config("SOCIAL_INSTAGRAM", default="https://instagram.com")
+    SOCIAL_LINKEDIN: str = config("SOCIAL_LINKEDIN", default="https://linkedin.com")
+    SOCIAL_YOUTUBE: str = config("SOCIAL_YOUTUBE", default="https://youtube.com")
 
     # Database
     DB_TYPE: str = config("DB_TYPE", default="postgresql")
@@ -83,12 +91,13 @@ class Settings(BaseSettings):
     SCRAPE_DISPATCH_LOCK_TIMEOUT: int = config("SCRAPE_DISPATCH_LOCK_TIMEOUT", default=60, cast=int)
     SCRAPE_BATCH_SIZE: int = config("SCRAPE_BATCH_SIZE", default=1000, cast=int)
 
-    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9001")
+    MINIO_ENDPOINT: str = config("MINIO_ENDPOINT", default="localhost:9000")
     MINIO_ACCESS_KEY: str = config("MINIO_ACCESS_KEY", default="lwd")
     MINIO_SECRET_KEY: str = config("MINIO_SECRET_KEY", default="lwd12345")
     MINIO_SECURE: bool = config("MINIO_SECURE", default=False, cast=bool)
     MINIO_USE_SSL: bool = False
     MINIO_PROFILE_BUCKET: str = config("MINIO_PROFILE_BUCKET", default="profile-pictures")
+    MINIO_PUBLIC_URL: Optional[str] = config("MINIO_PUBLIC_URL", default=None)
 
     # gemini AI Service
     GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="your-gemini-api-key")
@@ -114,30 +123,68 @@ class Settings(BaseSettings):
     STRIPE_RETRY_COUNT: int = config("STRIPE_RETRY_COUNT", default=3, cast=int)
     STRIPE_RETRY_BACKOFF: float = config("STRIPE_RETRY_BACKOFF", default=0.5, cast=float)
 
-    MONTHLY_PRICE: int = config("MONTHLY_PRICE", default=100, cast=int)
-    YEARLY_PRICE: int = config("YEARLY_PRICE", default=1000, cast=int)
-    STRIPE_MONTHLY_PRODUCT_ID: str = config("STRIPE_MONTHLY_PRODUCT_ID", default="prod_monthly_123")
-    STRIPE_MONTHLY_PRICE_ID: str = config("STRIPE_MONTHLY_PRICE_ID", default="price_monthly_id")
-    STRIPE_YEARLY_PRODUCT_ID: str = config("STRIPE_YEARLY_PRODUCT_ID", default="prod_yearly_123")
-    STRIPE_YEARLY_PRICE_ID: str = config("STRIPE_YEARLY_PRICE_ID", default="price_yearly_id")
-    STRIPE_ONE_OFF_YEAR_PROD_ID: str = config(
-        "STRIPE_ONE_OFF_YEAR_PROD_ID", default="prod_oneoff_year_123"
-    )
-    STRIPE_ONE_OFF_YEAR_PRICE_ID: str = config(
-        "STRIPE_ONE_OFF_YEAR_PRICE_ID", default="price_oneoff_year_id"
-    )
-    STRIPE_ONE_OFF_MONTH_PROD_ID: str = config(
-        "STRIPE_ONE_OFF_MONTH_PROD_ID", default="prod_oneoff_month_123"
-    )
-    STRIPE_ONE_OFF_MONTH_PRICE_ID: str = config(
-        "STRIPE_ONE_OFF_MONTH_PRICE_ID", default="price_oneoff_month_id"
-    )
     STRIPE_INVOICE_DURATION_DAYS: int = config("STRIPE_INVOICE_DURATION_DAYS", default=3, cast=int)
     STRIPE_CHECKOUT_SUCCESS_PATH: str = config(
         "STRIPE_CHECKOUT_SUCCESS_PATH", default="/billing/success"
     )
     STRIPE_CHECKOUT_CANCEL_PATH: str = config(
         "STRIPE_CHECKOUT_CANCEL_PATH", default="/billing/cancel"
+    )
+
+    # Stripe prices & product/price IDs
+    ESSENTIAL_MONTHLY_PRICE_USD: int = config("ESSENTIAL_MONTHLY_PRICE_USD", default=2900, cast=int)
+    ESSENTIAL_YEARLY_PRICE_USD: int = config("ESSENTIAL_YEARLY_PRICE_USD", default=27840, cast=int)
+
+    PRO_MONTHLY_PRICE_USD: int = config("PRO_MONTHLY_PRICE_USD", default=7900, cast=int)
+    PRO_YEARLY_PRICE_USD: int = config("PRO_YEARLY_PRICE_USD", default=75840, cast=int)
+
+    ENTERPRISE_MONTHLY_PRICE_USD: int = config(
+        "ENTERPRISE_MONTHLY_PRICE_USD", default=9900, cast=int
+    )
+    ENTERPRISE_YEARLY_PRICE_USD: int = config(
+        "ENTERPRISE_YEARLY_PRICE_USD", default=95040, cast=int
+    )
+
+    STRIPE_ESSENTIAL_MONTHLY_PRODUCT_ID: str = config(
+        "STRIPE_ESSENTIAL_MONTHLY_PRODUCT_ID", default="prod_monthly_123"
+    )
+    STRIPE_ESSENTIAL_MONTHLY_PRICE_ID: str = config(
+        "STRIPE_ESSENTIAL_MONTHLY_PRICE_ID", default="price_monthly_id"
+    )
+
+    STRIPE_ESSENTIAL_YEARLY_PRODUCT_ID: str = config(
+        "STRIPE_ESSENTIAL_YEARLY_PRODUCT_ID", default="prod_yearly_123"
+    )
+    STRIPE_ESSENTIAL_YEARLY_PRICE_ID: str = config(
+        "STRIPE_ESSENTIAL_YEARLY_PRICE_ID", default="price_yearly_id"
+    )
+
+    STRIPE_PRO_MONTHLY_PRODUCT_ID: str = config(
+        "STRIPE_PRO_MONTHLY_PRODUCT_ID", default="prod_pro_monthly_123"
+    )
+    STRIPE_PRO_MONTHLY_PRICE_ID: str = config(
+        "STRIPE_PRO_MONTHLY_PRICE_ID", default="price_pro_monthly_id"
+    )
+
+    STRIPE_PRO_YEARLY_PRODUCT_ID: str = config(
+        "STRIPE_PRO_YEARLY_PRODUCT_ID", default="prod_pro_yearly_123"
+    )
+    STRIPE_PRO_YEARLY_PRICE_ID: str = config(
+        "STRIPE_PRO_YEARLY_PRICE_ID", default="price_pro_yearly_id"
+    )
+
+    STRIPE_ENTERPRISE_MONTHLY_PRODUCT_ID: str = config(
+        "STRIPE_ENTERPRISE_MONTHLY_PRODUCT_ID", default="prod_enterprise_monthly_123"
+    )
+    STRIPE_ENTERPRISE_MONTHLY_PRICE_ID: str = config(
+        "STRIPE_ENTERPRISE_MONTHLY_PRICE_ID", default="price_enterprise_monthly_id"
+    )
+
+    STRIPE_ENTERPRISE_YEARLY_PRODUCT_ID: str = config(
+        "STRIPE_ENTERPRISE_YEARLY_PRODUCT_ID", default="prod_enterprise_yearly_123"
+    )
+    STRIPE_ENTERPRISE_YEARLY_PRICE_ID: str = config(
+        "STRIPE_ENTERPRISE_YEARLY_PRICE_ID", default="price_enterprise_yearly_id"
     )
 
     # Frontend URL (for Stripe redirects)

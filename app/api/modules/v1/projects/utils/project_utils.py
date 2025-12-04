@@ -1,12 +1,16 @@
+import logging
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import and_, select
 
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.users.models.users_model import User
+
+logger = logging.getLogger("app")
 
 
 async def get_project_by_id(
@@ -60,11 +64,28 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID, organization_id: UUID)
     Returns:
         User object if found and belongs to organization, None otherwise
     """
-    statement = select(User).where(
-        and_(User.id == user_id, User.organization_id == organization_id)
+    statement = (
+        select(User)
+        .join(
+            UserOrganization,
+            and_(
+                UserOrganization.user_id == User.id,
+                UserOrganization.organization_id == organization_id,
+                UserOrganization.is_active,
+            ),
+        )
+        .where(User.id == user_id)
     )
+
     result = await db.execute(statement)
-    return result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
+
+    if user:
+        logger.info(f"User {user_id} found and is member of organization {organization_id}")
+    else:
+        logger.warning(f"User {user_id} not found or not member of organization {organization_id}")
+
+    return user
 
 
 async def check_project_user_exists(db: AsyncSession, project_id: UUID, user_id: UUID) -> bool:

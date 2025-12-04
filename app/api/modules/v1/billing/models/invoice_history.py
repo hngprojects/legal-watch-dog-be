@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, func
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -40,7 +40,13 @@ class InvoiceHistory(SQLModel, table=True):
     )
 
     stripe_invoice_id: Optional[str] = Field(
-        default=None, max_length=255, nullable=True, index=True
+        default=None,
+        sa_column=Column(
+            String(255),
+            unique=True,
+            index=True,
+            nullable=True,
+        ),
     )
 
     stripe_payment_intent_id: Optional[str] = Field(

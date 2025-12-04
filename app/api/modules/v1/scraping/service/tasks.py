@@ -1,11 +1,8 @@
-"""
-Celery tasks for the scraping module.
+"""Celery tasks for the scraping module.
 
-This module defines the synchronous tasks for
-scraping data sources,
-including a periodic task to dispatch scrapers and
-the individual scraper task
-with retry logic.
+This module defines the synchronous tasks for scraping data sources,
+including a periodic task to dispatch scrapers and the individual scraper task
+with retry logic and circuit breaking.
 """
 
 import asyncio
@@ -24,13 +21,9 @@ from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Sou
 
 logger = get_task_logger(__name__)
 
-# Initialize Redis Connection Pool
 redis_pool = redis.ConnectionPool.from_url(settings.REDIS_URL, decode_responses=True)
 
-# Define lock constants
 DISPATCH_LOCK_KEY = "celery:dispatch_due_sources_lock"
-
-# Define DLQ constants
 CELERY_DLQ_KEY = "celery:scraping_dlq"
 
 
@@ -38,11 +31,11 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
     """Calculates the next scrape time based on frequency.
 
     Args:
-        current_time: The current time from which to calculate the next scrape.
-        frequency: The scraping frequency enum.
+        current_time (datetime): The current time anchor.
+        frequency (ScrapeFrequency): The frequency enum (DAILY, WEEKLY, etc.).
 
     Returns:
-        The calculated next scrape time.
+        datetime: The calculated next execution time.
     """
     frequency_map = {
         ScrapeFrequency.DAILY: timedelta(days=1),
@@ -55,18 +48,13 @@ def get_next_scrape_time(current_time: datetime, frequency: ScrapeFrequency) -> 
 
 
 async def _handle_scrape_failure_async(source_id: str, error_msg: str):
-    """Circuit breaker to prevent infinite retry loops.
-
-    CRITICAL SAFETY MECHANISM: If a source fails max_retries, we MUST push its
-    next_scrape_time forward. Otherwise, the dispatcher will see it as 'due'
-    immediately and infinite-loop it.
+    """Updates the source schedule on failure to prevent infinite retry loops.
 
     Args:
-        source_id: The UUID of the source that failed.
-        error_msg: The error message to store in the database.
+        source_id (str): The UUID of the source that failed.
+        error_msg (str): The error message to persist.
     """
     async with AsyncSessionLocal() as db:
-        # Push 6 hours into the future to stop the bleeding
         backoff_time = datetime.now(timezone.utc) + timedelta(hours=6)
 
         logger.warning(f"Source {source_id} exhausted retries. Pushing schedule to {backoff_time}")
@@ -80,35 +68,30 @@ async def _handle_scrape_failure_async(source_id: str, error_msg: str):
         await db.commit()
 
 
-async def _scrape_source_async(source_id: str):
-    """Async implementation of the scraping logic.
-
-    Fetches the source from the database, performs the actual scraping operation
-    using ScraperService, and updates the source's next_scrape_time, last_scraped_at,
-    and last_error based on the scraping results.
+async def _scrape_source_async(source_id: str) -> str:
+    """Async logic to initialize the service and execute the scrape pipeline.
 
     Args:
-        source_id: The UUID of the source to scrape.
+        source_id (str): The UUID of the target source.
 
     Returns:
-        A message indicating the outcome of the scraping attempt.
+        str: A status message describing the outcome.
 
     Raises:
-        Exception: Re-raises exceptions from the scraping pipeline for retry handling.
+        Exception: If the pipeline fails, re-raised for Celery retry.
     """
     from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 
-    logger.info(f"Running _scrape_source_async for source {source_id} in async loop.")
+    logger.info(f"Running scrape for source {source_id}")
+
     async with AsyncSessionLocal() as db:
         query = select(Source).where(Source.id == source_id)
         result = await db.execute(query)
         source = result.scalars().first()
 
         if not source:
-            logger.warning(f"Source with ID {source_id} not found.")
+            logger.warning(f"Source {source_id} not found.")
             return f"Source {source_id} not found."
-
-        logger.info(f"Attempting to scrape source: {source.name} (ID: {source.id})")
 
         try:
             scraper_service = ScraperService(db)
@@ -119,74 +102,58 @@ async def _scrape_source_async(source_id: str):
             )
             source.next_scrape_time = new_next_scrape_time
             source.last_scraped_at = datetime.now(timezone.utc)
-            source.last_error = None  # Clear previous errors
+            source.last_error = None
 
             db.add(source)
             await db.commit()
             await db.refresh(source)
 
             change_status = "with changes" if scrape_result.get("change_detected") else "no changes"
-            logger.info(
-                f"Successfully scraped source {source.name} ({change_status}). "
-                f"Next scrape time: {source.next_scrape_time}"
-            )
-            return (
+            msg = (
                 f"Source {source.id} scraped successfully ({change_status}). "
-                f"Next scrape: {source.next_scrape_time}"
+                f"Next: {source.next_scrape_time}"
             )
+            logger.info(msg)
+            return msg
 
         except Exception as e:
             error_msg = f"Scraping failed: {str(e)}"
             logger.error(f"Error scraping source {source.name}: {error_msg}")
 
-            # Update last_error but don't update next_scrape_time yet
             source.last_error = error_msg
             db.add(source)
             await db.commit()
-
-            # Re-raise to trigger Celery retry mechanism
             raise
 
 
 @shared_task(bind=True, max_retries=settings.SCRAPE_MAX_RETRIES)
 def scrape_source(self, source_id: str):
-    """Performs the scraping of a single source with exponential backoff and jitter.
+    """Celery worker task to scrape a single source.
 
-    This task attempts to scrape a given source. If it fails, it retries with
-    an exponential backoff strategy, including jitter to prevent thundering herds.
-    Upon successful completion, it atomically updates the source's next_scrape_time.
-    After max retries, the task is moved to the Dead Letter Queue (DLQ) and the
-    circuit breaker is triggered to prevent infinite loops.
+    Executes the async scraping logic synchronously. Handles exponential backoff
+    retries and dead-letter queueing upon exhaustion.
 
     Args:
-        self: The Celery task instance.
-        source_id: The UUID of the source to be scraped.
+        source_id (str): The UUID of the source.
 
     Returns:
-        A message indicating the outcome of the scraping attempt.
+        str: Success or Failure message.
     """
     try:
-        # Run the async implementation synchronously
         return asyncio.run(_scrape_source_async(source_id))
     except Exception as exc:
-        # Use the connection pool
         redis_client = redis.Redis(connection_pool=redis_pool)
 
         retry_count = self.request.retries
-        # Smart Exponential Backoff: 2s, 4s, 8s, 16s...
         delay = min(settings.SCRAPE_MAX_DELAY, settings.SCRAPE_BASE_DELAY * (2**retry_count))
         jitter = random.uniform(0, delay * 0.1)
         countdown = delay + jitter
 
         if retry_count < settings.SCRAPE_MAX_RETRIES:
-            logger.warning(
-                f"Scrape failed for {source_id}. Retrying in {countdown:.2f} seconds. Error: {exc}"
-            )
+            logger.warning(f"Scrape failed for {source_id}. Retrying in {countdown:.2f}s.")
             raise self.retry(exc=exc, countdown=countdown)
         else:
-            # Max retries exhausted, move to DLQ
             error_msg = str(exc)
-
             dlq_entry = {
                 "task_id": self.request.id,
                 "source_id": source_id,
@@ -197,38 +164,28 @@ def scrape_source(self, source_id: str):
             }
             redis_client.lpush(CELERY_DLQ_KEY, json.dumps(dlq_entry))
 
-            # Update DB to prevent immediate re-dispatch (Infinite Loop Fix)
             try:
                 asyncio.run(_handle_scrape_failure_async(source_id, error_msg))
             except Exception as db_exc:
-                logger.error(f"CRITICAL: Failed to update source schedule after failure: {db_exc}")
+                logger.error(f"CRITICAL: Failed to update schedule after failure: {db_exc}")
 
-            logger.error(
-                f"Scrape source {source_id} failed after {settings.SCRAPE_MAX_RETRIES} retries."
-                f"Task {self.request.id} moved to DLQ."
-            )
             return f"Failed: Source {source_id} moved to DLQ."
 
 
-async def _dispatch_due_sources_async(app):
-    """Async implementation of the dispatch logic.
-
-    Queries for sources that are due for scraping and dispatches individual
-    scrape_source tasks. Uses batch processing and updates next_scrape_time
-    to prevent duplicate dispatches.
+async def _dispatch_due_sources_async(app) -> int:
+    """Async logic to query due sources and dispatch tasks.
 
     Args:
         app: The Celery application instance.
 
     Returns:
-        The total number of sources dispatched.
+        int: Total number of sources dispatched.
     """
     async with AsyncSessionLocal() as db:
         now = datetime.now(timezone.utc)
         total_dispatched = 0
         batch_size = settings.SCRAPE_BATCH_SIZE
 
-        # Base query for due sources
         while True:
             query = (
                 select(Source)
@@ -236,7 +193,6 @@ async def _dispatch_due_sources_async(app):
                 .order_by(Source.next_scrape_time, Source.id)
                 .limit(batch_size)
             )
-            # Fetch in batches
             result = await db.execute(query)
             due_sources = result.scalars().all()
 
@@ -248,8 +204,8 @@ async def _dispatch_due_sources_async(app):
                 src.next_scrape_time = in_progress_time
 
                 db.add(src)
-                await db.commit()
-
+            await db.commit()
+            for src in due_sources:
                 app.send_task(
                     "app.api.modules.v1.scraping.service.tasks.scrape_source",
                     args=[str(src.id)],
@@ -264,22 +220,13 @@ async def _dispatch_due_sources_async(app):
 
 @shared_task(bind=True)
 def dispatch_due_sources(self):
-    """Dispatches scraping tasks for sources whose next_scrape_time has passed.
+    """Celery Beat task to schedule scraping jobs.
 
-    This Celery Beat task runs periodically. It uses a distributed lock to ensure
-    that only one instance of the task runs at a time across all workers.
-    It queries for due sources and dispatches individual scrape_source tasks.
-
-    Args:
-        self: The Celery task instance.
+    Uses a distributed Redis lock to prevent overlapping runs.
 
     Returns:
-        A message indicating the outcome (dispatched, or skipped due to lock).
-
-    Raises:
-        redis.RedisError: If there's a Redis connection failure.
+        str: Summary of dispatch action.
     """
-    # Use the connection pool
     redis_client = redis.Redis(connection_pool=redis_pool)
 
     try:
@@ -288,21 +235,11 @@ def dispatch_due_sources(self):
         )
 
         if not lock_acquired:
-            logger.info("Dispatch due sources task is already running. Skipping.")
-            return "Skipped: Another dispatch task is already running."
+            return "Skipped: Dispatch task locked."
 
-        logger.info("Acquired dispatch lock. Checking for due sources...")
-
-        # Run the async implementation synchronously
         total_dispatched = asyncio.run(_dispatch_due_sources_async(self.app))
-
-        if total_dispatched == 0:
-            logger.info("No sources are due for scraping.")
-            return "No sources to dispatch."
-
-        logger.info(f"Dispatched total {total_dispatched} sources for scraping.")
-        return f"Dispatched {total_dispatched} sources"
+        return f"Dispatched {total_dispatched} sources."
 
     except redis.RedisError as e:
-        logger.error(f"Redis error in dispatch_due_sources: {e}", exc_info=True)
-        return "Aborted: Redis connection failed."
+        logger.error(f"Redis error: {e}", exc_info=True)
+        return "Aborted: Redis failure."

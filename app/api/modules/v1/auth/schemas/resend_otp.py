@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class ResendOTPRequest(BaseModel):
@@ -11,9 +11,10 @@ class ResendOTPRequest(BaseModel):
 
     email: EmailStr = Field(..., description="User's email address")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "admin@techcorp.com",
             }
         }
+    )

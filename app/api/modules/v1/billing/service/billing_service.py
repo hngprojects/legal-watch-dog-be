@@ -4,12 +4,21 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import case, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.config import settings
-from app.api.modules.v1.billing.models.billing_account import BillingAccount, BillingStatus
-from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory, InvoiceStatus
-from app.api.modules.v1.billing.models.payment_method import PaymentMethod
+from app.api.modules.v1.billing.models import (
+    BillingAccount,
+    BillingPlan,
+    BillingStatus,
+    InvoiceHistory,
+    InvoiceStatus,
+    PaymentMethod,
+)
+from app.api.modules.v1.billing.schemas import (
+    BillingPlanInfo,
+)
 from app.api.modules.v1.billing.stripe.errors import SubscriptionAlreadyCanceledError
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
     attach_payment_method as stripe_attach_payment_method,
@@ -32,6 +41,12 @@ from app.api.modules.v1.billing.stripe.stripe_adapter import (
 from app.api.modules.v1.billing.stripe.stripe_adapter import (
     update_subscription_price as stripe_update_subscription_price,
 )
+from app.api.modules.v1.billing.utils.billings_utils import (
+    map_stripe_invoice_status,
+    map_stripe_status_to_billing_status,
+    parse_ts,
+)
+from app.api.modules.v1.organization.models.organization_model import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +114,50 @@ class BillingService:
             allowed = False
 
         return allowed, effective_status
+
+    async def list_active_plans(self) -> List[BillingPlan]:
+        """
+        Return all active subscription plans configured in the system.
+
+        Args:
+            None
+
+        Returns:
+            List[BillingPlan]: A list of active BillingPlan objects ordered by sort_order
+            and then by amount.
+        """
+        stmt = (
+            select(BillingPlan)
+            .where(BillingPlan.is_active)
+            .order_by(BillingPlan.sort_order.asc(), BillingPlan.amount.asc())
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def get_plan_by_id(self, plan_id: UUID) -> BillingPlan | None:
+        """
+        Fetch a billing plan by its primary key.
+
+        Args:
+            plan_id (UUID): ID of the plan in the `billing_plans` table.
+
+        Returns:
+            BillingPlan | None: The matching plan, or None if not found.
+        """
+        stmt = select(BillingPlan).where(BillingPlan.id == plan_id)
+        return await self.db.scalar(stmt)
+
+    async def get_plan_by_stripe_price_id(self, price_id: str) -> Optional[BillingPlan]:
+        """
+        Look up a billing plan by its Stripe price ID.
+        Args:
+            price_id (str): Stripe price identifier (e.g., "price_...") to look up.
+
+        Returns:
+            Optional[BillingPlan]: The BillingPlan matching the given Stripe price id
+        """
+        stmt = select(BillingPlan).where(BillingPlan.stripe_price_id == price_id)
+        return await self.db.scalar(stmt)
 
     async def create_billing_account(
         self,
@@ -427,6 +486,19 @@ class BillingService:
             )
             raise
 
+    async def get_payment_method_by_id(self, payment_method_id: UUID) -> PaymentMethod | None:
+        """
+        Fetch a payment method by its primary key.
+
+        Args:
+            payment_method_id (UUID): ID of the payment method row.
+
+        Returns:
+            PaymentMethod | None: The matching payment method, or None if not found.
+        """
+        stmt = select(PaymentMethod).where(PaymentMethod.id == payment_method_id)
+        return await self.db.scalar(stmt)
+
     async def find_payment_method_by_stripe_id(
         self, stripe_payment_method_id: str
     ) -> Optional[PaymentMethod]:
@@ -561,28 +633,104 @@ class BillingService:
             )
             raise
 
-    @staticmethod
-    def _map_stripe_invoice_status(stripe_status: Optional[str]) -> InvoiceStatus:
+    async def upsert_invoice_from_stripe(
+        self,
+        account: BillingAccount,
+        stripe_invoice: dict,
+    ) -> InvoiceHistory:
         """
-        Map Stripe's invoice.status -> our InvoiceStatus enum.
-
+        Create or update an InvoiceHistory record from a Stripe invoice object.
         Args:
-            stripe_status (Optional[str]): The raw status value returned by Stripe.
+            account (BillingAccount): The billing account to associate the invoice with.
+            stripe_invoice (dict): The raw Stripe invoice object/payload.
 
         Returns:
-            InvoiceStatus: The mapped internal invoice status, defaulting to PENDING.
+            InvoiceHistory: The created or updated InvoiceHistory record.
         """
-        if not stripe_status:
-            return InvoiceStatus.PENDING
+        stripe_invoice_id = stripe_invoice["id"]
+        currency = (stripe_invoice.get("currency") or "usd").upper()
 
-        mapping = {
-            "draft": InvoiceStatus.DRAFT,
-            "open": InvoiceStatus.OPEN,
-            "paid": InvoiceStatus.PAID,
-            "void": InvoiceStatus.VOID,
-            "uncollectible": InvoiceStatus.FAILED,
-        }
-        return mapping.get(stripe_status, InvoiceStatus.PENDING)
+        existing = await self.find_invoice_by_stripe_invoice_id(stripe_invoice_id)
+
+        plan_meta: dict[str, Any] = {}
+
+        lines = stripe_invoice.get("lines", {}).get("data", []) or []
+        first_line = lines[0] if lines else None
+
+        if first_line:
+            line_meta = first_line.get("metadata") or {}
+            plan_meta.update(
+                {
+                    "plan_code": line_meta.get("plan_code"),
+                    "plan_interval": line_meta.get("plan_interval"),
+                    "plan_tier": line_meta.get("plan_tier"),
+                }
+            )
+
+            price_details = (
+                first_line.get("price") or first_line.get("pricing", {}).get("price_details") or {}
+            )
+
+            if isinstance(price_details, dict):
+                stripe_price_id = price_details.get("id") or price_details.get("price")
+            else:
+                stripe_price_id = None
+
+            if stripe_price_id:
+                plan_stmt = select(BillingPlan).where(
+                    BillingPlan.stripe_price_id == stripe_price_id
+                )
+                plan_result = await self.db.execute(plan_stmt)
+                plan = plan_result.scalar_one_or_none()
+                if plan:
+                    plan_meta.setdefault("plan_code", plan.code)
+                    plan_meta.setdefault("plan_interval", plan.interval.value)
+                    plan_meta.setdefault("plan_tier", plan.tier.value)
+                    plan_meta["plan_label"] = plan.label
+
+        base_metadata = stripe_invoice.get("metadata") or {}
+        parent = stripe_invoice.get("parent") or {}
+        sub_details = (parent.get("subscription_details") or {}).get("metadata") or {}
+        metadata = {**base_metadata, **sub_details, **plan_meta}
+
+        total = stripe_invoice.get("total") or stripe_invoice.get("amount_due") or 0
+        amount_paid = stripe_invoice.get("amount_paid") or 0
+        stripe_payment_intent_id = stripe_invoice.get("payment_intent")
+
+        status = map_stripe_invoice_status(stripe_invoice.get("status"))
+
+        if existing:
+            existing.amount_due = total or existing.amount_due
+            existing.amount_paid = amount_paid or existing.amount_paid
+            existing.currency = currency
+            existing.status = status
+            existing.hosted_invoice_url = stripe_invoice.get("hosted_invoice_url")
+            existing.invoice_pdf_url = stripe_invoice.get("invoice_pdf")
+            if stripe_payment_intent_id:
+                existing.stripe_payment_intent_id = stripe_payment_intent_id
+            existing.metadata_ = {**(existing.metadata_ or {}), **metadata}
+            self.db.add(existing)
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
+
+        try:
+            invoice = await self.create_invoice_record(
+                billing_account_id=account.id,
+                amount_due=total,
+                amount_paid=amount_paid,
+                currency=currency,
+                stripe_invoice_id=stripe_invoice_id,
+                stripe_payment_intent_id=stripe_payment_intent_id,
+                status=status,
+                metadata=metadata,
+                hosted_invoice_url=stripe_invoice.get("hosted_invoice_url"),
+                invoice_pdf_url=stripe_invoice.get("invoice_pdf"),
+            )
+            return invoice
+        except IntegrityError:
+            await self.db.rollback()
+            return await self.find_invoice_by_stripe_invoice_id(stripe_invoice_id)
 
     async def create_stripe_and_local_invoice(
         self,
@@ -639,7 +787,7 @@ class BillingService:
         total = stripe_invoice.get("total") or stripe_invoice.get("amount_due") or 0
         amount_paid = stripe_invoice.get("amount_paid") or 0
 
-        status = self._map_stripe_invoice_status(stripe_status)
+        status = map_stripe_invoice_status(stripe_status)
 
         return await self.create_invoice_record(
             billing_account_id=billing_account_id,
@@ -877,7 +1025,7 @@ class BillingService:
         subscription_id = account.stripe_subscription_id
         account_status = getattr(account, "status", None)
 
-        if account_status == "canceled":
+        if account_status == BillingStatus.CANCELLED:
             raise ValueError("Subscription is canceled and cannot be changed.")
 
         try:
@@ -904,6 +1052,7 @@ class BillingService:
 
             logger.info(
                 "Updated subscription price for billing_account=%s to price=%s",
+                account_id,
                 new_price_id,
             )
             return updated
@@ -959,6 +1108,8 @@ class BillingService:
 
             if not cancel_at_period_end:
                 update_values["status"] = BillingStatus.CANCELLED
+
+            update_values["next_billing_at"] = None
 
             period = stripe_sub.get("current_period_end")
             if period:
@@ -1083,6 +1234,176 @@ class BillingService:
                 "Failed to sync subscription from Stripe for billing_account=%s", account.id
             )
             raise
+
+    async def _build_billing_account_updates_from_stripe_subscription(
+        self,
+        sub: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Convert a Stripe subscription object into BillingAccount update values.
+
+        Args:
+            sub (Dict[str, Any]): Raw Stripe subscription object returned by Stripe APIs.
+
+        Returns:
+            Dict[str, Any]: A dictionary of BillingAccount fields to update.
+        """
+        stripe_status = sub.get("status")
+        customer_id = sub.get("customer")
+        cancel_at_period_end = sub.get("cancel_at_period_end", False)
+
+        cp_start_raw = sub.get("current_period_start")
+        cp_end_raw = sub.get("current_period_end")
+
+        trial_start_raw = sub.get("trial_start")
+        trial_end_raw = sub.get("trial_end")
+
+        price_id: Optional[str] = None
+        quantity: Optional[int] = None
+        currency: Optional[str] = None
+
+        items = sub.get("items")
+        if isinstance(items, dict):
+            items_data = items.get("data") or []
+        else:
+            items_data = items or []
+
+        if items_data and isinstance(items_data[0], dict):
+            first_item = items_data[0]
+
+            cp_start_raw = cp_start_raw or first_item.get("current_period_start")
+            cp_end_raw = cp_end_raw or first_item.get("current_period_end")
+
+            price_obj = first_item.get("price")
+            if isinstance(price_obj, dict):
+                price_id = price_obj.get("id")
+                currency = price_obj.get("currency")
+            else:
+                price_id = price_obj
+            quantity = first_item.get("quantity")
+
+        cp_start_dt = parse_ts(cp_start_raw, "current_period_start")
+        cp_end_dt = parse_ts(cp_end_raw, "current_period_end")
+        trial_start_dt = parse_ts(trial_start_raw, "trial_start")
+        trial_end_dt = parse_ts(trial_end_raw, "trial_end")
+
+        update_values: Dict[str, Any] = {
+            "status": map_stripe_status_to_billing_status(stripe_status).value,
+            "cancel_at_period_end": bool(cancel_at_period_end),
+        }
+
+        if cp_start_dt is not None:
+            update_values["current_period_start"] = cp_start_dt
+        if cp_end_dt is not None:
+            update_values["current_period_end"] = cp_end_dt
+            update_values["next_billing_at"] = cp_end_dt
+
+        if stripe_status == "trialing":
+            if trial_start_dt is not None:
+                update_values["trial_starts_at"] = trial_start_dt
+            if trial_end_dt is not None:
+                update_values["trial_ends_at"] = trial_end_dt
+        else:
+            update_values["trial_starts_at"] = None
+            update_values["trial_ends_at"] = None
+
+        if customer_id:
+            update_values["stripe_customer_id"] = customer_id
+        if price_id:
+            update_values["current_price_id"] = price_id
+        if currency:
+            update_values["currency"] = currency
+
+        if quantity is not None:
+            update_values.setdefault("metadata_", {})
+            update_values["metadata_"]["quantity"] = quantity
+
+        if price_id:
+            result = await self.db.execute(
+                select(BillingPlan).where(BillingPlan.stripe_price_id == price_id)
+            )
+            plan: BillingPlan | None = result.scalar_one_or_none()
+            if plan:
+                update_values.setdefault("metadata_", {})
+                update_values["metadata_"]["plan_code"] = plan.code
+                update_values["metadata_"]["plan_label"] = plan.label
+                update_values["metadata_"]["plan_tier"] = plan.tier.value
+                update_values["metadata_"]["plan_interval"] = plan.interval.value
+                update_values["currency"] = plan.currency
+
+        return update_values
+
+    async def _sync_org_billing_from_account(
+        self,
+        db: AsyncSession,
+        organization_id: UUID,
+        account: BillingAccount,
+        plan_info: BillingPlanInfo | None,
+    ) -> None:
+        """
+        Keep Organization.plan and Organization.billing_info in sync with the billing account.
+
+        Args:
+            db (AsyncSession): The database session.
+            organization_id (UUID): The UUID of the organisation to update.
+            account (BillingAccount): The billing account with the latest billing info.
+            plan_info (BillingPlanInfo | None): The current plan info to set on the organisation.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If there is an error updating the organisation.
+        """
+
+        org = await db.get(Organization, organization_id)
+        if not org:
+            logger.warning(
+                "Organization %s not found while syncing billing info; skipping org update",
+                organization_id,
+            )
+            return
+
+        plan_value: str | None = None
+        if plan_info is not None:
+            plan_value = getattr(plan_info, "tier", None) or getattr(plan_info, "label", None)
+
+        org.plan = plan_value
+        if not org.plan:
+            org.plan = org.billing_info.get("current_plan", None) if org.billing_info else None
+            if not org.plan:
+                org.plan = org.billing_info.get("status", None) if org.billing_info else None
+                if not org.plan:
+                    org.plan = "free"
+
+        trial_ends_at = account.trial_ends_at.isoformat() if account.trial_ends_at else None
+        org.billing_info = {
+            "billing_account_id": str(account.id),
+            "status": account.status.value if hasattr(account.status, "value") else account.status,
+            "stripe_customer_id": account.stripe_customer_id,
+            "stripe_subscription_id": account.stripe_subscription_id,
+            "current_price_id": account.current_price_id,
+            "cancel_at_period_end": account.cancel_at_period_end or False,
+            "trial_starts_at": account.trial_starts_at.isoformat()
+            if account.trial_starts_at
+            else None,
+            "trial_ends_at": trial_ends_at,
+            "current_period_start": account.current_period_start.isoformat()
+            if account.current_period_start
+            else None,
+            "current_period_end": account.current_period_end.isoformat()
+            if account.current_period_end
+            else None,
+            "next_billing_at": account.next_billing_at.isoformat()
+            if account.next_billing_at
+            else None,
+            "current_plan": plan_info.model_dump(mode="json") if plan_info is not None else None,
+        }
+
+        org.updated_at = datetime.now(timezone.utc)
+
+        await db.commit()
+        await db.refresh(org)
 
 
 def get_billing_service(db: AsyncSession) -> BillingService:

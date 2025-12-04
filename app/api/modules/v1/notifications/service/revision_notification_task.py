@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from celery import shared_task
@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
 
 from app.api.core.dependencies.send_mail import send_email
-from app.api.db.database import AsyncSessionLocal, engine
+from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.notifications.models.revision_notification import (
     Notification,
@@ -134,7 +134,7 @@ async def send_revision_notifications(revision_id: str):
                         user_id=user.id,
                         message=revision.ai_summary or "New revision available",
                         status=NotificationStatus.PENDING,
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     )
                     session.add(notification)
                     await session.commit()
@@ -158,7 +158,7 @@ async def send_revision_notifications(revision_id: str):
                     notification.status = (
                         NotificationStatus.SENT if success else NotificationStatus.FAILED
                     )
-                    notification.sent_at = datetime.utcnow()
+                    notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     session.add(notification)
                     await session.commit()
                     await session.refresh(notification)
@@ -193,8 +193,6 @@ async def send_revision_notifications(revision_id: str):
     except SQLAlchemyError as e:
         logger.error(f"Database error sending notifications for revision {revision_id}: {str(e)}")
         raise
-    finally:
-        await engine.dispose()
 
 
 @shared_task(bind=True, name="send_revision_notifications", max_retries=3)

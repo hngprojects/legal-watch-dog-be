@@ -10,6 +10,7 @@ from app.api.modules.v1.auth.models.oauth_models import RefreshTokenMetadata, OA
 from app.api.modules.v1.billing.models.billing_account import BillingAccount
 from app.api.modules.v1.billing.models.invoice_history import InvoiceHistory
 from app.api.modules.v1.billing.models.payment_method import PaymentMethod
+from app.api.modules.v1.billing.models.billing_plan import BillingPlan
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -21,6 +22,7 @@ from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
+from app.api.modules.v1.hire_specialists.models.specialist_models import SpecialistHire
 from app.api.modules.v1.notifications.models.revision_notification import Notification
 
 

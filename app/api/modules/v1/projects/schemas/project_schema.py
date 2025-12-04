@@ -2,9 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from app.api.modules.v1.users.schemas.user_schema import UserResponse
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class ProjectBase(BaseModel):
@@ -41,17 +39,6 @@ class ProjectResponse(ProjectUpdateBase):
     org_id: UUID
     created_at: datetime
     updated_at: datetime
-    assigned_users: List[UserResponse] = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProjectUserResponse(BaseModel):
-    id: UUID
-    email: str
-    name: str
-    role_id: UUID
-    is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,3 +49,23 @@ class ProjectListResponse(BaseModel):
     page: int
     limit: int
     total_pages: Optional[int] = None
+
+
+class ProjectUserDetail(BaseModel):
+    """Schema for detailed user information in projects."""
+
+    user_id: UUID
+    email: EmailStr
+    name: str
+    avatar_url: Optional[str] = None
+    added_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectUsersResponse(BaseModel):
+    users: List[ProjectUserDetail]
+    total: int
+    page: int
+    limit: int
+    total_pages: int

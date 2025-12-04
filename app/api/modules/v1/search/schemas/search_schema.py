@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Enum for different types of entities that can be searched; will be updated when needed
@@ -38,9 +38,9 @@ class SearchRequest(BaseModel):
         examples=[{}],
     )
 
-    class Config:
-        use_enum_values = True
-        json_schema_extra = {
+    model_config = ConfigDict(
+        use_enum_values=True,
+        json_schema_extra={
             "example": {
                 "query": "environmental protection",
                 "operator": "AND",
@@ -49,7 +49,8 @@ class SearchRequest(BaseModel):
                 "min_rank": 0.0,
                 "extracted_data_filters": {},
             }
-        }
+        },
+    )
 
 
 class DataRevisionSearchResult(BaseModel):
@@ -63,8 +64,7 @@ class DataRevisionSearchResult(BaseModel):
     revision_date: Optional[datetime]
     relevance_score: float = Field(..., ge=0.0, le=1.0)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SearchResponse(BaseModel):

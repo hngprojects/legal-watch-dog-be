@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UpdateMemberRequest(BaseModel):
@@ -23,8 +23,8 @@ class UpdateMemberRequest(BaseModel):
             raise ValueError("Invalid email format")
         return v
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Kylie Morgan",
                 "email": "kyliemorgan@charteredinc.com",
@@ -32,3 +32,4 @@ class UpdateMemberRequest(BaseModel):
                 "title": "Senior Compliance Officer",
             }
         }
+    )
