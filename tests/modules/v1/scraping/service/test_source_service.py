@@ -631,7 +631,7 @@ class TestSourceServiceBulkCreate:
         service = SourceService()
 
         unique_jurisdiction_count = len({source.jurisdiction_id for source in sample_bulk_sources})
-        configure_prompt_validation(mock_db, repeats=unique_jurisdiction_count)
+        configure_prompt_validation(mock_db, validation_calls=unique_jurisdiction_count)
 
         # Mock execute to return empty list (no existing URLs)
         async def mock_execute(query):
@@ -674,7 +674,7 @@ class TestSourceServiceBulkCreate:
         service = SourceService()
 
         unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
-        configure_prompt_validation(mock_db, repeats=unique_ids)
+        configure_prompt_validation(mock_db, validation_calls=unique_ids)
 
         # Mock execute to return existing URLs with trailing slash (as Pydantic adds it)
         mock_scalars = MagicMock()
@@ -702,7 +702,7 @@ class TestSourceServiceBulkCreate:
         service = SourceService()
 
         unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
-        configure_prompt_validation(mock_db, repeats=unique_ids)
+        configure_prompt_validation(mock_db, validation_calls=unique_ids)
 
         # Mock no existing URLs
         mock_db.execute = AsyncMock()
