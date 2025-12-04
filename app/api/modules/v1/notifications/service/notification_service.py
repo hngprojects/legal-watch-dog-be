@@ -42,8 +42,37 @@ class NotificationService:
         order_by_latest: bool = True,
     ) -> Tuple[List[Notification], int]:
         """
-        Get notifications for a user with optional filters.
-        Returns (notifications, total_count).
+        Retrieve notifications for a specific user with optional filtering, pagination,
+        and ordering preferences.
+
+        This method returns both the list of notifications and the total count
+        matching the filters (without pagination applied). It supports filtering by
+        status, notification type, read status, date range, organization, and source ID.
+
+        Args:
+            db (AsyncSession):
+                The active SQLAlchemy asynchronous database session.
+            user_id (uuid.UUID):
+                The unique identifier of the user whose notifications are being retrieved.
+            filters (Optional[NotificationFilter], optional):
+                A set of filters to narrow down the notifications query. Defaults to None.
+            skip (int, optional):
+                The number of records to skip (for pagination). Defaults to 0.
+            limit (int, optional):
+                The maximum number of notifications to return. Defaults to 50.
+            order_by_latest (bool, optional):
+                Whether to order results by most recent notifications first. Defaults to True.
+
+        Returns:
+            Tuple[List[Notification], int]:
+                A tuple where:
+                - The first element is the list of notifications returned for the user.
+                - The second element is the total number of matching notifications
+                before pagination.
+
+        Raises:
+            SQLAlchemyError: If a database error occurs during query execution.
+
         """
 
         query = select(Notification).where(Notification.user_id == user_id)
@@ -148,7 +177,34 @@ class NotificationService:
         user_id: uuid.UUID,
         update_data: NotificationUpdate,
     ) -> Optional[Notification]:
-        """Update a notification."""
+        """
+        Update fields of a specific user-owned notification.
+
+        This method looks up the notification by ID and user ID to ensure that the
+        user has permission to modify it. Only the fields provided in the
+        `NotificationUpdate` schema will be updated. After updating, the changes
+        are committed and the refreshed notification instance is returned.
+
+        Args:
+            db (AsyncSession):
+                The active SQLAlchemy asynchronous database session.
+            notification_id (uuid.UUID):
+                The unique identifier of the notification to update.
+            user_id (uuid.UUID):
+                The ID of the user who owns the notification. Used to prevent
+                unauthorized updates.
+            update_data (NotificationUpdate):
+                The data specifying which fields should be updated (e.g., status,
+                read timestamp).
+
+        Returns:
+            Optional[Notification]:
+                The updated notification object if found, otherwise `None` if the
+                notification does not exist or does not belong to the user.
+
+        Raises:
+            SQLAlchemyError: If a database-level error occurs during update or commit.
+        """
 
         notification = await NotificationService.get_notification_by_id(
             db, notification_id, user_id
@@ -245,8 +301,35 @@ class NotificationService:
         db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID
     ) -> Optional[Dict]:
         """
-        Get notification with full context for navigation.
-        Includes related entities based on context fields.
+        Retrieve a notification along with its related contextual entities.
+
+        This method first ensures the notification exists and belongs to the user.
+        It then loads related context objects such as the associated revision,
+        source, organization, or change diff—depending on which fields are present
+        in the notification. Each related entity is added to the returned
+        dictionary, providing full context for UI navigation or detailed inspection.
+
+        Args:
+            db (AsyncSession):
+                The active SQLAlchemy asynchronous database session.
+            notification_id (uuid.UUID):
+                The ID of the notification to retrieve.
+            user_id (uuid.UUID):
+                The owner of the notification. Used to ensure access control.
+
+            Returns:
+                Optional[Dict]:
+                    A dictionary containing:
+                        - "notification": The notification object.
+                        - "revision": Serialized revision data (if available).
+                        - "source": Serialized source data (if available).
+                        - "organization": The related organization object (if available).
+                        - "change_diff": The related change diff object (if available).
+                    Returns `None` if the notification does not exist or does not
+                    belong to the user.
+
+        Raises:
+            SQLAlchemyError: If any database query fails.
         """
 
         notification = await NotificationService.get_notification_by_id(
