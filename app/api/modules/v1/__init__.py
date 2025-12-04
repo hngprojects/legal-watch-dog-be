@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.modules.v1.api_access.routes.external_data import router as external_api_router
 from app.api.modules.v1.auth.routes.apple_auth_route import router as apple_auth_router
 from app.api.modules.v1.auth.routes.auth_routes import router as register_router
 from app.api.modules.v1.auth.routes.login_route import router as auth_router
@@ -38,3 +39,4 @@ router.include_router(project_router)
 router.include_router(juridiction_router)
 router.include_router(billing_router)
 router.include_router(data_revision_search_router)
+router.include_router(external_api_router)
