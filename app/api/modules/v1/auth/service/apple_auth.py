@@ -165,7 +165,7 @@ class AppleAuthClient:
             user_id=str(user.id),
             role_id=getattr(user, "role_id", None),
             organization_id=getattr(user, "organization_id", None),
-            expires_delta=timedelta(hours=1),
+            expires_delta=timedelta(days=2),
         )
 
         return {
