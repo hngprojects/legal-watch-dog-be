@@ -211,68 +211,88 @@ class UserOrganizationCRUD:
         organization_id: uuid.UUID,
         skip: int = 0,
         limit: int = 10,
-        active_only: bool = True,
+        active_only: Optional[bool] = None,
+        membership_active: Optional[bool] = None,
+        role_names: Optional[list[str]] = None,
     ) -> dict:
         """
-        Get paginated users in an organization with their details.
-
-        Args:
-            db: Database session
-            organization_id: Organization UUID
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-            active_only: Only return active memberships
-
-        Returns:
-            Dictionary with users list and total count
+        Get paginated users in an organization with their details (optimized, no N+1 queries).
         """
 
-        all_memberships_query = select(UserOrganization).where(
-            UserOrganization.organization_id == organization_id
-        )
-        if active_only:
-            all_memberships_query = all_memberships_query.where(UserOrganization.is_active)
+        role_ids = None
 
-        all_memberships_result = await db.execute(all_memberships_query)
-        all_memberships = list(all_memberships_result.scalars().all())
+        if role_names:
+            normalized = [name.lower() for name in role_names]
 
-        logger.info(f"DEBUG: Found {len(all_memberships)} total memberships in database")
-        for i, membership in enumerate(all_memberships):
-            logger.info(
-                f"Membership{i + 1}: user_id={membership.user_id}, is_active={membership.is_active}"
+            result = await db.execute(
+                select(Role).where(
+                    Role.organization_id == organization_id,
+                    func.lower(Role.name).in_(normalized),
+                )
             )
-            membership_query = select(UserOrganization).where(
-                UserOrganization.organization_id == organization_id
-            )
+            roles = result.scalars().all()
 
-        if active_only:
-            membership_query = membership_query.where(UserOrganization.is_active)
+            if not roles:
+                logger.warning(f"No roles found matching {role_names} in org {organization_id}")
+                return {"users": [], "total": 0}
 
-        count_query = (
-            sa_select(func.count())
-            .select_from(UserOrganization)
-            .where(UserOrganization.organization_id == organization_id)
+            role_ids = [role.id for role in roles]
+
+            found = {role.name.lower() for role in roles}
+            missing = set(normalized) - found
+            if missing:
+                logger.warning(f"Roles not found in org {organization_id}: {missing}")
+
+        count_query = sa_select(func.count())
+        count_query = count_query.select_from(UserOrganization).join(
+            User, User.id == UserOrganization.user_id
         )
-        if active_only:
-            count_query = count_query.where(UserOrganization.is_active)
+        count_query = count_query.where(
+            UserOrganization.organization_id == organization_id,
+            UserOrganization.is_deleted.is_(False),
+        )
 
-        total_result = await db.execute(count_query)
-        total = total_result.scalar() or 0
+        if membership_active is not None:
+            count_query = count_query.where(UserOrganization.is_active == membership_active)
 
-        membership_query = membership_query.offset(skip).limit(limit)
-        memberships_result = await db.execute(membership_query)
-        memberships = list(memberships_result.scalars().all())
+        if role_ids:
+            count_query = count_query.where(UserOrganization.role_id.in_(role_ids))
+
+        if active_only is not None:
+            count_query = count_query.where(User.is_active == active_only)
+
+        total = (await db.execute(count_query)).scalar() or 0
+
+        query = (
+            select(
+                UserOrganization,
+                User,
+                Role,
+            )
+            .join(User, User.id == UserOrganization.user_id)
+            .join(Role, Role.id == UserOrganization.role_id)
+            .where(
+                UserOrganization.organization_id == organization_id,
+                UserOrganization.is_deleted.is_(False),
+            )
+        )
+
+        if membership_active is not None:
+            query = query.where(UserOrganization.is_active == membership_active)
+
+        if role_ids:
+            query = query.where(UserOrganization.role_id.in_(role_ids))
+
+        if active_only is not None:
+            query = query.where(User.is_active == active_only)
+
+        query = query.offset(skip).limit(limit)
+
+        result = await db.execute(query)
+        rows = result.all()
 
         users = []
-        for membership in memberships:
-            user_result = await db.execute(select(User).where(User.id == membership.user_id))
-            user = user_result.scalar_one_or_none()
-
-            if not user:
-                continue
-
-            role = await db.get(Role, membership.role_id)
-
+        for membership, user, role in rows:
             users.append(
                 {
                     "user_id": str(user.id),
@@ -281,8 +301,8 @@ class UserOrganizationCRUD:
                     "avatar_url": user.avatar_url,
                     "is_active": user.is_active,
                     "is_verified": user.is_verified,
-                    "role": role.name if role else None,
-                    "role_id": str(role.id) if role else None,
+                    "role": role.name,
+                    "role_id": str(role.id),
                     "title": membership.title,
                     "department": membership.department,
                     "membership_active": membership.is_active,

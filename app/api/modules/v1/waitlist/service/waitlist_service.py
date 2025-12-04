@@ -4,7 +4,6 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.waitlist.schemas.waitlist_schema import (
@@ -87,7 +86,6 @@ class WaitlistService:
         """Send waitlist confirmation email"""
         try:
             context = {
-                "app_url": settings.BACKEND_BASE_URL,
                 "organization_name": email_data.organization_name,
                 "organization_email": email_data.organization_email,
             }
