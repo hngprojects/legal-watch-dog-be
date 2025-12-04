@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 mock_fernet = MagicMock()
 mock_fernet.encrypt.return_value.decode.return_value = "mock_encrypted_value"
 with patch("cryptography.fernet.Fernet", return_value=mock_fernet):
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.scraping.models.source_model import Source, SourceType
     from app.api.modules.v1.scraping.schemas.source_service import (
         SourceCreate,
@@ -26,6 +28,47 @@ with patch("cryptography.fernet.Fernet", return_value=mock_fernet):
 def sample_jurisdiction_id():
     """Fixture for a sample jurisdiction UUID."""
     return uuid.uuid4()
+
+
+@pytest.fixture
+def sample_project():
+    """Fixture for a sample project with master prompt."""
+    return Project(
+        id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+        title="Compliance Project",
+        description="Test project",
+        master_prompt="Follow overall compliance workflow",
+    )
+
+
+@pytest.fixture
+def sample_jurisdiction(sample_project, sample_jurisdiction_id):
+    """Fixture for a jurisdiction that belongs to the sample project."""
+    return Jurisdiction(
+        id=sample_jurisdiction_id,
+        project_id=sample_project.id,
+        name="Tax Regulations",
+        description="Monitoring tax regulations",
+        prompt="Collect latest tax circulars",
+    )
+
+
+@pytest.fixture
+def configure_prompt_validation(sample_jurisdiction, sample_project):
+    """Configure AsyncSession.get to satisfy prompt validation requirements."""
+
+    def _configure(mock_db, *, jurisdiction=None, project=None, repeats: int = 1):
+        jurisdiction_obj = jurisdiction or sample_jurisdiction
+        project_obj = project or sample_project
+        side_effect = []
+        for _ in range(repeats):
+            side_effect.extend([jurisdiction_obj, project_obj])
+
+        mock_db.get = AsyncMock(side_effect=side_effect)
+        return jurisdiction_obj, project_obj
+
+    return _configure
 
 
 @pytest.fixture
@@ -63,7 +106,7 @@ class TestSourceServiceCreate:
 
     @pytest.mark.asyncio
     async def test_create_source_success_with_auth(
-        self, sample_source_create, sample_jurisdiction_id
+        self, sample_source_create, sample_jurisdiction_id, configure_prompt_validation
     ):
         """Test successful source creation with auth details."""
         mock_db = AsyncMock(spec=AsyncSession)
@@ -81,6 +124,7 @@ class TestSourceServiceCreate:
             is_active=True,
         )
 
+        configure_prompt_validation(mock_db)
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
@@ -95,7 +139,9 @@ class TestSourceServiceCreate:
         mock_db.refresh.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_source_success_without_auth(self, sample_jurisdiction_id):
+    async def test_create_source_success_without_auth(
+        self, sample_jurisdiction_id, configure_prompt_validation
+    ):
         """Test successful source creation without auth details."""
 
         mock_db = AsyncMock(spec=AsyncSession)
@@ -110,6 +156,7 @@ class TestSourceServiceCreate:
             auth_details=None,
         )
 
+        configure_prompt_validation(mock_db)
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
@@ -122,12 +169,15 @@ class TestSourceServiceCreate:
         mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_source_database_error(self, sample_source_create):
+    async def test_create_source_database_error(
+        self, sample_source_create, configure_prompt_validation
+    ):
         """Test that database errors are handled properly."""
 
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
+        configure_prompt_validation(mock_db)
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock(side_effect=Exception("Database error"))
@@ -142,7 +192,7 @@ class TestSourceServiceCreate:
 
     @pytest.mark.asyncio
     async def test_duplicate_url_same_jurisdiction(
-        self, sample_source_create, sample_jurisdiction_id
+        self, sample_source_create, sample_jurisdiction_id, configure_prompt_validation
     ):
         """Test that creating source with duplicate URL in same jurisdiction raises error."""
         mock_db = AsyncMock(spec=AsyncSession)
@@ -158,6 +208,7 @@ class TestSourceServiceCreate:
             is_deleted=False,
         )
 
+        configure_prompt_validation(mock_db)
         mock_db.scalar = AsyncMock(return_value=existing_source)
 
         with pytest.raises(HTTPException) as exc_info:
@@ -167,11 +218,14 @@ class TestSourceServiceCreate:
         assert "Source with this URL already exists in the jurisdiction" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_duplicate_url_different_jurisdiction(self, sample_source_create):
+    async def test_duplicate_url_different_jurisdiction(
+        self, sample_source_create, configure_prompt_validation
+    ):
         """Test that creating source with duplicate URL in different jurisdiction is allowed."""
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
 
+        configure_prompt_validation(mock_db)
         mock_db.scalar = AsyncMock(return_value=None)
         mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
@@ -182,6 +236,121 @@ class TestSourceServiceCreate:
         assert isinstance(result, SourceRead)
         mock_db.add.assert_called_once()
         mock_db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_create_source_missing_jurisdiction_prompt(
+        self,
+        sample_source_create,
+        configure_prompt_validation,
+        sample_jurisdiction,
+    ):
+        """Test error when jurisdiction prompt is missing."""
+
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        jurisdiction = sample_jurisdiction
+        jurisdiction.prompt = ""
+
+        configure_prompt_validation(mock_db, jurisdiction=jurisdiction)
+        mock_db.scalar = AsyncMock(return_value=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 400
+        assert "jurisdiction prompt" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_source_missing_project_prompt(
+        self,
+        sample_source_create,
+        configure_prompt_validation,
+        sample_project,
+    ):
+        """Test error when project master prompt is missing."""
+
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        project = sample_project
+        project.master_prompt = ""
+
+        configure_prompt_validation(mock_db, project=project)
+        mock_db.scalar = AsyncMock(return_value=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 400
+        assert "project instruction" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_source_missing_both_prompts(
+        self,
+        sample_source_create,
+        configure_prompt_validation,
+        sample_project,
+        sample_jurisdiction,
+    ):
+        """Test error when both project and jurisdiction prompts are blank."""
+
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        sample_project.master_prompt = ""
+        sample_jurisdiction.prompt = ""
+
+        configure_prompt_validation(
+            mock_db,
+            jurisdiction=sample_jurisdiction,
+            project=sample_project,
+        )
+        mock_db.scalar = AsyncMock(return_value=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 400
+        assert "project instruction" in exc_info.value.detail.lower()
+        assert "jurisdiction prompt" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_source_missing_jurisdiction_record(
+        self,
+        sample_source_create,
+    ):
+        """Test error when jurisdiction lookup fails."""
+
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        mock_db.get = AsyncMock(side_effect=[None])
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 404
+        assert "jurisdiction not found" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_create_source_missing_project_record(
+        self,
+        sample_source_create,
+        sample_jurisdiction,
+    ):
+        """Test error when project lookup fails."""
+
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = SourceService()
+
+        mock_db.get = AsyncMock(side_effect=[sample_jurisdiction, None])
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_source(mock_db, sample_source_create)
+
+        assert exc_info.value.status_code == 404
+        assert "project not found" in exc_info.value.detail.lower()
 
 
 class TestSourceServiceGet:
@@ -451,10 +620,18 @@ class TestSourceServiceBulkCreate:
         return sources
 
     @pytest.mark.asyncio
-    async def test_bulk_create_sources_success(self, sample_bulk_sources, sample_jurisdiction_id):
+    async def test_bulk_create_sources_success(
+        self,
+        sample_bulk_sources,
+        sample_jurisdiction_id,
+        configure_prompt_validation,
+    ):
         """Test successful bulk creation of sources."""
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
+
+        unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
+        configure_prompt_validation(mock_db, repeats=unique_ids)
 
         # Mock execute to return empty list (no existing URLs)
         async def mock_execute(query):
@@ -489,10 +666,15 @@ class TestSourceServiceBulkCreate:
         mock_db.commit.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_bulk_create_sources_duplicate_url(self, sample_bulk_sources):
+    async def test_bulk_create_sources_duplicate_url(
+        self, sample_bulk_sources, configure_prompt_validation
+    ):
         """Test bulk creation fails when duplicate URLs exist."""
-        mock_db = AsyncMock()
+        mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
+
+        unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
+        configure_prompt_validation(mock_db, repeats=unique_ids)
 
         # Mock execute to return existing URLs with trailing slash (as Pydantic adds it)
         mock_scalars = MagicMock()
@@ -512,10 +694,15 @@ class TestSourceServiceBulkCreate:
         mock_db.commit.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_bulk_create_sources_db_error(self, sample_bulk_sources):
+    async def test_bulk_create_sources_db_error(
+        self, sample_bulk_sources, configure_prompt_validation
+    ):
         """Test database errors during bulk creation are handled."""
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
+
+        unique_ids = len({source.jurisdiction_id for source in sample_bulk_sources})
+        configure_prompt_validation(mock_db, repeats=unique_ids)
 
         # Mock no existing URLs
         mock_db.execute = AsyncMock()
