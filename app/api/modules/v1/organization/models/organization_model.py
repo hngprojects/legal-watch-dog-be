@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_model import Project
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
     from app.api.modules.v1.users.models.roles_model import Role
 
 
@@ -86,6 +87,9 @@ class Organization(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     invitations: list["Invitation"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    tickets: list["Ticket"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 

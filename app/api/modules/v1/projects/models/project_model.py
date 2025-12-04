@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
 
 
 class Project(SQLModel, table=True):
@@ -51,6 +52,10 @@ class Project(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     jurisdictions: List["Jurisdiction"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    tickets: List["Ticket"] = Relationship(
         back_populates="project",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
