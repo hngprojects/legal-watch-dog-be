@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.api.modules.v1.tickets.models.guest_model import Guest
+from app.api.modules.v1.tickets.models.magic_link_model import MagicLink
+from app.api.modules.v1.tickets.models.ticket_participant_model import TicketParticipant
+
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -60,3 +64,11 @@ class User(SQLModel, table=True):
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
+    created_magic_links: list["MagicLink"] = Relationship(
+        back_populates="created_by_user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    invited_guests: list["Guest"] = Relationship(
+        back_populates="invited_by_user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    ticket_participations: list["TicketParticipant"] = Relationship(back_populates="user")
