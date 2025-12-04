@@ -45,26 +45,23 @@ class RoleHierarchy:
         """
         return cls.ROLE_LEVELS.get(role_name, RoleLevel.MEMBER)
 
-    @classmethod
-    def can_manage_role(cls, user_role: str, target_role: str) -> bool:
+    @staticmethod
+    def can_manage_role(user_hierarchy_level: int, target_hierarchy_level: int) -> bool:
         """
-        Check if user_role can manage target_role.
+        Check if user can manage target based on hierarchy levels.
 
         Rules:
         - Can only manage roles at lower levels
         - Cannot manage roles at same or higher level
 
         Args:
-            user_role: Role of the person performing the action
-            target_role: Role of the person being managed
+            user_hierarchy_level: Hierarchy level of user performing action
+            target_hierarchy_level: Hierarchy level of user being managed
 
         Returns:
             bool: True if user can manage target
         """
-        user_level = cls.get_role_level(user_role)
-        target_level = cls.get_role_level(target_role)
-
-        return user_level > target_level
+        return user_hierarchy_level > target_hierarchy_level
 
     @classmethod
     def can_assign_role(cls, user_role: str, target_new_role: str) -> bool:
@@ -145,6 +142,10 @@ async def validate_role_hierarchy(
     if action == "assign_role":
         if not new_role_name:
             raise ValueError("New role name is required for 'assign_role'")
+
+        new_role = await RoleHierarchy.get_role_by_name(db, new_role_name, organization_id)
+        if not new_role:
+            raise ValueError(f"Role '{new_role_name}' not found in this organization")
 
         if not RoleHierarchy.can_manage_role(user_role.name, target_role.name):
             raise CannotManageHigherRoleException(

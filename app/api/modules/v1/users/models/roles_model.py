@@ -42,10 +42,6 @@ class Role(SQLModel, table=True):
         default=None, max_length=50, description="Name of template used to create this role"
     )
 
-    is_custom: bool = Field(
-        default=False, description="Whether this is a custom role or system role"
-    )
-
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),

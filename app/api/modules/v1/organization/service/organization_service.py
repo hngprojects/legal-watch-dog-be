@@ -750,7 +750,6 @@ class OrganizationService:
 
             skip = (page - 1) * limit
 
-            # Get invitations from CRUD
             result = await InvitationCRUD.get_organization_invitations(
                 db=self.db,
                 organization_id=organization_id,
