@@ -1,5 +1,12 @@
 """
-Helper utilities for audit logging
+Audit Helper Utilities
+
+Provides safe utilities for extracting request metadata, computing object
+changes, and sanitizing sensitive information before persist­ing audit events.
+
+These helpers are intentionally defensive: they never raise exceptions and
+always return safe fallback values. This aligns with the audit service design
+rule that audit failures should never break upstream application behavior.
 """
 
 import logging
@@ -12,36 +19,55 @@ logger = logging.getLogger(__name__)
 
 def extract_audit_context(request: Request) -> Dict[str, Optional[str]]:
     """
-    Extract IP address and user agent from FastAPI request safely.
+    Safely extract IP address and User-Agent from a FastAPI request.
 
-    Returns default values if client or headers are missing.
+    This function never raises errors. If the request is missing client or
+    header objects, it returns `"unknown"` as a fallback value.
+
+    Args:
+        request (Request): Incoming FastAPI request instance.
+
+    Returns:
+        Dict[str, Optional[str]]: A dictionary with:
+            - "ip_address": The client's IP address or "unknown"
+            - "user_agent": The user-agent string or "unknown"
     """
     try:
         ip_address = request.client.host if request.client else "unknown"
         user_agent = request.headers.get("user-agent", "unknown")
         return {"ip_address": ip_address, "user_agent": user_agent}
     except Exception as e:
-        logger.warning("Failed to extract audit context: %s", str(e), exc_info=True)
+        logger.warning(
+            "Failed to extract audit context: %s",
+            str(e),
+            exc_info=True,
+        )
         return {"ip_address": "unknown", "user_agent": "unknown"}
 
 
 def build_change_details(
-    old_obj: Any, new_obj: Any, fields: List[str]
+    old_obj: Any,
+    new_obj: Any,
+    fields: List[str],
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Build change details for audit log from old/new objects.
-    Ignores missing attributes and avoids raising exceptions.
+    Build a dictionary describing field-level changes between two objects.
+
+    This function inspects each requested field, reading values with a
+    defensive getter. Missing attributes do not raise errors. Only fields where
+    old != new are included in the output.
 
     Args:
-        old_obj: Original object
-        new_obj: Updated object
-        fields: List of field names to track
+        old_obj (Any): Original object prior to modification.
+        new_obj (Any): Updated object after modification.
+        fields (List[str]): List of attribute names to inspect.
 
     Returns:
-        {"field_name": {"old": "value", "new": "value"}}
+        Dict[str, Dict[str, Any]]: A mapping of:
+            field_name -> {"old": old_value, "new": new_value}
+        Only includes fields that differ.
     """
-
-    changes = {}
+    changes: Dict[str, Dict[str, Any]] = {}
 
     for field in fields:
         try:
@@ -52,7 +78,7 @@ def build_change_details(
                 changes[field] = {"old": old_value, "new": new_value}
         except Exception as e:
             logger.warning(
-                "Failed to get change details for field '%s': %s",
+                "Failed to compute change details for field '%s': %s",
                 field,
                 str(e),
                 exc_info=True,
@@ -63,36 +89,43 @@ def build_change_details(
 
 
 def sanitize_sensitive_data(
-    details: Dict[str, Any], sensitive_fields: Optional[List[str]] = None
+    details: Dict[str, Any],
+    sensitive_fields: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Remove or mask sensitive data from audit log details.
-    Handles nested dictionaries safely.
+    Remove or mask sensitive fields in a details dictionary before it is stored
+    inside audit logs.
+
+    This function recursively processes nested dictionaries. Only the keys
+    listed as sensitive are masked, not removed.
 
     Args:
-        details: Original details dictionary
-        sensitive_fields: List of fields to redact (default: [
-    "password", "api_key", "token", "secret"
-    ])
-
+        details (Dict[str, Any]):
+            Original data dict to sanitize.
+        sensitive_fields (Optional[List[str]]):
+            List of sensitive field names to redact. Defaults to:
+                ["password", "api_key", "token", "secret"]
 
     Returns:
-        Sanitized details dictionary
+        Dict[str, Any]: A sanitized copy of the details dictionary with
+        sensitive fields masked.
     """
     if not isinstance(details, dict):
-        logger.warning("sanitize_sensitive_data received non-dict details: %s", type(details))
+        logger.warning(
+            "sanitize_sensitive_data received non-dict: %s",
+            type(details),
+        )
         return {}
 
     if sensitive_fields is None:
         sensitive_fields = ["password", "api_key", "token", "secret"]
 
-    sanitized = details.copy()
+    sanitized: Dict[str, Any] = details.copy()
 
     for field in sensitive_fields:
         if field in sanitized:
             sanitized[field] = "***REDACTED***"
 
-    # Handle nested dictionaries
     for key, value in sanitized.items():
         if isinstance(value, dict):
             sanitized[key] = sanitize_sensitive_data(value, sensitive_fields)

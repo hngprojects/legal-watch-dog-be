@@ -22,22 +22,18 @@ from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 class AuditAction(str, Enum):
     """Enum for audit action types"""
 
-    # Project actions
     PROJECT_CREATED = "project_created"
     PROJECT_UPDATED = "project_updated"
     PROJECT_DELETED = "project_deleted"
 
-    # Jurisdiction actions
     JURISDICTION_CREATED = "jurisdiction_created"
     JURISDICTION_UPDATED = "jurisdiction_updated"
     JURISDICTION_DELETED = "jurisdiction_deleted"
     JURISDICTION_PARENT_CHANGED = "jurisdiction_parent_changed"
 
-    # Prompt actions
     MASTER_PROMPT_UPDATED = "master_prompt_updated"
     OVERRIDE_PROMPT_UPDATED = "override_prompt_updated"
 
-    # Source actions
     SOURCE_ASSIGNED = "source_assigned"
     SOURCE_UNASSIGNED = "source_unassigned"
     SOURCE_UPDATED = "source_updated"
@@ -51,10 +47,8 @@ class ProjectAuditLog(SQLModel, table=True):
 
     __tablename__ = "project_audit_log"
 
-    # Primary Key
     log_id: Optional[int] = Field(default=None, primary_key=True)
 
-    # Relationships
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     jurisdiction_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="jurisdictions.id", index=True
@@ -65,13 +59,9 @@ class ProjectAuditLog(SQLModel, table=True):
 
     source_id: Optional[uuid.UUID] = Field(default=None, foreign_key="sources.id", index=True)
 
-    # Organization context (multi-tenancy)
     org_id: uuid.UUID = Field(foreign_key="organizations.id", index=True, nullable=False)
 
-    # Actor (who performed the action)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
-
-    # Action type
 
     action: AuditAction = Field(
         sa_column=Column(
@@ -81,23 +71,19 @@ class ProjectAuditLog(SQLModel, table=True):
         )
     )
 
-    # Change details (JSONB)
     details: Dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSONB().with_variant(SQLiteJSON, "sqlite")),
         description="JSON object with before/after values, field changes, etc.",
     )
 
-    # Request context
     ip_address: Optional[str] = Field(default=None, max_length=45)
     user_agent: Optional[str] = Field(default=None, max_length=500)
 
-    # Timestamp
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now()),
     )
 
-    # ===== ROBUSTNESS HELPERS =====
     def __repr__(self):
         return (
             f"<ProjectAuditLog log_id={self.log_id} action={self.action} "

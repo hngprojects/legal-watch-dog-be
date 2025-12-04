@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 from app.api.modules.v1.projects.models.project_audit_log import AuditAction
 
 
-# RESPONSE SCHEMAS
 class AuditLogResponse(BaseModel):
     """Response schema for a single audit log entry"""
 
@@ -26,7 +25,6 @@ class AuditLogResponse(BaseModel):
     ip_address: Optional[str]
     created_at: datetime
 
-    # Optional enriched data (populated by service)
     user_name: Optional[str] = None
     user_email: Optional[str] = None
 
@@ -75,9 +73,6 @@ class AuditLogListResponse(BaseModel):
         }
 
 
-# QUERY SCHEMAS
-
-
 class AuditLogQueryParams(BaseModel):
     """Query parameters for filtering audit logs"""
 
@@ -87,9 +82,6 @@ class AuditLogQueryParams(BaseModel):
     date_to: Optional[datetime] = None
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=50, ge=1, le=100)
-
-
-# STATISTICS SCHEMAS
 
 
 class AuditStatsResponse(BaseModel):

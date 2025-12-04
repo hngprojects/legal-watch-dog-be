@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, Text, UniqueConstraint, event, func
+from sqlalchemy import JSON, Column, DateTime, Text, UniqueConstraint, event, func
 from sqlalchemy.orm import Mapped
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -56,7 +56,7 @@ class Jurisdiction(SQLModel, table=True):
     updated_at : datetime
         Timestamp of last update. Automatically set on modification.
 
-    deleted_at : datetime
+    deleted_at : Optional[datetime]
         Timestamp indicating when the jurisdiction was soft-deleted.
 
     is_deleted : bool
@@ -78,18 +78,20 @@ class Jurisdiction(SQLModel, table=True):
         Related project audit logs.
     """
 
-    __tablename__ = "jurisdictions"  # type: ignore
-    __table_args__ = (
-        UniqueConstraint("project_id", "parent_id", "name", name="uix_project_name"),
-        CheckConstraint(
-            "id IS NULL OR parent_id IS NULL OR id != parent_id", name="chk_parent_not_self"
-        ),
+    __tablename__ = "jurisdictions"
+    __table_args__ = (UniqueConstraint("project_id", "parent_id", "name", name="uix_project_name"),)
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False,
     )
 
-    # Core fields
-    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
-
-    project_id: UUID = Field(foreign_key="projects.id", ondelete="CASCADE")
+    project_id: UUID = Field(
+        foreign_key="projects.id",
+        ondelete="CASCADE",
+    )
 
     parent_id: Optional[UUID] = Field(
         default=None,
@@ -98,7 +100,6 @@ class Jurisdiction(SQLModel, table=True):
     )
 
     name: str = Field(max_length=255, nullable=False, index=True)
-
     description: str = Field(sa_column=Text)
     prompt: Optional[str] = Field(default=None, sa_column=Text)
     scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
@@ -109,16 +110,6 @@ class Jurisdiction(SQLModel, table=True):
 
     is_active: bool = Field(default=True, nullable=False)
 
-    # Soft-delete fields
-    scrape_output: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
-    )
-    deleted_at: Optional[datetime] = None
-    is_deleted: bool = Field(default=False)
-
-    # Timestamps
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now()),
@@ -129,9 +120,13 @@ class Jurisdiction(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
     )
 
-    deleted_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    deleted_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
-    # Relationships
+    is_deleted: bool = Field(default=False)
+
     parent: Optional["Jurisdiction"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={"remote_side": "Jurisdiction.id"},
@@ -152,44 +147,38 @@ class Jurisdiction(SQLModel, table=True):
         return f"<Jurisdiction id={self.id} name={self.name} project_id={self.project_id}>"
 
 
-# Hierarchy validation logic
 @event.listens_for(Jurisdiction, "before_update")
 @event.listens_for(Jurisdiction, "before_insert")
 def validate_hierarchy(mapper, connection, target):
     """
-    Validate parent-child hierarchy to prevent self-parenting or circular references.
+    Validates that a jurisdiction is not its own parent and
+    prevents circular parent-child relationships.
     """
     logger.debug(
         f"Validating hierarchy for jurisdiction {target.id} (parent_id={target.parent_id})"
     )
 
-    table = mapper.local_table
+    if target.parent_id is None:
+        return
 
-    if target.parent_id is not None and target.parent_id == target.id:
-        logger.warning(f"Jurisdiction {target.id} attempted to set parent_id to itself.")
+    if target.parent_id == target.id:
         raise ValueError("A jurisdiction cannot be its own parent.")
 
+    table = mapper.local_table
     parent_id = target.parent_id
-    MAX_HIERARCHY_DEPTH = 1000
+    MAX_DEPTH = 1000
     depth = 0
 
-    while parent_id is not None and depth < MAX_HIERARCHY_DEPTH:
-        parent_row = (
+    while parent_id is not None and depth < MAX_DEPTH:
+        row = (
             connection.execute(table.select().where(table.c.id == parent_id)).mappings().fetchone()
         )
 
-        if parent_row is None:
-            logger.debug(f"Parent id {parent_id} not found; stopping traversal.")
+        if row is None:
             break
 
-        logger.debug(f"Traversing hierarchy: parent {parent_id} -> {parent_row['parent_id']}")
-
-        if parent_row["id"] == target.id:
-            logger.warning(
-                f"Circular hierarchy detected: Jurisdiction {target.id} "
-                f"is in its own ancestor chain."
-            )
+        if row["id"] == target.id:
             raise ValueError("Circular hierarchy detected.")
 
-        parent_id = parent_row["parent_id"]
+        parent_id = row["parent_id"]
         depth += 1
