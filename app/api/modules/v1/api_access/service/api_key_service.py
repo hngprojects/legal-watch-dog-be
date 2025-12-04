@@ -34,6 +34,7 @@ class ApiKeyService:
         db.add(model)
         await db.flush()
         await db.refresh(model)
+        await db.commit()
 
         return {"raw_key": raw_key, "api_key": model}
 

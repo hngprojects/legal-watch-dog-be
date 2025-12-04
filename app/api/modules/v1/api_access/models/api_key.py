@@ -6,6 +6,7 @@ from sqlmodel import Field, SQLModel
 
 
 class ApiKey(SQLModel, table=True):
+    __tablename__ = "api_keys"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     key_hash: str = Field(index=True, unique=True)
 
@@ -16,4 +17,4 @@ class ApiKey(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=500)
