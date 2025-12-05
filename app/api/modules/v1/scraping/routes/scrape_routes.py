@@ -4,6 +4,8 @@ API routes for Scrape Job operations.
 Provides endpoints for:
 - POST /sources/{source_id}/scrapes - Trigger manual scrape for a source
 - GET /sources/{source_id}/scrapes/{job_id} - Get scrape job status
+- GET /sources/{source_id}/scrapes/active - Get active scrape job for a source
+- GET /sources/{source_id}/scrapes - List all scrape jobs for a source
 """
 
 import logging
@@ -20,9 +22,15 @@ from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgRes
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.routes.docs.scrape_routes_docs import (
+    get_active_scrape_job_custom_errors,
+    get_active_scrape_job_custom_success,
+    get_active_scrape_job_responses,
     get_scrape_job_status_custom_errors,
     get_scrape_job_status_custom_success,
     get_scrape_job_status_responses,
+    list_scrape_jobs_custom_errors,
+    list_scrape_jobs_custom_success,
+    list_scrape_jobs_responses,
     manual_scrape_trigger_custom_errors,
     manual_scrape_trigger_custom_success,
     manual_scrape_trigger_responses,
@@ -125,6 +133,141 @@ async def manual_scrape_trigger(
 
 manual_scrape_trigger._custom_errors = manual_scrape_trigger_custom_errors
 manual_scrape_trigger._custom_success = manual_scrape_trigger_custom_success
+
+
+@router.get(
+    "/{source_id}/scrapes/active",
+    status_code=status.HTTP_200_OK,
+    responses=get_active_scrape_job_responses,
+)
+async def get_active_scrape_job(
+    source_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get the currently active scrape job for a source.
+
+    Returns the active scrape job (PENDING or IN_PROGRESS) if one exists.
+    This endpoint allows the frontend to recover job IDs after page refreshes
+    or connection issues, without needing to store job IDs locally.
+
+    Args:
+        source_id (uuid.UUID): The UUID of the source to check for active jobs.
+        db (AsyncSession): Database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        JSONResponse: 200 with active job details, or 204 if no active job.
+
+    Raises:
+        HTTPException: 404 if source not found.
+    """
+    # First verify source exists and user has access
+    source_query = select(Source).where(Source.id == source_id)
+    source_result = await db.execute(source_query)
+    source = source_result.scalars().first()
+
+    if not source:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Source not found",
+            error="SOURCE_NOT_FOUND",
+        )
+
+    # Query for active job (PENDING or IN_PROGRESS)
+    job_query = select(ScrapeJob).where(
+        ScrapeJob.source_id == source_id,
+        ScrapeJob.status.in_([ScrapeJobStatus.PENDING, ScrapeJobStatus.IN_PROGRESS]),
+    )
+    job_result = await db.execute(job_query)
+    active_job = job_result.scalars().first()
+
+    if not active_job:
+        return success_response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            message="No active scrape job found for this source",
+            data=None,
+        )
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Active scrape job found for this source",
+        data=ScrapeJobResponse.model_validate(active_job).model_dump(mode="json"),
+    )
+
+
+get_active_scrape_job._custom_errors = get_active_scrape_job_custom_errors
+get_active_scrape_job._custom_success = get_active_scrape_job_custom_success
+
+
+@router.get(
+    "/{source_id}/scrapes",
+    status_code=status.HTTP_200_OK,
+    responses=list_scrape_jobs_responses,
+)
+async def list_scrape_jobs(
+    source_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all scrape jobs for a source.
+
+    Returns a paginated list of all scrape jobs for the specified source,
+    ordered by creation date (newest first). Useful for viewing job history
+    and retrying failed scrapes.
+
+    Args:
+        source_id (uuid.UUID): The UUID of the source to list jobs for.
+        db (AsyncSession): Database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        JSONResponse: 200 with paginated list of scrape jobs.
+
+    Raises:
+        HTTPException: 404 if source not found.
+    """
+    # First verify source exists and user has access
+    source_query = select(Source).where(Source.id == source_id)
+    source_result = await db.execute(source_query)
+    source = source_result.scalars().first()
+
+    if not source:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Source not found",
+            error="SOURCE_NOT_FOUND",
+        )
+
+    # Query all jobs for this source, ordered by creation date (newest first)
+    jobs_query = (
+        select(ScrapeJob)
+        .where(ScrapeJob.source_id == source_id)
+        .order_by(ScrapeJob.created_at.desc())
+    )
+
+    jobs_result = await db.execute(jobs_query)
+    jobs = jobs_result.scalars().all()
+
+    # Convert to response format
+    jobs_data = [ScrapeJobResponse.model_validate(job).model_dump(mode="json") for job in jobs]
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Scrape jobs retrieved successfully",
+        data={
+            "items": jobs_data,
+            "total": len(jobs_data),
+            "page": 1,
+            "per_page": len(jobs_data),  # Return all for now, can add pagination later
+        },
+    )
+
+
+list_scrape_jobs._custom_errors = list_scrape_jobs_custom_errors
+list_scrape_jobs._custom_success = list_scrape_jobs_custom_success
 
 
 @router.get(
