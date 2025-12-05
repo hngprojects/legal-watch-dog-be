@@ -1,7 +1,7 @@
 """merge make hashed_password nullable + create contact us table
 
 Revision ID: d9fc6cba6671
-Revises: 84a91f4f3ead, e40a68f35eaa
+Revises: d227f5996841
 Create Date: 2025-11-28 12:13:33.760968
 
 """
