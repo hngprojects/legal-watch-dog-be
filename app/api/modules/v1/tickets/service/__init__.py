@@ -1,3 +1,3 @@
-from .ticket_service import TicketService
+from .participant_service import ParticipantService
 
-__all__ = ["TicketService"]
+__all__ = ["ParticipantService"]

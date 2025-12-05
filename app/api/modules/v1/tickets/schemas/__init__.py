@@ -1,11 +1,15 @@
-from .ticket_invitation_schema import (
-    InvitedUserResponse,
-    InviteUsersToTicketRequest,
-    InviteUsersToTicketResponse,
+from .external_participant_schema import (
+    ExternalParticipantResponse,
+    GuestTicketAccessResponse,
+    InternalUserInvitationResponse,
+    InviteParticipantsRequest,
+    InviteParticipantsResponse,
 )
 
 __all__ = [
-    "InviteUsersToTicketRequest",
-    "InviteUsersToTicketResponse",
-    "InvitedUserResponse",
+    "InviteParticipantsRequest",
+    "InviteParticipantsResponse",
+    "InternalUserInvitationResponse",
+    "ExternalParticipantResponse",
+    "GuestTicketAccessResponse",
 ]
