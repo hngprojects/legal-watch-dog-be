@@ -8,6 +8,8 @@ from sqlmodel import func, select
 
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
+from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.service.billing_service import get_billing_service
 from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -122,6 +124,20 @@ class OrganizationService:
                 is_active=True,
             )
 
+            billing_service = get_billing_service(self.db)
+
+            billing_account: BillingAccount = await billing_service.create_billing_account(
+                organization_id=organization.id,
+                metadata={"created_by": str(user_id)},
+            )
+
+            await billing_service._sync_org_billing_from_account(
+                db=self.db,
+                organization_id=organization.id,
+                account=billing_account,
+                plan_info=None,
+            )
+
             await self.db.commit()
 
             logger.info(
@@ -134,6 +150,10 @@ class OrganizationService:
                 "organization_name": organization.name,
                 "user_id": str(user_id),
                 "role": owner_role.name,
+                "billing_account_id": str(billing_account.id),
+                "billing_status": billing_account.status.value
+                if hasattr(billing_account.status, "value")
+                else billing_account.status,
             }
 
         except ValueError as e:
