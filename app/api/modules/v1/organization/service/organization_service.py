@@ -742,7 +742,6 @@ class OrganizationService:
         )
 
         try:
-            # Verify organization exists
             organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
             if not organization:
                 raise ValueError("Organization not found")
@@ -750,7 +749,6 @@ class OrganizationService:
             if hasattr(organization, "deleted_at") and organization.deleted_at:
                 raise ValueError("Organization has been deleted")
 
-            # Verify user has access to the organization
             membership = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
@@ -758,8 +756,6 @@ class OrganizationService:
             if not membership or not membership.is_active:
                 raise ValueError("You do not have access to this organization")
 
-            # Check if user has permission to view invitations
-            # Allow both 'manage_users' and 'invite_users' permissions
             has_manage = await check_user_permission(
                 self.db, requesting_user_id, organization_id, "manage_users"
             )
@@ -774,7 +770,6 @@ class OrganizationService:
 
             skip = (page - 1) * limit
 
-            # Get invitations from CRUD
             result = await InvitationCRUD.get_organization_invitations(
                 db=self.db,
                 organization_id=organization_id,
