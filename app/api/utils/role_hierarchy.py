@@ -65,18 +65,26 @@ class RoleHierarchy:
         return user_hierarchy_level > target_hierarchy_level
 
     @classmethod
-    @classmethod
-    def can_assign_role_by_level(cls, user_level: int, target_level: int) -> bool:
+    def can_assign_role(cls, user_role: str, target_new_role: str) -> bool:
         """
-        Check if user can assign target role by hierarchy levels.
+        Check if user_role can assign target_new_role to someone.
+
+        Rules:
+        - Can only assign roles at lower or equal level to their own
+        - Owners can assign any role including Owner
+        - Admins can assign up to Admin
+        - Managers can assign up to Manager
 
         Args:
-            user_level: User's hierarchy level (1-4)
-            target_level: Target role hierarchy level (1-4)
+            user_role: Role of the person performing the action
+            target_new_role: Role being assigned
 
         Returns:
-            bool: True if user can assign target role
+            bool: True if user can assign this role
         """
+        user_level = cls.get_role_level(user_role)
+        target_level = cls.get_role_level(target_new_role)
+
         if user_level == RoleLevel.OWNER:
             return True
 

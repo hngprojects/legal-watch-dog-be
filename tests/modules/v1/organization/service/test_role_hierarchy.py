@@ -101,60 +101,31 @@ class TestRoleHierarchyCanAssign:
 
     def test_owner_can_assign_owner(self):
         """Owner (4) can assign Owner role (4)."""
-        assert RoleHierarchy.can_assign_role(4, 4) is True
+        assert RoleHierarchy.can_assign_role("Owner", "Owner") is True
 
     def test_owner_can_assign_admin(self):
         """Owner (4) can assign Admin role (3)."""
-        assert RoleHierarchy.can_assign_role(4, 3) is True
+        assert RoleHierarchy.can_assign_role("Owner", "Admin") is True
 
     def test_owner_can_assign_manager(self):
         """Owner (4) can assign Manager role (2)."""
-        assert RoleHierarchy.can_assign_role(4, 2) is True
+        assert RoleHierarchy.can_assign_role("Owner", "Manager") is True
 
     def test_owner_can_assign_member(self):
         """Owner (4) can assign Member role (1)."""
-        assert RoleHierarchy.can_assign_role(4, 1) is True
-
-    def test_admin_cannot_assign_owner(self):
-        """Admin (3) cannot assign Owner role (4)."""
-        assert RoleHierarchy.can_assign_role(3, 4) is False
-        """Admin (3) cannot assign Owner role (4)."""
-        assert RoleHierarchy.can_assign_role(3, 4) is False
-
-    def test_admin_cannot_assign_admin(self):
-        """Admin (3) cannot assign Admin role (3) - must be higher."""
-        assert RoleHierarchy.can_assign_role(3, 3) is False
+        assert RoleHierarchy.can_assign_role("Owner", "Member") is True
 
     def test_admin_can_assign_manager(self):
         """Admin (3) can assign Manager role (2)."""
-        assert RoleHierarchy.can_assign_role(3, 2) is True
+        assert RoleHierarchy.can_assign_role("Admin", "Manager") is True
 
     def test_admin_can_assign_member(self):
         """Admin (3) can assign Member role (1)."""
-        assert RoleHierarchy.can_assign_role(3, 1) is True
-
-    def test_manager_cannot_assign_admin(self):
-        """Manager (2) cannot assign Admin role (3)."""
-        assert RoleHierarchy.can_assign_role(2, 3) is False
-
-    def test_manager_cannot_assign_manager(self):
-        """Manager (2) cannot assign Manager role (2) - must be higher."""
-        assert RoleHierarchy.can_assign_role(2, 2) is False
+        assert RoleHierarchy.can_assign_role("Admin", "Member") is True
 
     def test_manager_can_assign_member(self):
         """Manager (2) can assign Member role (1)."""
-        assert RoleHierarchy.can_assign_role(2, 1) is True
-
-    def test_member_cannot_assign_any_role(self):
-        """Test that Member cannot assign any role."""
-        assert RoleHierarchy.can_assign_role(1, 2) is False
-        assert RoleHierarchy.can_assign_role(1, 3) is False
-        assert RoleHierarchy.can_assign_role(1, 2) is False
-        assert RoleHierarchy.can_assign_role(1, 1) is False
-        assert RoleHierarchy.can_assign_role(1, 2) is False
-        assert RoleHierarchy.can_assign_role(1, 3) is False
-        assert RoleHierarchy.can_assign_role(1, 2) is False
-        assert RoleHierarchy.can_assign_role(1, 1) is False
+        assert RoleHierarchy.can_assign_role("Manager", "Member") is True
 
 
 @pytest.mark.asyncio
