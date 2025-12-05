@@ -202,6 +202,20 @@ class Settings(BaseSettings):
 
     # Billing Configuration
     TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
+
+    # Plan limits
+    ESSENTIAL_MAX_PROJECTS: int = config("ESSENTIAL_MAX_PROJECTS", default=1, cast=int)
+    ESSENTIAL_MAX_JURISDICTIONS: int = config("ESSENTIAL_MAX_JURISDICTIONS", default=2, cast=int)
+    ESSENTIAL_MONTHLY_SCANS: int = config("ESSENTIAL_MONTHLY_SCANS", default=20, cast=int)
+
+    PRO_MAX_PROJECTS: int = config("PRO_MAX_PROJECTS", default=20, cast=int)
+    PRO_MAX_JURISDICTIONS: int = config("PRO_MAX_JURISDICTIONS", default=50, cast=int)
+    PRO_MONTHLY_SCANS: int = config("PRO_MONTHLY_SCANS", default=-1, cast=int)
+
+    ENTERPRISE_MAX_PROJECTS: int = config("ENTERPRISE_MAX_PROJECTS", default=-1, cast=int)
+    ENTERPRISE_MAX_JURISDICTIONS: int = config("ENTERPRISE_MAX_JURISDICTIONS", default=-1, cast=int)
+    ENTERPRISE_MONTHLY_SCANS: int = config("ENTERPRISE_MONTHLY_SCANS", default=-1, cast=int)
+
     MICROSOFT_REDIRECT_URI: str = config(
         "MICROSOFT_REDIRECT_URI", default="https://minamoto.emerj.net"
     )

@@ -4,14 +4,50 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException, status
+import pytest_asyncio
+from fastapi import Depends, HTTPException, status
+from httpx import ASGITransport, AsyncClient
 
+from app.api.core.dependencies import plan_limits as plan_limits_mod
+from app.api.core.dependencies.auth import get_current_user
 from app.api.core.dependencies.billing_guard import require_billing_access
+from app.api.db.database import get_db
 from app.api.modules.v1.billing.models.billing_account import BillingStatus
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
 from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
     JurisdictionCreateSchema,
 )
+from app.api.modules.v1.organization.models.organization_model import Organization
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.users.models.users_model import User
+from main import app
+
+_TEST_SAMPLE_USER = None
+
+
+@pytest.fixture
+def auth_headers():
+    return {"Authorization": "Bearer test-token"}
+
+
+@pytest_asyncio.fixture
+async def client():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def sample_user():
+    return User(
+        id=uuid4(),
+        email="plan-limit-user@example.com",
+        first_name="Plan",
+        last_name="Limit",
+        is_active=True,
+    )
 
 
 @pytest.mark.asyncio
@@ -414,3 +450,95 @@ async def test_jurisdictions_require_billing_access_blocked_org_raises():
         err = excinfo.value
         assert err.status_code == status.HTTP_403_FORBIDDEN
         assert "blocked" in err.detail.lower()
+
+
+async def override_get_current_user_for_tests():
+    """Return the sample user set in the test via _TEST_SAMPLE_USER."""
+    return _TEST_SAMPLE_USER
+
+
+async def fake_require_billing_access_for_tests(
+    organization_id,
+    db=Depends(get_db),
+):
+    """Skip real billing checks in this test."""
+    return None
+
+
+async def fake_require_jurisdiction_creation_not_allowed(
+    organization_id,
+    db=Depends(get_db),
+):
+    """
+    Simulate the 'plan limit reached' guard for jurisdictions.
+
+    This mimics the real error message shape used by plan_limits,
+    so our test can assert on the 402 and message substring.
+    """
+    from fastapi import HTTPException, status
+
+    raise HTTPException(
+        status.HTTP_402_PAYMENT_REQUIRED,
+        "Your current plan allows up to 2 jurisdictions. \
+Please upgrade your plan to add more jurisdictions.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_jurisdiction_creation_blocked_when_plan_limit_reached(
+    client, pg_async_session, auth_headers, sample_user, monkeypatch
+):
+    """
+    When max_jurisdictions is reached for an org, POST /organizations/{org_id}/jurisdictions
+    should return 402 PAYMENT_REQUIRED.
+    """
+
+    organization = Organization(name="Juris Plan Limit Org", is_active=True)
+    pg_async_session.add(organization)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(organization)
+
+    project = Project(
+        org_id=organization.id,
+        title="Juris Project",
+        description="For jurisdiction tests",
+    )
+    pg_async_session.add(project)
+    await pg_async_session.commit()
+    await pg_async_session.refresh(project)
+
+    for i in range(2):
+        j = Jurisdiction(
+            project_id=project.id,
+            name=f"Existing J{i}",
+            description="Already used slot",
+        )
+        pg_async_session.add(j)
+    await pg_async_session.commit()
+
+    global _TEST_SAMPLE_USER
+    _TEST_SAMPLE_USER = sample_user
+
+    app.dependency_overrides[get_current_user] = override_get_current_user_for_tests
+    app.dependency_overrides[require_billing_access] = fake_require_billing_access_for_tests
+
+    app.dependency_overrides[plan_limits_mod.require_jurisdiction_creation_allowed] = (
+        fake_require_jurisdiction_creation_not_allowed
+    )
+
+    payload = {
+        "project_id": str(project.id),
+        "name": "Should Be Blocked",
+        "description": "Over the limit",
+    }
+
+    response = await client.post(
+        f"/api/v1/organizations/{organization.id}/jurisdictions/",
+        json=payload,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+    body = response.json()
+    assert body["status_code"] == status.HTTP_402_PAYMENT_REQUIRED
+    assert "plan allows up to 2 jurisdictions" in body["message"]

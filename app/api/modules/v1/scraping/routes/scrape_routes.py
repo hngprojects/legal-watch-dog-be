@@ -15,6 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
+from app.api.core.dependencies.plan_limits import (
+    require_scan_allowed_for_source,
+)
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
@@ -44,6 +47,7 @@ logger = logging.getLogger("app")
     "/{source_id}/scrapes",
     status_code=status.HTTP_202_ACCEPTED,
     responses=manual_scrape_trigger_responses,
+    dependencies=[Depends(require_scan_allowed_for_source)],
 )
 async def manual_scrape_trigger(
     source_id: uuid.UUID,
