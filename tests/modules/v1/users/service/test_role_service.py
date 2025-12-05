@@ -90,12 +90,35 @@ async def test_create_admin_role_failure():
         with patch("app.api.modules.v1.users.service.role.Role", return_value=mock_role_instance):
             # Make flush fail
             db.flush.side_effect = Exception("DB crash")
+    org_id = uuid4()
+
+    # Mock template
+    mock_template = MagicMock()
+    mock_template.name = "admin"
+    mock_template.display_name = "Admin"
+    mock_template.description = "Administrator with full permissions"
+    mock_template.permissions = {"manage_users": True, "invite_users": True}
+    mock_template.hierarchy_level = 3
+
+    # Mock Role constructor
+    mock_role_instance = MagicMock()
+    with patch.object(RoleTemplateCRUD, "get_template_by_name", return_value=mock_template):
+        with patch("app.api.modules.v1.users.service.role.Role", return_value=mock_role_instance):
+            # Make flush fail
+            db.flush.side_effect = Exception("DB crash")
 
             with pytest.raises(Exception) as exc:
                 await RoleCRUD.create_admin_role(
                     db=db,
                     organization_id=org_id,
                 )
+            with pytest.raises(Exception) as exc:
+                await RoleCRUD.create_admin_role(
+                    db=db,
+                    organization_id=org_id,
+                )
 
+    # Check the error message matches what your code actually raises
+    assert "Failed to create role from template 'admin'" in str(exc.value)
     # Check the error message matches what your code actually raises
     assert "Failed to create role from template 'admin'" in str(exc.value)
