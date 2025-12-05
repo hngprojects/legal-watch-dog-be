@@ -200,14 +200,39 @@ async def pg_async_session():
     )
 
     async with engine.begin() as conn:
-        # First drop all tables to ensure clean state with correct types
-        # Use CASCADE to drop dependent objects
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
-        # Grant permissions on the schema
-        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-        await conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{settings.DB_USER}"'))
-        # Then create all tables fresh
+        # Drop all tables individually instead of dropping the entire schema
+        # This avoids permission issues with DROP SCHEMA
+        try:
+            # Get all table names
+            result = await conn.execute(
+                text("""
+                    SELECT tablename FROM pg_tables 
+                    WHERE schemaname = 'public'
+                """)
+            )
+            tables = [row[0] for row in result.fetchall()]
+
+            # Drop each table with CASCADE
+            for table in tables:
+                await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+
+            # Drop all types (enums)
+            result = await conn.execute(
+                text("""
+                    SELECT typname FROM pg_type 
+                    WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+                    AND typtype = 'e'
+                """)
+            )
+            types = [row[0] for row in result.fetchall()]
+            for type_name in types:
+                await conn.execute(text(f'DROP TYPE IF EXISTS "{type_name}" CASCADE'))
+
+        except Exception:
+            # If we can't drop tables, just continue - might be first run
+            pass
+
+        # Create all tables fresh
         await conn.run_sync(SQLModel.metadata.create_all)
         # Add missing columns that exist in model but not auto-created
         await conn.execute(

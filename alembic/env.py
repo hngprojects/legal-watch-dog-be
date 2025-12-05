@@ -20,6 +20,7 @@ from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.users.models.roles_model import Role
 from app.api.modules.v1.users.models.users_model import User
 from app.api.modules.v1.scraping.models.source_model import Source, SourceType
+from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
 from app.api.modules.v1.waitlist.models.waitlist_model import Waitlist
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
@@ -28,6 +29,7 @@ from app.api.modules.v1.scraping.models.suppression_rule import SuppressionRule,
 from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
 from app.api.modules.v1.hire_specialists.models.specialist_models import SpecialistHire
 from app.api.modules.v1.notifications.models.revision_notification import Notification
+from app.api.modules.v1.tickets.models.ticket_model import Ticket, TicketInvitedUser
 
 
 
@@ -42,13 +44,14 @@ if config.config_file_name is not None:
 
 # Override sqlalchemy.url with the URL from your application settings
 # This ensures migrations use the same database as your application
-if settings.DB_TYPE == "postgresql":
+if hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
+    db_url = settings.DATABASE_URL
+    db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+elif settings.DB_TYPE == "postgresql":
     db_url = (
         f"postgresql://{settings.DB_USER}:{settings.DB_PASS}"
         f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
     )
-elif hasattr(settings, "DATABASE_URL") and settings.DATABASE_URL:
-    db_url = settings.DATABASE_URL
 else:
     db_url = f"sqlite:///{BASE_DIR}/db.sqlite3"
 

@@ -173,6 +173,8 @@ class ScraperService:
                 }
 
         try:
+            is_baseline = not last_revision
+
             new_revision = DataRevision(
                 source_id=source.id,
                 minio_object_key=extraction_result["raw_key"],
@@ -182,6 +184,7 @@ class ScraperService:
                 ai_markdown_summary=ai_result.get("markdown_summary"),
                 ai_confidence_score=ai_result.get("confidence_score"),
                 was_change_detected=was_change_detected,
+                is_baseline=is_baseline,
                 scraped_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             self.db.add(new_revision)
@@ -213,4 +216,6 @@ class ScraperService:
             "status": "success",
             "change_detected": was_change_detected,
             "change_summary": diff_patch.get("change_summary"),
+            "data_revision_id": str(new_revision.id),
+            "is_baseline": is_baseline,
         }

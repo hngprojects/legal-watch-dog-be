@@ -15,12 +15,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.service.jurisdiction_service import OrgResourceGuard
-from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     create_source_custom_errors,
     create_source_custom_success,
@@ -37,8 +35,6 @@ from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     get_sources_custom_errors,
     get_sources_custom_success,
     get_sources_responses,
-    manual_scrape_trigger_custom_errors,
-    manual_scrape_trigger_custom_success,
     update_source_custom_errors,
     update_source_custom_success,
     update_source_patch_custom_errors,
@@ -75,7 +71,7 @@ from app.api.modules.v1.scraping.service.source_service import SourceService
 from app.api.modules.v1.scraping.service.verification_service import VerificationService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.pagination import calculate_pagination
-from app.api.utils.response_payloads import error_response, success_response
+from app.api.utils.response_payloads import success_response
 
 router = APIRouter(
     prefix="/sources",
@@ -110,7 +106,8 @@ async def create_source(
         JSONResponse: Standard success response with created source data.
 
     Raises:
-        HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
+        HTTPException: 400 if required prompts are missing or the URL already exists.
+        HTTPException: 500 if creation fails.
 
     Examples:
         ```
@@ -184,7 +181,8 @@ async def bulk_create_sources(
         JSONResponse: Standard success response with list of created sources.
 
     Raises:
-        HTTPException: 400 if any URL already exists, 500 if creation fails.
+        HTTPException: 400 if required prompts are missing or any URL already exists.
+        HTTPException: 500 if creation fails.
 
 
     """

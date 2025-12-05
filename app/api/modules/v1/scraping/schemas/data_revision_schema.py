@@ -20,6 +20,7 @@ class DataRevisionResponse(BaseModel):
     ai_confidence_score: Optional[float] = None
     scraped_at: datetime
     was_change_detected: bool
+    is_baseline: bool
 
     # Baseline acceptance fields
     is_baseline: bool = False

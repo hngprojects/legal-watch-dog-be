@@ -29,7 +29,10 @@ async def require_billing_access(
         HTTPException: If the billing account is missing or the billing state blocks access.
     """
     service = get_billing_service(db)
-
+    account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
+    # So temporarily disabling the guard as requested
+    return account
+    # remove the above line when we decide to re-enable the guard
     account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
     if not account:
         raise HTTPException(
@@ -51,10 +54,10 @@ async def require_billing_access(
         detail = "Subscription is cancelled. Please renew your subscription to continue."
         http_status = status.HTTP_402_PAYMENT_REQUIRED
     elif effective_status == BillingStatus.UNPAID:
-        detail = "Billing is unpaid or inactive. Please update your payment method."
+        detail = "Billing is unpaid or inactive. Please subscribe to continue."
         http_status = status.HTTP_402_PAYMENT_REQUIRED
     elif effective_status == BillingStatus.PAST_DUE:
-        detail = "Billing is past due. Please update your payment method."
+        detail = "Billing is past due. Please subscribe to continue."
         http_status = status.HTTP_402_PAYMENT_REQUIRED
     elif effective_status == BillingStatus.TRIALING:
         detail = "Trial has expired or is not valid. Please subscribe to continue."
