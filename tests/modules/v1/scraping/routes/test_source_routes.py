@@ -43,7 +43,12 @@ async def sample_jurisdiction_id(pg_async_session):
     await pg_async_session.commit()
     await pg_async_session.refresh(organization)
 
-    project = Project(org_id=organization.id, title="Test Project", description="Test description")
+    project = Project(
+        org_id=organization.id,
+        title="Test Project",
+        description="Test description",
+        master_prompt="Collect latest regulations",
+    )
     pg_async_session.add(project)
     await pg_async_session.commit()
     await pg_async_session.refresh(project)
@@ -52,6 +57,7 @@ async def sample_jurisdiction_id(pg_async_session):
         project_id=project.id,
         name="Test Jurisdiction",
         description="Test description",
+        prompt="Focus on legal updates",
     )
     pg_async_session.add(jurisdiction)
     await pg_async_session.commit()

@@ -14,6 +14,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
 
 
 class SourceType(str, Enum):
@@ -73,3 +74,4 @@ class Source(SQLModel, table=True):
     )
 
     jurisdiction: Optional["Jurisdiction"] = Relationship(back_populates="sources")
+    tickets: list["Ticket"] = Relationship(back_populates="source")
