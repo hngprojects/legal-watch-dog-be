@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class ProjectResponse(BaseModel):
     """Response schema for project data."""
+
     id: UUID
     org_id: UUID
     title: str
@@ -14,6 +15,7 @@ class ProjectResponse(BaseModel):
 
 class JurisdictionResponse(BaseModel):
     """Response schema for jurisdiction data."""
+
     id: UUID
     project_id: UUID
     name: str
@@ -22,6 +24,7 @@ class JurisdictionResponse(BaseModel):
 
 class SourceResponse(BaseModel):
     """Response schema for source data."""
+
     id: UUID
     jurisdiction_id: UUID
     name: str

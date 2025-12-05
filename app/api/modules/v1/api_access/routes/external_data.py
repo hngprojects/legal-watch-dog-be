@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.dependencies.api_key_auth import require_api_key
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
 from app.api.modules.v1.api_access.models.api_key import ApiKey
 
@@ -23,7 +24,9 @@ router = APIRouter(prefix="/external", tags=["external-api"])
 
 @router.get("/projects", response_model=List[ProjectResponse])
 async def get_projects(
-    api_key: ApiKey = Depends(require_api_key), db: AsyncSession = Depends(get_db)
+    api_key: ApiKey = Depends(require_api_key),
+    _: None = Depends(require_billing_access),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ProjectResponse]:
     """
     Get all projects for the organization associated with the provided API key.
@@ -42,7 +45,9 @@ async def get_projects(
 
 @router.get("/jurisdictions", response_model=List[JurisdictionResponse])
 async def get_jurisdictions(
-    api_key: ApiKey = Depends(require_api_key), db: AsyncSession = Depends(get_db)
+    api_key: ApiKey = Depends(require_api_key),
+    _: None = Depends(require_billing_access),
+    db: AsyncSession = Depends(get_db),
 ) -> list[JurisdictionResponse]:
     """
     Get all jurisdictions for projects associated with the API key's organization.
@@ -65,7 +70,9 @@ async def get_jurisdictions(
 
 @router.get("/sources", response_model=List[SourceResponse])
 async def get_sources(
-    api_key: ApiKey = Depends(require_api_key), db: AsyncSession = Depends(get_db)
+    api_key: ApiKey = Depends(require_api_key),
+    _: None = Depends(require_billing_access),
+    db: AsyncSession = Depends(get_db),
 ) -> list[SourceResponse]:
     """
     Get all sources for jurisdictions associated with projects of the API key's organization.
