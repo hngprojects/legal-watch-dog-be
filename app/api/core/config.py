@@ -231,6 +231,7 @@ class Settings(BaseSettings):
 
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
 
+    # Apple OAuth
     APPLE_TEAM_ID: str = config("APPLE_TEAM_ID", default="your-apple-developer-team-id")
     APPLE_CLIENT_ID: str = config("APPLE_CLIENT_ID", default="your-apple-developer-client-id")
     APPLE_KEY_ID: str = config("APPLE_KEY_ID", default="your-apple-developer-key-identifier")
@@ -243,6 +244,14 @@ class Settings(BaseSettings):
     APPLE_REDIRECT_URI: str = config(
         "APPLE_REDIRECT_URI", default="http://localhost:8000/auth/apple/callback"
     )
+
+    # API_ACCESS_KEY
+    API_KEY_MAX_EXPIRATION_DAYS: int = config("API_KEY_MAX_EXPIRATION_DAYS", default=60, cast=int)
+    API_KEY_DEFAULT_EXPIRATION_DAYS: int = config(
+        "API_KEY_DEFAULT_EXPIRATION_DAYS", default=15, cast=int
+    )
+    API_KEY_FRONTEND_URL: str = config("API_KEY_FRONTEND_URL", default="legalwatch.dog/keys/view")
+    API_KEY_ROTATION_WINDOW_DAYS: int = config("API_KEY_ROTATION_WINDOW_DAYS", default=3, cast=int)
 
     model_config = SettingsConfigDict(extra="allow")
 
