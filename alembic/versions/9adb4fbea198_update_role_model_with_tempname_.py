@@ -1,7 +1,7 @@
 """update_role_model_with_tempname_hierarchy
 
 Revision ID: 9adb4fbea198
-Revises: c18bded7b6a0
+Revises: d227f5996841
 Create Date: 2025-12-04 21:12:49.414101
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '9adb4fbea198'
-down_revision: Union[str, Sequence[str], None] = 'c18bded7b6a0'
+down_revision: Union[str, Sequence[str], None] = 'd227f5996841'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
