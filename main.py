@@ -20,24 +20,60 @@ from app.api.core.exceptions import (
 from app.api.core.logger import setup_logging
 from app.api.core.middleware.rate_limiter import RateLimitMiddleware
 from app.api.db.database import AsyncSessionLocal, Base, engine
+from app.api.events.bridge import RealtimeEventBridge
+from app.api.events.factory import get_event_subscriber, shutdown_event_bus
+from app.api.events.models import EventTopic
 from app.api.modules.v1.billing.seed.plan_seed import seed_billing_plans
 from app.api.utils.response_payloads import success_response
+from app.api.ws.connection_manager import manager as websocket_manager
+from app.api.ws.router import router as websocket_router
 
 setup_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
+    """Initialize resources on startup and release them on shutdown.
+
+    Args:
+        app (FastAPI): FastAPI application instance supplied by the framework.
+
+    Returns:
+        AsyncIterator[None]: Asynchronous context manager controlling startup/shutdown.
+
+    Raises:
+        RuntimeError: If realtime websockets are enabled but misconfigured.
+
+    Examples:
+        >>> async with lifespan(app):
+        ...     yield
+    """
+
+    bridge: RealtimeEventBridge | None = None
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
         await seed_billing_plans(session)
 
-    yield
+    if settings.ENABLE_REALTIME_WEBSOCKETS:
+        subscriber = await get_event_subscriber()
+        bridge = RealtimeEventBridge(
+            subscriber=subscriber,
+            manager=websocket_manager,
+            topics=[EventTopic.NOTIFICATIONS, EventTopic.SCRAPE_JOBS],
+        )
+        await bridge.start()
 
-    await engine.dispose()
+    try:
+        yield
+    finally:
+        if bridge is not None:
+            await bridge.stop()
+        if settings.ENABLE_REALTIME_WEBSOCKETS:
+            await shutdown_event_bus()
+        await engine.dispose()
 
 
 app = FastAPI(
@@ -82,6 +118,9 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 app.openapi = lambda: custom_openapi(app)
 app.include_router(api_router)
+
+if settings.ENABLE_REALTIME_WEBSOCKETS:
+    app.include_router(websocket_router)
 
 
 @app.get("/")
