@@ -22,6 +22,7 @@ from app.api.modules.v1.search.routes import data_revision_search_router
 from app.api.modules.v1.tickets.routes import (
     guest_access_router,
     participant_router,
+    router as ticket_router,
 )
 from app.api.modules.v1.users.routes.users_route import router as users_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
@@ -40,6 +41,7 @@ router.include_router(auth_router)
 router.include_router(password_reset_router)
 router.include_router(scraping_router)
 router.include_router(project_router)
+router.include_router(ticket_router)
 router.include_router(juridiction_router)
 router.include_router(notification_router)
 router.include_router(billing_router)
