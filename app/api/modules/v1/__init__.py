@@ -15,7 +15,7 @@ from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
 from app.api.modules.v1.notifications.routes.notification_route import router as notification_router
-from app.api.modules.v1.notifications.routes.ticket_notifications_routes import (
+from app.api.modules.v1.notifications.routes.ticket_notification_routes import (
     router as ticket_notif_router,
 )
 from app.api.modules.v1.organization.routes import router as organization_router
