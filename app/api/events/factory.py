@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Dict, Optional
 
 from redis.asyncio import Redis
@@ -17,6 +18,8 @@ _factory_lock = asyncio.Lock()
 _redis_client: Optional[Redis] = None
 _event_publisher: Optional[RedisEventPublisher] = None
 _event_subscriber: Optional[RedisEventSubscriber] = None
+
+logger = logging.getLogger("app")
 
 
 def _channel_map() -> Dict[EventTopic, str]:
@@ -54,6 +57,8 @@ def _assert_realtime_enabled() -> None:
 async def _get_redis_client() -> Redis:
     """Lazily instantiate a shared Redis asyncio client.
 
+    NOTE: Caller must hold _factory_lock before calling this function.
+
     Returns:
         Redis: Shared asyncio Redis client.
 
@@ -61,17 +66,23 @@ async def _get_redis_client() -> Redis:
         RuntimeError: If realtime websockets are disabled.
 
     Examples:
-        >>> client = await _get_redis_client()
-        >>> bool(client)
+        >>> async with _factory_lock:
+        ...     client = await _get_redis_client()
         True
     """
 
     global _redis_client
     _assert_realtime_enabled()
-    async with _factory_lock:
-        if _redis_client is None:
-            _redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=False)
-        return _redis_client
+    if _redis_client is None:
+        _redis_client = Redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=False,
+            socket_connect_timeout=5,
+            socket_keepalive=True,
+        )
+        # Test the connection immediately to catch errors early
+        await _redis_client.ping()
+    return _redis_client
 
 
 async def get_event_publisher() -> EventPublisher:

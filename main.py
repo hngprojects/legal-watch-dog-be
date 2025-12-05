@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -29,6 +31,7 @@ from app.api.ws.connection_manager import manager as websocket_manager
 from app.api.ws.router import router as websocket_router
 
 setup_logging()
+logger = logging.getLogger("app")
 
 
 @asynccontextmanager
@@ -58,13 +61,23 @@ async def lifespan(app: FastAPI):
         await seed_billing_plans(session)
 
     if settings.ENABLE_REALTIME_WEBSOCKETS:
-        subscriber = await get_event_subscriber()
-        bridge = RealtimeEventBridge(
-            subscriber=subscriber,
-            manager=websocket_manager,
-            topics=[EventTopic.NOTIFICATIONS, EventTopic.SCRAPE_JOBS],
-        )
-        await bridge.start()
+        try:
+            subscriber = await asyncio.wait_for(get_event_subscriber(), timeout=10.0)
+            bridge = RealtimeEventBridge(
+                subscriber=subscriber,
+                manager=websocket_manager,
+                topics=[EventTopic.NOTIFICATIONS, EventTopic.SCRAPE_JOBS],
+            )
+            await bridge.start()
+            logger.info("Realtime event bridge started successfully")
+        except asyncio.TimeoutError:
+            logger.error(
+                "Timeout initializing realtime event subscriber (Redis may be unreachable)"
+            )
+            bridge = None
+        except Exception as exc:
+            logger.error(f"Failed to initialize realtime bridge: {exc}", exc_info=True)
+            bridge = None
 
     try:
         yield
