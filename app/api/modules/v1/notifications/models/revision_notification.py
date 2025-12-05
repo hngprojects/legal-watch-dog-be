@@ -56,7 +56,8 @@ class Notification(SQLModel, table=True):
     # SQLModel handles the UUID primary key automatically
     notification_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    revision_id: uuid.UUID = Field(
+    revision_id: Optional[uuid.UUID] = Field(
+        default=None,
         foreign_key="data_revisions.id",
         index=True,
         description="Link to data revision if applicable",

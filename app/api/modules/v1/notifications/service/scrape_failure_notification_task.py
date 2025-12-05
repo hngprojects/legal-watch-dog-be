@@ -171,7 +171,7 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
                         else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                     ),
                     "subject": notification_title,
-                    "project_name": project.name,
+                    "project_name": project.title,
                     "jurisdiction_name": jurisdiction.name,
                 }
 
