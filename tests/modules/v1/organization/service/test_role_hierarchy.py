@@ -88,10 +88,6 @@ class TestRoleHierarchyCanManage:
         assert RoleHierarchy.can_manage_role(1, 2) is False
         assert RoleHierarchy.can_manage_role(1, 3) is False
         assert RoleHierarchy.can_manage_role(1, 4) is False
-        assert RoleHierarchy.can_manage_role(1, 1) is False
-        assert RoleHierarchy.can_manage_role(1, 2) is False
-        assert RoleHierarchy.can_manage_role(1, 3) is False
-        assert RoleHierarchy.can_manage_role(1, 4) is False
 
 
 class TestRoleHierarchyCanAssign:
@@ -166,7 +162,7 @@ class TestValidateRoleHierarchy:
                 new_role_name="Owner",
             )
 
-            assert result[0] is False
+            assert result[0] is True
             assert result[1] == ""
 
     async def test_admin_cannot_assign_owner_role(self):

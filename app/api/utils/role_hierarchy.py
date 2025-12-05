@@ -90,6 +90,38 @@ class RoleHierarchy:
 
         return user_level > target_level
 
+    @staticmethod
+    async def get_role_by_name(
+        db: AsyncSession,
+        role_name: str,
+        organization_id: str,
+    ) -> Optional[Role]:
+        """
+        Get a role by name and organization.
+
+        Args:
+            db: Database session
+            role_name: Name of the role
+            organization_id: UUID of the organization
+
+        Returns:
+            Role object or None if not found
+        """
+        from sqlalchemy import select
+
+        from app.api.modules.v1.users.models.roles_model import Role
+
+        try:
+            stmt = select(Role).where(
+                Role.name == role_name,
+                Role.organization_id == organization_id,
+            )
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            logger.error(f"Error getting role by name '{role_name}': {str(e)}")
+            return None
+
 
 async def validate_role_hierarchy(
     db: AsyncSession,
@@ -204,39 +236,3 @@ async def get_user_role_name(
 
     role = await db.get(Role, membership.role_id)
     return role.name if role else None
-
-
-# Add this method to the RoleHierarchy class in role_hierarchy.py:
-
-
-@staticmethod
-async def get_role_by_name(
-    db: AsyncSession,
-    role_name: str,
-    organization_id: str,
-) -> Optional[Role]:
-    """
-    Get a role by name and organization.
-
-    Args:
-        db: Database session
-        role_name: Name of the role
-        organization_id: UUID of the organization
-
-    Returns:
-        Role object or None if not found
-    """
-    from sqlalchemy import select
-
-    from app.api.modules.v1.users.models.roles_model import Role
-
-    try:
-        stmt = select(Role).where(
-            Role.name == role_name,
-            Role.organization_id == organization_id,
-        )
-        result = await db.execute(stmt)
-        return result.scalar_one_or_none()
-    except Exception as e:
-        logger.error(f"Error getting role by name '{role_name}': {str(e)}")
-        return None
