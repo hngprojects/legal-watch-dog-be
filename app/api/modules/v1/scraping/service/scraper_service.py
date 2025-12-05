@@ -215,7 +215,7 @@ class ScraperService:
                 revision=new_revision,
                 change_result=change_result,
                 project_id=project.id,
-                org_id=jurisdiction.project.org_id,
+                org_id=jurisdiction.project.organization_id,
             )
 
         except Exception as e:
