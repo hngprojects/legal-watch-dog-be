@@ -6,6 +6,7 @@ from uuid import UUID
 from celery import shared_task
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from app.api.core.dependencies.send_mail import send_email
 from app.api.db.database import AsyncSessionLocal
@@ -15,7 +16,6 @@ from app.api.modules.v1.notifications.models.revision_notification import (
     NotificationStatus,
     NotificationType,
 )
-from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob
 from app.api.modules.v1.scraping.models.source_model import Source
@@ -47,12 +47,28 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
             source_uuid = UUID(source_id)
             job_uuid = UUID(job_id)
 
-            # Fetch the source details
-            source_result = await session.execute(select(Source).where(Source.id == source_uuid))
+            # Fetch source, jurisdiction, and project in one query
+            source_stmt = (
+                select(Source)
+                .where(Source.id == source_uuid)
+                .options(selectinload(Source.jurisdiction).selectinload(Jurisdiction.project))
+            )
+            source_result = await session.execute(source_stmt)
             source = source_result.scalar_one_or_none()
+
             if not source:
                 logger.warning(f"No source found with id {source_id}")
                 return {"error": "Source not found"}
+
+            jurisdiction = source.jurisdiction
+            if not jurisdiction:
+                logger.warning(f"No jurisdiction found for source {source_id}")
+                return {"error": "Jurisdiction not found"}
+
+            project = jurisdiction.project
+            if not project:
+                logger.warning(f"No project found for source {source_id}")
+                return {"error": "Project not found"}
 
             # Fetch the scrape job details
             job_result = await session.execute(select(ScrapeJob).where(ScrapeJob.id == job_uuid))
@@ -60,23 +76,6 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
             if not job:
                 logger.warning(f"No scrape job found with id {job_id}")
                 return {"error": "Scrape job not found"}
-
-            # Fetch jurisdiction and project
-            jurisdiction_result = await session.execute(
-                select(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
-            )
-            jurisdiction = jurisdiction_result.scalar_one_or_none()
-            if not jurisdiction:
-                logger.warning(f"No jurisdiction found for source {source_id}")
-                return {"error": "Jurisdiction not found"}
-
-            project_result = await session.execute(
-                select(Project).where(Project.id == jurisdiction.project_id)
-            )
-            project = project_result.scalar_one_or_none()
-            if not project:
-                logger.warning(f"No project found for source {source_id}")
-                return {"error": "Project not found"}
 
             # Get all users in the project
             project_users_result = await session.execute(
@@ -104,6 +103,7 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
                 if len(error_message) > 200
                 else error_message
             )
+
             for user_id in user_ids:
                 user_result = await session.execute(select(User).where(User.id == user_id))
                 user = user_result.scalar_one_or_none()
@@ -126,7 +126,6 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
                         f"Scrape failure notification already exists for user {user.email} "
                         f"(notification_id: {existing.notification_id})"
                     )
-                    # IDEMPOTENCY: Check if email was already sent
                     if existing.status == NotificationStatus.SENT:
                         logger.info(
                             f"Email already sent for notification {existing.notification_id}"
@@ -148,11 +147,10 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
                         title=notification_title,
                         message=notification_message,
                         source_id=source.id,
-                        scrape_job_id=job_uuid,  # Add the scrape job ID
+                        scrape_job_id=job_uuid,
                         jurisdiction_id=jurisdiction.id,
                         organization_id=getattr(project, "organization_id", None),
                         status=NotificationStatus.PENDING,
-                        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     )
                     session.add(notification)
                     await session.commit()
@@ -187,7 +185,7 @@ async def send_scrape_failure_notifications(source_id: str, job_id: str, error_m
                     notification.status = (
                         NotificationStatus.SENT if success else NotificationStatus.FAILED
                     )
-                    notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    notification.sent_at = datetime.now(timezone.utc)
                     session.add(notification)
                     await session.commit()
                     await session.refresh(notification)

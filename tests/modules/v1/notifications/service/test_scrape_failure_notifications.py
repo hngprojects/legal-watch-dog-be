@@ -1,11 +1,3 @@
-"""
-Test suite for scrape failure notifications.
-
-This module contains tests for the scrape failure notification system,
-ensuring proper functionality of notification sending, idempotency checks,
-and error handling.
-"""
-
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
@@ -47,28 +39,28 @@ def sample_ids():
 @pytest.fixture
 def mock_objects(sample_ids):
     """Create mock database objects for testing."""
-    # Mock Source
-    source = MagicMock()
-    source.id = UUID(sample_ids["source_id"])
-    source.name = "Test Source"
-    source.jurisdiction_id = UUID(sample_ids["jurisdiction_id"])
-
-    # Mock ScrapeJob
-    job = MagicMock()
-    job.id = UUID(sample_ids["job_id"])
-    job.completed_at = datetime.now(timezone.utc)
-
-    # Mock Jurisdiction
-    jurisdiction = MagicMock()
-    jurisdiction.id = UUID(sample_ids["jurisdiction_id"])
-    jurisdiction.name = "Test Jurisdiction"
-    jurisdiction.project_id = UUID(sample_ids["project_id"])
-
     # Mock Project
     project = MagicMock()
     project.id = UUID(sample_ids["project_id"])
     project.name = "Test Project"
     project.organization_id = UUID(sample_ids["organization_id"])
+
+    # Mock Jurisdiction
+    jurisdiction = MagicMock()
+    jurisdiction.id = UUID(sample_ids["jurisdiction_id"])
+    jurisdiction.name = "Test Jurisdiction"
+    jurisdiction.project = project  # link project
+
+    # Mock Source
+    source = MagicMock()
+    source.id = UUID(sample_ids["source_id"])
+    source.name = "Test Source"
+    source.jurisdiction = jurisdiction  # link jurisdiction
+
+    # Mock ScrapeJob
+    job = MagicMock()
+    job.id = UUID(sample_ids["job_id"])
+    job.completed_at = datetime.now(timezone.utc)
 
     # Mock ProjectUser
     project_user = MagicMock()
@@ -110,12 +102,13 @@ class TestScrapeFailureNotifications:
         mock_session_local.return_value.__aenter__.return_value = mock_session
         mock_send_email.return_value = True
 
-        # Mock execute results
+        # Mock execute results in order of queries
         mock_session.execute.side_effect = [
+            # Source (with jurisdiction & project loaded)
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
+            # ScrapeJob
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
+            # ProjectUser list
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
@@ -123,8 +116,10 @@ class TestScrapeFailureNotifications:
                     )
                 )
             ),
+            # User
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["user"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),  # No existing notification
+            # Existing Notification check
+            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),
         ]
 
         result = await send_scrape_failure_notifications(
@@ -163,8 +158,6 @@ class TestScrapeFailureNotifications:
         mock_session.execute.side_effect = [
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
@@ -229,8 +222,6 @@ class TestScrapeFailureNotifications:
         mock_session.execute.side_effect = [
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
-            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
