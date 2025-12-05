@@ -96,6 +96,7 @@ async def send_revision_notifications(revision_id: str):
             notifications_sent = 0
             notifications_skipped = 0
             notifications_failed = 0
+            has_changes = False
 
             existing_result = await session.execute(
                 select(Notification).where(
@@ -146,6 +147,7 @@ async def send_revision_notifications(revision_id: str):
             if new_notifications:
                 session.add_all(new_notifications)
                 await session.flush()
+                has_changes = True
 
             # Send emails with retry logic
             for project_user in project_users:
@@ -203,11 +205,12 @@ async def send_revision_notifications(revision_id: str):
                         f"to {user.email}: {str(e)}"
                     )
 
-                #
                 notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 session.add(notification)
+                has_changes = True
 
-            await session.commit()
+            if has_changes:
+                await session.commit()
 
             logger.info(
                 f"Notification summary for revision {revision_id}: "
