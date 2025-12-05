@@ -29,7 +29,10 @@ async def require_billing_access(
         HTTPException: If the billing account is missing or the billing state blocks access.
     """
     service = get_billing_service(db)
-
+    account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
+    # So temporarily disabling the guard as requested
+    return account
+    # remove the above line when we decide to re-enable the guard
     account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
     if not account:
         raise HTTPException(
