@@ -348,10 +348,7 @@ class NotificationService:
             rev_result = await db.execute(rev_query)
             revision = rev_result.scalar_one_or_none()
             if revision:
-                # Convert to dict properly
-                context["revision"] = {
-                    k: v for k, v in revision.__dict__.items() if not k.startswith("_")
-                }
+                context["revision"] = revision.model_dump()
 
         if notification.source_id:
             from app.api.modules.v1.scraping.models.source_model import Source
@@ -360,9 +357,7 @@ class NotificationService:
             source_result = await db.execute(source_query)
             source = source_result.scalar_one_or_none()
             if source:
-                context["source"] = {
-                    k: v for k, v in source.__dict__.items() if not k.startswith("_")
-                }
+                context["source"] = source.model_dump()
 
         if notification.organization_id:
             from app.api.modules.v1.organization.models.organization_model import Organization
@@ -371,9 +366,7 @@ class NotificationService:
             org_result = await db.execute(org_query)
             org = org_result.scalar_one_or_none()
             if org:
-                context["organization"] = {
-                    k: v for k, v in org.__dict__.items() if not k.startswith("_")
-                }
+                context["organization"] = org.model_dump()
 
         if notification.change_diff_id:
             from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
@@ -382,8 +375,6 @@ class NotificationService:
             diff_result = await db.execute(diff_query)
             diff = diff_result.scalar_one_or_none()
             if diff:
-                context["change_diff"] = {
-                    k: v for k, v in diff.__dict__.items() if not k.startswith("_")
-                }
+                context["change_diff"] = diff.model_dump()
 
         return context
