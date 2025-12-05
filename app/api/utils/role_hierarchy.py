@@ -2,6 +2,7 @@ import logging
 from enum import IntEnum
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.role_exceptions import CannotAssignRoleException, CannotManageHigherRoleException
@@ -143,7 +144,13 @@ async def validate_role_hierarchy(
         if not new_role_name:
             raise ValueError("New role name is required for 'assign_role'")
 
-        new_role = await RoleHierarchy.get_role_by_name(db, new_role_name, organization_id)
+        stmt = select(Role).where(
+            Role.name == new_role_name,
+            Role.organization_id == organization_id,
+        )
+        result = await db.execute(stmt)
+        new_role = result.scalar_one_or_none()
+
         if not new_role:
             raise ValueError(f"Role '{new_role_name}' not found in this organization")
 
