@@ -41,6 +41,7 @@ class TestRoleHierarchyGetLevel:
 
 class TestRoleHierarchyCanManage:
     """Test can_manage_role with hierarchy levels."""
+
     """Test can_manage_role with hierarchy levels."""
 
     def test_owner_can_manage_admin(self):
@@ -95,6 +96,7 @@ class TestRoleHierarchyCanManage:
 
 class TestRoleHierarchyCanAssign:
     """Test can_assign_role with hierarchy levels."""
+
     """Test can_assign_role with hierarchy levels."""
 
     def test_owner_can_assign_owner(self):

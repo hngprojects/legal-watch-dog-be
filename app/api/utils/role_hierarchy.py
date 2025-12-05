@@ -69,17 +69,17 @@ class RoleHierarchy:
     def can_assign_role_by_level(cls, user_level: int, target_level: int) -> bool:
         """
         Check if user can assign target role by hierarchy levels.
-        
+
         Args:
             user_level: User's hierarchy level (1-4)
             target_level: Target role hierarchy level (1-4)
-            
+
         Returns:
             bool: True if user can assign target role
         """
         if user_level == RoleLevel.OWNER:
             return True
-        
+
         return user_level > target_level
 
 
@@ -197,7 +197,9 @@ async def get_user_role_name(
     role = await db.get(Role, membership.role_id)
     return role.name if role else None
 
+
 # Add this method to the RoleHierarchy class in role_hierarchy.py:
+
 
 @staticmethod
 async def get_role_by_name(
@@ -207,19 +209,19 @@ async def get_role_by_name(
 ) -> Optional[Role]:
     """
     Get a role by name and organization.
-    
+
     Args:
         db: Database session
         role_name: Name of the role
         organization_id: UUID of the organization
-        
+
     Returns:
         Role object or None if not found
     """
     from sqlalchemy import select
 
     from app.api.modules.v1.users.models.roles_model import Role
-    
+
     try:
         stmt = select(Role).where(
             Role.name == role_name,
