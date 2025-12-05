@@ -55,7 +55,7 @@ async def close_ticket(
         project_id (UUID): Unique identifier of the project containing the ticket.
         organization_id (UUID): Organization ID for access verification.
         payload (TicketCloseRequest): Optional closing notes:
-            - closing_notes (Optional[str]): Notes explaining 
+            - closing_notes (Optional[str]): Notes explaining
             why the ticket was closed (max 1000 chars)
         current_user (User): The authenticated user performing the request.
         db (AsyncSession): Database session for query execution.
