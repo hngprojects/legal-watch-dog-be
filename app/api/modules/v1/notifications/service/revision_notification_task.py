@@ -20,6 +20,7 @@ from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.tickets.models.ticket_model import Ticket
 from app.api.modules.v1.tickets.service.ticket_creation_service import TicketCreationService
 from app.api.modules.v1.users.models.users_model import User
 
@@ -95,26 +96,38 @@ async def send_revision_notifications(revision_id: str):
                 )
             # ========== END GET CHANGE DETAILS ==========
 
-            # ========== CREATE TICKET ==========
-            try:
-                ticket_service = TicketCreationService(session)
-                ticket = await ticket_service.create_ticket_from_revision(
-                    revision=revision,
-                    source=source,
-                    jurisdiction=jurisdiction,
-                    project=project,
-                    change_summary=change_summary,
-                    risk_level=risk_level,
+            # ========== CREATE TICKET (IDEMPOTENT) ==========
+            # Check if ticket already exists for this revision
+            ticket_result = await session.execute(
+                select(Ticket).where(Ticket.data_revision_id == revision_uuid)
+            )
+            existing_ticket = ticket_result.scalar_one_or_none()
+
+            if existing_ticket:
+                logger.info(
+                    f"Ticket already exists for revision {revision.id}: {existing_ticket.id}"
                 )
-
-                logger.info(f"Created auto-ticket {ticket.id} for revision {revision.id}")
-
-            except ValueError as e:
-                logger.error(f"Failed to create ticket for revision {revision.id}: {e}")
-                raise
-            except Exception as e:
-                logger.error(f"Unexpected error creating ticket for revision {revision.id}: {e}")
-                raise
+                ticket = existing_ticket
+            else:
+                try:
+                    ticket_service = TicketCreationService(session)
+                    ticket = await ticket_service.create_ticket_from_revision(
+                        revision=revision,
+                        source=source,
+                        jurisdiction=jurisdiction,
+                        project=project,
+                        change_summary=change_summary,
+                        risk_level=risk_level,
+                    )
+                    logger.info(f"Created auto-ticket {ticket.id} for revision {revision.id}")
+                except ValueError as e:
+                    logger.error(f"Failed to create ticket for revision {revision.id}: {e}")
+                    raise
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error creating ticket for revision {revision.id}: {e}"
+                    )
+                    raise
             # ========== END TICKET CREATION ==========
 
             project_users_result = await session.execute(
