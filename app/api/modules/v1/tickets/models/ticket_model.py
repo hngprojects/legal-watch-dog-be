@@ -8,24 +8,77 @@ from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 
-class TicketInvitedUser(SQLModel, table=True):
-    """Join table for tickets and invited users (many-to-many relationship)."""
+class ExternalParticipant(SQLModel, table=True):
+    """
+    External participants invited to a ticket (non-users with guest access).
 
-    __tablename__ = "ticket_invited_users"
+    These are people who do NOT have accounts in the system but need access
+    to a specific ticket. They access via a secure JWT token (magic link).
+    """
 
-    ticket_id: uuid.UUID = Field(
-        foreign_key="tickets.id",
+    __tablename__ = "external_participants"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
         primary_key=True,
         index=True,
     )
-    user_id: uuid.UUID = Field(
-        foreign_key="users.id",
-        primary_key=True,
+    ticket_id: uuid.UUID = Field(
+        foreign_key="tickets.id",
+        nullable=False,
         index=True,
+        description="The ticket this guest can access (strict scope)",
+    )
+    email: str = Field(
+        max_length=255,
+        nullable=False,
+        index=True,
+        description="Email address of the external participant",
+    )
+    role: str = Field(
+        default="Guest",
+        max_length=100,
+        nullable=False,
+        description="Role description (e.g., 'Legal Counsel', 'Consultant')",
+    )
+    token_hash: Optional[str] = Field(
+        default=None,
+        nullable=True,
+        description="Hash of the JWT token for revocation purposes",
+    )
+    invited_by_user_id: uuid.UUID = Field(
+        foreign_key="users.id",
+        nullable=False,
+        index=True,
+        description="User who invited this external participant",
     )
     invited_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
+    )
+    last_accessed_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="When the participant last accessed the ticket",
+    )
+    is_active: bool = Field(
+        default=True,
+        nullable=False,
+        description="Whether this guest access is still active (revoked when ticket closes)",
+    )
+    expires_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="When the guest access expires",
+    )
+
+    ticket: "Ticket" = Relationship(
+        back_populates="external_participants",
+        sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.ticket_id]"},
+    )
+    invited_by_user: "User" = Relationship(
+        back_populates="invited_external_participants",
+        sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )
 
 
@@ -175,9 +228,12 @@ class Ticket(SQLModel, table=True):
     project: "Project" = Relationship(back_populates="tickets")
     data_revision: Optional["DataRevision"] = Relationship(back_populates="tickets")
     source: Optional["Source"] = Relationship(back_populates="tickets")
-    invited_users: list["User"] = Relationship(
-        back_populates="invited_to_tickets",
-        link_model=TicketInvitedUser,
+    external_participants: list["ExternalParticipant"] = Relationship(
+        back_populates="ticket",
+        sa_relationship_kwargs={
+            "foreign_keys": "[ExternalParticipant.ticket_id]",
+            "cascade": "all, delete-orphan",
+        },
     )
 
     @field_validator("created_by_user_id")

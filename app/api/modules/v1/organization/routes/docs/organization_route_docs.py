@@ -11,12 +11,12 @@ create_organization_responses = {
                             "status_code": 201,
                             "message": "Organization created successfully",
                             "data": {
-                                "id": "123e4567-e89b-12d3-a456-426614174000",
-                                "name": "Acme Corporation",
-                                "industry": "Technology",
-                                "is_active": True,
-                                "created_at": "2024-01-15T10:30:00Z",
-                                "updated_at": "2024-01-15T10:30:00Z",
+                                "organization_id": "06a68053-4b99-4ef3-8438-15b21e1f18e3",
+                                "organization_name": "Acme Corporation",
+                                "user_id": "90ea20e6-351d-4e8d-9d21-0ceb92244f94",
+                                "role": "Owner",
+                                "billing_account_id": "5cb2d79a-d849-45cd-bd53-ac0018eabc15",
+                                "billing_status": "TRIALING",
                             },
                         },
                     }

@@ -8,6 +8,8 @@ from sqlmodel import func, select
 
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
+from app.api.modules.v1.billing.models.billing_account import BillingAccount
+from app.api.modules.v1.billing.service.billing_service import get_billing_service
 from app.api.modules.v1.organization.models.invitation_model import Invitation
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -122,6 +124,20 @@ class OrganizationService:
                 is_active=True,
             )
 
+            billing_service = get_billing_service(self.db)
+
+            billing_account: BillingAccount = await billing_service.create_billing_account(
+                organization_id=organization.id,
+                metadata={"created_by": str(user_id)},
+            )
+
+            await billing_service._sync_org_billing_from_account(
+                db=self.db,
+                organization_id=organization.id,
+                account=billing_account,
+                plan_info=None,
+            )
+
             await self.db.commit()
 
             logger.info(
@@ -134,6 +150,10 @@ class OrganizationService:
                 "organization_name": organization.name,
                 "user_id": str(user_id),
                 "role": owner_role.name,
+                "billing_account_id": str(billing_account.id),
+                "billing_status": billing_account.status.value
+                if hasattr(billing_account.status, "value")
+                else billing_account.status,
             }
 
         except ValueError as e:
@@ -722,7 +742,6 @@ class OrganizationService:
         )
 
         try:
-            # Verify organization exists
             organization = await OrganizationCRUD.get_by_id(self.db, organization_id)
             if not organization:
                 raise ValueError("Organization not found")
@@ -730,7 +749,6 @@ class OrganizationService:
             if hasattr(organization, "deleted_at") and organization.deleted_at:
                 raise ValueError("Organization has been deleted")
 
-            # Verify user has access to the organization
             membership = await UserOrganizationCRUD.get_user_organization(
                 self.db, requesting_user_id, organization_id
             )
@@ -738,8 +756,6 @@ class OrganizationService:
             if not membership or not membership.is_active:
                 raise ValueError("You do not have access to this organization")
 
-            # Check if user has permission to view invitations
-            # Allow both 'manage_users' and 'invite_users' permissions
             has_manage = await check_user_permission(
                 self.db, requesting_user_id, organization_id, "manage_users"
             )
@@ -754,7 +770,6 @@ class OrganizationService:
 
             skip = (page - 1) * limit
 
-            # Get invitations from CRUD
             result = await InvitationCRUD.get_organization_invitations(
                 db=self.db,
                 organization_id=organization_id,
