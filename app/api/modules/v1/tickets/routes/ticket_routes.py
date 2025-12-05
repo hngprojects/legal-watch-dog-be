@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
-from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.tickets.schemas import (
@@ -32,7 +31,6 @@ logger = logging.getLogger("app")
 router = APIRouter(
     prefix="/organizations/{organization_id}/projects/{project_id}/tickets",
     tags=["Tickets"],
-    dependencies=[Depends(require_billing_access)],
 )
 
 
