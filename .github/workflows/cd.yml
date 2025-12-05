@@ -194,7 +194,7 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-prod"
+            REMOTE_DIR="/home/watchdog/apps/backend/legal-watch-dog-be-prod"
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
             BRANCH="main"
             ENVIRONMENT="production"
@@ -432,7 +432,7 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-staging"
+            REMOTE_DIR="/home/watchdog/apps/backend/legal-watch-dog-be-staging"
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
             BRANCH="staging"
             ENVIRONMENT="staging"
