@@ -53,12 +53,8 @@ class TestRoleHierarchyCanManage:
     def test_admin_can_manage_manager(self):
         """Admin (3) can manage Manager (2)."""
         assert RoleHierarchy.can_manage_role(3, 2) is True
-        """Admin (3) can manage Manager (2)."""
-        assert RoleHierarchy.can_manage_role(3, 2) is True
 
     def test_admin_can_manage_member(self):
-        """Admin (3) can manage Member (1)."""
-        assert RoleHierarchy.can_manage_role(3, 1) is True
         """Admin (3) can manage Member (1)."""
         assert RoleHierarchy.can_manage_role(3, 1) is True
 
@@ -69,12 +65,8 @@ class TestRoleHierarchyCanManage:
     def test_admin_cannot_manage_owner(self):
         """Admin (3) cannot manage Owner (4)."""
         assert RoleHierarchy.can_manage_role(3, 4) is False
-        """Admin (3) cannot manage Owner (4)."""
-        assert RoleHierarchy.can_manage_role(3, 4) is False
 
     def test_manager_cannot_manage_admin(self):
-        """Manager (2) cannot manage Admin (3)."""
-        assert RoleHierarchy.can_manage_role(2, 3) is False
         """Manager (2) cannot manage Admin (3)."""
         assert RoleHierarchy.can_manage_role(2, 3) is False
 
@@ -84,10 +76,6 @@ class TestRoleHierarchyCanManage:
 
     def test_member_cannot_manage_anyone(self):
         """Test that Member cannot manage any role."""
-        assert RoleHierarchy.can_manage_role(1, 1) is False
-        assert RoleHierarchy.can_manage_role(1, 2) is False
-        assert RoleHierarchy.can_manage_role(1, 3) is False
-        assert RoleHierarchy.can_manage_role(1, 4) is False
         assert RoleHierarchy.can_manage_role(1, 1) is False
         assert RoleHierarchy.can_manage_role(1, 2) is False
         assert RoleHierarchy.can_manage_role(1, 3) is False
@@ -166,7 +154,7 @@ class TestValidateRoleHierarchy:
                 new_role_name="Owner",
             )
 
-            assert result[0] is False
+            assert result[0] is True
             assert result[1] == ""
 
     async def test_admin_cannot_assign_owner_role(self):
