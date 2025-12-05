@@ -41,7 +41,6 @@ class TestRoleHierarchyGetLevel:
 
 class TestRoleHierarchyCanManage:
     """Test can_manage_role with hierarchy levels."""
-
     """Test can_manage_role with hierarchy levels."""
 
     def test_owner_can_manage_admin(self):
@@ -96,12 +95,11 @@ class TestRoleHierarchyCanManage:
 
 class TestRoleHierarchyCanAssign:
     """Test can_assign_role with hierarchy levels."""
-
     """Test can_assign_role with hierarchy levels."""
 
     def test_owner_can_assign_owner(self):
         """Owner (4) can assign Owner role (4)."""
-        assert RoleHierarchy.can_assign_role(4, 4) is False
+        assert RoleHierarchy.can_assign_role(4, 4) is True
 
     def test_owner_can_assign_admin(self):
         """Owner (4) can assign Admin role (3)."""

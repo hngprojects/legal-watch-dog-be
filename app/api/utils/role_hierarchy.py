@@ -65,29 +65,21 @@ class RoleHierarchy:
         return user_hierarchy_level > target_hierarchy_level
 
     @classmethod
-    def can_assign_role(cls, user_role: str, target_new_role: str) -> bool:
+    @classmethod
+    def can_assign_role_by_level(cls, user_level: int, target_level: int) -> bool:
         """
-        Check if user_role can assign target_new_role to someone.
-
-        Rules:
-        - Can only assign roles at lower or equal level to their own
-        - Owners can assign any role including Owner
-        - Admins can assign up to Admin
-        - Managers can assign up to Manager
-
+        Check if user can assign target role by hierarchy levels.
+        
         Args:
-            user_role: Role of the person performing the action
-            target_new_role: Role being assigned
-
+            user_level: User's hierarchy level (1-4)
+            target_level: Target role hierarchy level (1-4)
+            
         Returns:
-            bool: True if user can assign this role
+            bool: True if user can assign target role
         """
-        user_level = cls.get_role_level(user_role)
-        target_level = cls.get_role_level(target_new_role)
-
         if user_level == RoleLevel.OWNER:
             return True
-
+        
         return user_level > target_level
 
 
@@ -204,3 +196,37 @@ async def get_user_role_name(
 
     role = await db.get(Role, membership.role_id)
     return role.name if role else None
+
+# Add this method to the RoleHierarchy class in role_hierarchy.py:
+
+@staticmethod
+async def get_role_by_name(
+    db: AsyncSession,
+    role_name: str,
+    organization_id: str,
+) -> Optional[Role]:
+    """
+    Get a role by name and organization.
+    
+    Args:
+        db: Database session
+        role_name: Name of the role
+        organization_id: UUID of the organization
+        
+    Returns:
+        Role object or None if not found
+    """
+    from sqlalchemy import select
+
+    from app.api.modules.v1.users.models.roles_model import Role
+    
+    try:
+        stmt = select(Role).where(
+            Role.name == role_name,
+            Role.organization_id == organization_id,
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+    except Exception as e:
+        logger.error(f"Error getting role by name '{role_name}': {str(e)}")
+        return None
