@@ -77,6 +77,12 @@ class Notification(SQLModel, table=True):
         index=True,
         description="Link to source if applicable",
     )
+    scrape_job_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="scrape_jobs.id",
+        index=True,
+        description="Link to scrape job (used for SCRAPE_FAILED notifications)"
+    )
 
     notification_type: NotificationType = Field(
         sa_column=sa.Column(
@@ -130,6 +136,11 @@ class Notification(SQLModel, table=True):
 
     user: Optional["User"] = Relationship()
 
+Index(
+    "ix_notifications_scrape_job",
+    Notification.scrape_job_id,
+    postgresql_where=Notification.scrape_job_id.is_not(None)
+)
 
 Index(
     "ix_notifications_user_status",

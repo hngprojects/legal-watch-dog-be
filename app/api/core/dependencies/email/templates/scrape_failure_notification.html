@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Scrape Job Failed - Legal Watchdog{% endblock %}
+
+{% block preheader %}A scrape job has failed and requires attention.{% endblock %}
+
+{% block header %}
+<tr>
+  <td>
+    <div style="
+        text-align: center;
+        padding: 42px 28px;
+        margin-bottom: 30px;
+      ">
+      <img src="{{ APP_URL }}/static/email/template-icons/logo.png" alt="Legal WatchDog logo"
+        style="width: 60px; display: inline-block; vertical-align: middle;" />
+      <p style="
+          margin: 0;
+          margin-left: 10px;
+          font-size: 30px;
+          font-weight: 700;
+          color: #401903;
+          line-height: 38px;
+          display: inline-block;
+          vertical-align: middle;
+        ">
+        WatchDog
+      </p>
+    </div>
+  </td>
+</tr>
+{% endblock %}
+
+{% block content_body %}
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 24px; font-weight: 500; color: #121110; line-height: 28px;">
+      Scrape Job Failed
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Hello <strong>{{ user_name }}</strong>,
+    </p>
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      A scrape job in your project has failed and requires your attention.
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 30px;">
+    <table style="width: 100%; border-collapse: collapse; background-color: #F9F8F7; border-radius: 8px; padding: 20px;">
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Source Details
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #706C69;">
+            <strong>Source:</strong> {{ source_name }}
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #706C69;">
+            <strong>Project:</strong> {{ project_name }}
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #706C69;">
+            <strong>Jurisdiction:</strong> {{ jurisdiction_name }}
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #706C69;">
+            <strong>Job ID:</strong> {{ job_id }}
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #706C69;">
+            <strong>Failed At:</strong> {{ failed_at }}
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 20px;">
+          <p style="margin: 20px 0 8px 0; font-size: 14px; font-weight: 600; color: #121110;">
+            Error Message
+          </p>
+          <div style="
+              background-color: #FFF0ED;
+              border-left: 4px solid #C14E32;
+              padding: 12px 16px;
+              margin: 0;
+              border-radius: 4px;
+            ">
+            <p style="margin: 0; font-size: 14px; color: #401903; white-space: pre-wrap; font-family: monospace;">
+              {{ error_message }}
+            </p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="padding-bottom: 20px;">
+    <p style="margin: 0; font-size: 16px; color: #706C69; line-height: 24px;">
+      Please investigate the issue and restart the scrape job when ready.
+    </p>
+  </td>
+</tr>
+
+{% block cta_section %}
+<tr>
+  <td style="padding-bottom: 30px;">
+    <a href="{{ APP_URL }}/sources/{{ source_id }}/jobs" 
+       style="display: inline-block; padding: 12px 24px; background-color: #C14E32; color: #FFFFFF; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500; margin: 0 auto;">
+      View Scrape Jobs
+    </a>
+    <a href="{{ APP_URL }}/sources/{{ source_id }}" 
+       style="display: inline-block; padding: 12px 24px; margin-left: 12px; background-color: #F9F8F7; color: #401903; text-decoration: none; border: 1px solid #D6D2CD; border-radius: 6px; font-size: 16px; font-weight: 500;">
+      View Source
+    </a>
+  </td>
+</tr>
+{% endblock %}
+{% endblock %}
