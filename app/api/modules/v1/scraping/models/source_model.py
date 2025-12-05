@@ -14,6 +14,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
 
     from .data_revision import DataRevision
 
@@ -77,3 +78,4 @@ class Source(SQLModel, table=True):
     jurisdiction: Optional["Jurisdiction"] = Relationship(back_populates="sources")
 
     data_revisions: List["DataRevision"] = Relationship(back_populates="source")
+    tickets: list["Ticket"] = Relationship(back_populates="source")
