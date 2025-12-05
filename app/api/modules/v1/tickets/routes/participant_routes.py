@@ -104,17 +104,13 @@ async def invite_participants(
 
         message_parts = []
         if result.internal_users:
-            message_parts.append(
-                f"{len(result.internal_users)} internal user(s) notified"
-            )
+            message_parts.append(f"{len(result.internal_users)} internal user(s) notified")
         if result.external_participants:
             message_parts.append(
                 f"{len(result.external_participants)} external participant(s) invited"
             )
         if result.already_invited:
-            message_parts.append(
-                f"{len(result.already_invited)} email(s) already invited"
-            )
+            message_parts.append(f"{len(result.already_invited)} email(s) already invited")
 
         message = ". ".join(message_parts) if message_parts else "No changes made"
 

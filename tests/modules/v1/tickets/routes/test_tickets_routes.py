@@ -3,14 +3,14 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import status
-
 from app.api.modules.v1.tickets.routes.ticket_routes import invite_users_to_ticket
 from app.api.modules.v1.tickets.schemas.ticket_invitation_schema import (
     InvitedUserResponse,
     InviteUsersToTicketRequest,
     InviteUsersToTicketResponse,
 )
+from fastapi import status
+
 from app.api.modules.v1.users.models.users_model import User
 
 

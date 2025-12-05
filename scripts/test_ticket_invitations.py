@@ -32,51 +32,141 @@ API_BASE_URL = "http://localhost:8001/api/v1"
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
     salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
 
 
 async def get_or_create_roles(db: AsyncSession):
     """
     Get or create the necessary roles (OWNER and MEMBER).
     Returns a dict with role names as keys and role objects as values.
+    This version merges desired permissions into existing permissions (if any)
+    so we don't accidentally remove unrelated stored keys.
     """
     roles = {}
-    
+
+    # Helper: recursively merge src into dest (modifies dest)
+    def deep_merge(dest: dict | None, src: dict) -> dict:
+        if dest is None:
+            return dict(src)
+        for key, val in src.items():
+            if key in dest and isinstance(dest[key], dict) and isinstance(val, dict):
+                dest[key] = deep_merge(dest[key], val)
+            else:
+                dest[key] = val
+        return dest
+
     # Check if roles exist
     owner_role = await db.execute(select(Role).where(Role.name == "owner"))
     owner_role = owner_role.scalar_one_or_none()
-    
+
     member_role = await db.execute(select(Role).where(Role.name == "member"))
     member_role = member_role.scalar_one_or_none()
-    
-    # Create owner role if it doesn't exist
+
+    # Define permissions for owner role (flat structure at root level)
+    # The permission check does role.permissions.get("invite_participants")
+    # So it must be at the ROOT level, not nested under 'tickets'
+    owner_permissions = {
+        "manage_users": True,
+        "invite_users": True,
+        "deactivate_users": True,
+        "assign_roles": True,
+        "create_roles": True,
+        "edit_roles": True,
+        "delete_roles": True,
+        "view_roles": True,
+        "manage_organization": True,
+        "delete_organization": True,
+        "configure_sso": True,
+        "manage_billing": True,
+        "create_projects": True,
+        "edit_projects": True,
+        "delete_projects": True,
+        "view_projects": True,
+        "create_jurisdictions": True,
+        "edit_jurisdictions": True,
+        "delete_jurisdictions": True,
+        "view_jurisdictions": True,
+        "create_sources": True,
+        "edit_sources": True,
+        "delete_sources": True,
+        "view_sources": True,
+        "trigger_scraping": True,
+        "create_tickets": True,
+        "edit_tickets": True,
+        "delete_tickets": True,
+        "view_tickets": True,
+        "assign_tickets": True,
+        "close_tickets": True,
+        "invite_participants": True,  # KEY PERMISSION - MUST BE AT ROOT LEVEL
+        "revoke_participant_access": True,
+        "view_revisions": True,
+        "export_data": True,
+        "manage_api_keys": True,
+    }
+
+    # Define permissions for member role
+    member_permissions = {
+        "view_projects": True,
+        "view_jurisdictions": True,
+        "view_sources": True,
+        "view_tickets": True,
+        "create_tickets": True,
+        "edit_tickets": True,
+        "view_revisions": True,
+    }
+
+    # Create or update owner role
     if not owner_role:
         owner_role = Role(
             id=uuid.uuid4(),
             name="owner",
             description="Organization owner with full permissions",
+            permissions=owner_permissions,
+            hierarchy_level=1,
             created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
         )
         db.add(owner_role)
         await db.flush()
-    
-    # Create member role if it doesn't exist
+    else:
+        # Check if permissions have nested structure (wrong) or flat structure (correct)
+        has_nested = "tickets" in owner_role.permissions and isinstance(
+            owner_role.permissions.get("tickets"), dict
+        )
+
+        if has_nested:
+            # Has wrong nested structure - replace entirely with flat structure
+            print("   ⚠️  Role has nested permissions structure, replacing with flat structure...")
+            owner_role.permissions = owner_permissions
+        else:
+            # Already flat - just merge
+            owner_role.permissions = deep_merge(owner_role.permissions, owner_permissions)
+
+        await db.flush()
+
+    # Create or update member role
     if not member_role:
         member_role = Role(
             id=uuid.uuid4(),
             name="member",
             description="Organization member with standard permissions",
+            permissions=member_permissions,
+            hierarchy_level=1,
             created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
         )
         db.add(member_role)
         await db.flush()
-    
+    else:
+        # Merge existing permissions with the desired member_permissions
+        member_role.permissions = deep_merge(member_role.permissions, member_permissions)
+        await db.flush()
+
     roles["owner"] = owner_role
     roles["member"] = member_role
-    
+
+    # Commit the role changes to ensure permissions are persisted
+    await db.commit()
+
     return roles
 
 
@@ -88,29 +178,34 @@ async def create_mock_data(db: AsyncSession):
     """
     print("🔧 Creating mock data...\n")
 
-    # 0. Clean up any existing test users first
-    print("🧹 Checking for existing test users...")
-    existing_admin = await db.execute(
-        select(User).where(User.email == "admin@testlegalfirm.com")
+    # 0. Clean up any existing test data first
+    print("🧹 Checking for existing test data...")
+
+    # Check for existing organization
+    existing_org = await db.execute(
+        select(Organization).where(Organization.name == "Test Legal Firm")
     )
+    existing_org = existing_org.scalar_one_or_none()
+
+    # Check for existing test users
+    existing_admin = await db.execute(select(User).where(User.email == "admin@testlegalfirm.com"))
     existing_admin = existing_admin.scalar_one_or_none()
-    
-    existing_internal = await db.execute(
-        select(User).where(User.email == "internal@testlegalfirm.com")
-    )
+
+    existing_internal = await db.execute(select(User).where(User.email == "oshinsamuel0@gmail.com"))
     existing_internal = existing_internal.scalar_one_or_none()
-    
-    if existing_admin or existing_internal:
-        print("⚠️  Found existing test users, cleaning them up...")
+
+    if existing_admin or existing_internal or existing_org:
+        print("⚠️  Found existing test data, cleaning them up...")
+
+        # Delete users and their memberships
         if existing_admin:
-            # Delete related memberships first
             memberships = await db.execute(
                 select(UserOrganization).where(UserOrganization.user_id == existing_admin.id)
             )
             for membership in memberships.scalars():
                 await db.delete(membership)
             await db.delete(existing_admin)
-            
+
         if existing_internal:
             memberships = await db.execute(
                 select(UserOrganization).where(UserOrganization.user_id == existing_internal.id)
@@ -118,9 +213,13 @@ async def create_mock_data(db: AsyncSession):
             for membership in memberships.scalars():
                 await db.delete(membership)
             await db.delete(existing_internal)
-        
+
+        # Delete organization if it exists
+        if existing_org:
+            await db.delete(existing_org)
+
         await db.commit()
-        print("✅ Cleaned up existing test users")
+        print("✅ Cleaned up existing test data")
 
     # 1. Get or create roles
     print("📋 Setting up roles...")
@@ -149,7 +248,7 @@ async def create_mock_data(db: AsyncSession):
     admin_password_hash = hash_password("password123")
     internal_password_hash = hash_password("password123")
     print("✅ Passwords hashed successfully")
-    
+
     # User 1: Admin who will create the ticket and invite others
     admin_user = User(
         id=uuid.uuid4(),
@@ -167,7 +266,7 @@ async def create_mock_data(db: AsyncSession):
     # User 2: Internal team member (will be invited)
     internal_user = User(
         id=uuid.uuid4(),
-        email="internal@testlegalfirm.com",
+        email="emaduilzjr1@gmail.com",  # Fixed: Added @ symbol
         name="Internal Team Member",
         hashed_password=internal_password_hash,
         auth_provider="local",
@@ -270,9 +369,7 @@ async def login_user(email: str, password: str) -> str:
 
 
 async def test_invite_participants(
-    ticket_id: uuid.UUID,
-    access_token: str,
-    organization_id: uuid.UUID
+    ticket_id: uuid.UUID, access_token: str, organization_id: uuid.UUID
 ):
     """
     Test inviting participants to a ticket (both internal users and external guests).
@@ -285,9 +382,9 @@ async def test_invite_participants(
     payload = {
         "organization_id": str(organization_id),  # ← Add this line
         "emails": [
-            "internal@testlegalfirm.com",
-            "counsel@externallawfirm.com",
-            "consultant@advisory.com",
+            "j9.tops@gmail.com",
+            "emmanuelekwere19@gmail.com",
+            "oshinsamuel0@gmail.com",
         ],
         "role": "Legal Counsel",
         "expiry_days": 7,
@@ -477,11 +574,46 @@ async def main():
         print(f"\n⚠️  Make sure the server is running at: {API_BASE_URL}")
         return
 
+    # DEBUG: Check the admin user's role and permissions
+    print("\n" + "=" * 80)
+    print("🔍 DEBUG: Checking Admin User Permissions")
+    print("=" * 80)
+    async with AsyncSessionLocal() as db:
+        from app.api.modules.v1.users.models.roles_model import Role
+
+        admin_result = await db.execute(select(User).where(User.email == "admin@testlegalfirm.com"))
+        admin = admin_result.scalar_one_or_none()
+
+        if admin:
+            membership_result = await db.execute(
+                select(UserOrganization).where(UserOrganization.user_id == admin.id)
+            )
+            memberships = membership_result.scalars().all()
+
+            for membership in memberships:
+                print(f"   Organization: {membership.organization_id}")
+                print(f"   Role ID: {membership.role_id}")
+                print(f"   Is Active: {membership.is_active}")
+
+                role_result = await db.execute(select(Role).where(Role.id == membership.role_id))
+                role = role_result.scalar_one_or_none()
+
+                if role:
+                    print(f"   Role Name: {role.name}")
+                    print(f"   Role Permissions: {role.permissions}")
+                    has_invite = role.permissions.get("invite_participants", False)
+                    print(
+                        f"   {'✅' if has_invite else '❌'} Has invite_participants: {has_invite}"
+                    )
+                else:
+                    print("   ❌ Role not found!")
+    print("=" * 80)
+
     # Step 3: Test invitation
     magic_link = await test_invite_participants(
-        mock_data["ticket"].id, 
+        mock_data["ticket"].id,
         access_token,
-        mock_data["organization"].id  # ← Add this parameter
+        mock_data["organization"].id,  # ← Add this parameter
     )
 
     # Step 4: Test guest access (if we got a magic link)

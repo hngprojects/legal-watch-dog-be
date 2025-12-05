@@ -1,7 +1,7 @@
 """create external_participants table for guest access
 
 Revision ID: f1a2b3c4d5e6
-Revises: d227f5996841
+Revises: a249039be841
 Create Date: 2025-12-05 14:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'f1a2b3c4d5e6'
-down_revision: Union[str, Sequence[str], None] = 'd227f5996841'
+down_revision: Union[str, Sequence[str], None] = 'a249039be841'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

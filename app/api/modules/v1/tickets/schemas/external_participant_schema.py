@@ -66,9 +66,7 @@ class InviteParticipantsResponse(BaseModel):
     external_participants: List[ExternalParticipantResponse] = Field(
         ..., description="External participants with guest access (magic link)"
     )
-    already_invited: List[str] = Field(
-        ..., description="Email addresses that were already invited"
-    )
+    already_invited: List[str] = Field(..., description="Email addresses that were already invited")
 
     class Config:
         json_schema_extra = {

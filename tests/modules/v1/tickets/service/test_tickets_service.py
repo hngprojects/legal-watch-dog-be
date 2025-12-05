@@ -2,10 +2,10 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from app.api.modules.v1.tickets.service.ticket_service import TicketService
 
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.tickets.models.ticket_model import Ticket
-from app.api.modules.v1.tickets.service.ticket_service import TicketService
 from app.api.modules.v1.users.models.users_model import User
 
 

@@ -61,7 +61,7 @@ class ParticipantService:
             current_user_id: The UUID of the current user making the request
 
         Returns:
-            InviteParticipantsResponse with internal_users, 
+            InviteParticipantsResponse with internal_users,
             external_participants, and already_invited
 
         Raises:
@@ -85,9 +85,7 @@ class ParticipantService:
 
         organization_id = ticket.organization_id
 
-        current_user_result = await self.db.execute(
-            select(User).where(User.id == current_user_id)
-        )
+        current_user_result = await self.db.execute(select(User).where(User.id == current_user_id))
         current_user = current_user_result.scalar_one()
 
         tenant = TenantGuard(self.db, current_user)
@@ -109,9 +107,7 @@ class ParticipantService:
                 "You do not have permission to invite participants to tickets in this organization"
             )
 
-        existing_external_emails = {
-            p.email.lower() for p in ticket.external_participants
-        }
+        existing_external_emails = {p.email.lower() for p in ticket.external_participants}
 
         normalized_emails = [email.strip().lower() for email in emails]
 
@@ -139,7 +135,7 @@ class ParticipantService:
             user = users_by_email.get(email)
 
             if user:
-                # INTERNAL USER - Send notification email (they'll log in normally)
+                # INTERNAL USER - Send notification email
                 await self._send_internal_user_notification(
                     ticket=ticket,
                     user=user,
@@ -150,8 +146,7 @@ class ParticipantService:
                     InternalUserInvitationResponse(
                         user_id=str(user.id),
                         email=user.email,
-                        name=user.name or ''
-                        or None,
+                        name=user.name or "" or None,
                         is_internal=True,
                         invited_at=datetime.now(timezone.utc),
                     )
@@ -245,10 +240,7 @@ class ParticipantService:
 
             context = {
                 "recipient_name": user.name or user.email,
-                "invited_by_name": (
-                    invited_by_user.name
-                    or invited_by_user.email
-                ),
+                "invited_by_name": (invited_by_user.name or invited_by_user.email),
                 "organization_name": (
                     ticket.organization.name if ticket.organization else "the organization"
                 ),
@@ -262,15 +254,13 @@ class ParticipantService:
             }
 
             await send_email(
-                template_name="internal_user_ticket_notification",
+                template_name="internal_user_ticket_notification.html",
                 subject=f"You've been invited to collaborate: {ticket.title}",
                 recipient=user.email,
                 context=context,
             )
 
-            logger.info(
-                f"Internal user notification sent to {user.email} for ticket {ticket.id}"
-            )
+            logger.info(f"Internal user notification sent to {user.email} for ticket {ticket.id}")
 
         except Exception as e:
             logger.error(
@@ -307,10 +297,7 @@ class ParticipantService:
             context = {
                 "recipient_name": recipient_name,
                 "recipient_role": participant_role,
-                "invited_by_name": (
-                    invited_by_user.name
-                    or invited_by_user.email
-                ),
+                "invited_by_name": (invited_by_user.name or invited_by_user.email),
                 "organization_name": (
                     ticket.organization.name if ticket.organization else "the organization"
                 ),
@@ -325,7 +312,7 @@ class ParticipantService:
             }
 
             await send_email(
-                template_name="external_participant_invitation",
+                template_name="external_participant_invitation.html",
                 subject=f"You've been invited to collaborate: {ticket.title}",
                 recipient=participant_email,
                 context=context,

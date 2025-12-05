@@ -3,11 +3,11 @@ import logging
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.db.database import get_db
-from app.api.modules.v1.tickets.dependencies.guest_auth import (
+from app.api.core.dependencies.guest_auth import (
     GuestContext,
     get_current_guest,
 )
+from app.api.db.database import get_db
 from app.api.modules.v1.tickets.schemas.external_participant_schema import (
     GuestTicketAccessResponse,
 )
@@ -69,9 +69,7 @@ async def get_guest_ticket_access(
             access_expires_at=participant.expires_at,
         )
 
-        logger.info(
-            f"Guest {participant.email} successfully accessed ticket {ticket.id}"
-        )
+        logger.info(f"Guest {participant.email} successfully accessed ticket {ticket.id}")
 
         return success_response(
             status_code=status.HTTP_200_OK,

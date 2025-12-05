@@ -95,9 +95,7 @@ async def get_current_guest(
     participant_id = UUID(token_payload.sub)
     ticket_id = UUID(token_payload.ticket_id)
 
-    participant_stmt = select(ExternalParticipant).where(
-        ExternalParticipant.id == participant_id
-    )
+    participant_stmt = select(ExternalParticipant).where(ExternalParticipant.id == participant_id)
     participant_result = await db.execute(participant_stmt)
     participant = participant_result.scalar_one_or_none()
 
@@ -109,9 +107,7 @@ async def get_current_guest(
         )
 
     if not participant.is_active:
-        logger.warning(
-            f"Guest access revoked for participant {participant_id}"
-        )
+        logger.warning(f"Guest access revoked for participant {participant_id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Guest access has been revoked",
@@ -127,8 +123,17 @@ async def get_current_guest(
             detail="Token does not match participant ticket",
         )
 
-    # Fetch the ticket
-    ticket_stmt = select(Ticket).where(Ticket.id == ticket_id)
+    # Fetch the ticket with relationships
+    from sqlalchemy.orm import selectinload
+
+    ticket_stmt = (
+        select(Ticket)
+        .where(Ticket.id == ticket_id)
+        .options(
+            selectinload(Ticket.project),
+            selectinload(Ticket.organization),
+        )
+    )
     ticket_result = await db.execute(ticket_stmt)
     ticket = ticket_result.scalar_one_or_none()
 
@@ -140,9 +145,7 @@ async def get_current_guest(
         )
 
     if ticket.status == TicketStatus.CLOSED:
-        logger.info(
-            f"Guest attempt to access closed ticket {ticket_id}"
-        )
+        logger.info(f"Guest attempt to access closed ticket {ticket_id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This ticket has been closed and is no longer accessible",
@@ -154,9 +157,7 @@ async def get_current_guest(
     db.add(participant)
     await db.commit()
 
-    logger.info(
-        f"Guest {participant.email} accessed ticket {ticket_id}"
-    )
+    logger.info(f"Guest {participant.email} accessed ticket {ticket_id}")
 
     return GuestContext(
         participant=participant,
@@ -166,9 +167,7 @@ async def get_current_guest(
 
 
 async def get_optional_guest(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
-        HTTPBearer(auto_error=False)
-    ),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[GuestContext]:
     """
