@@ -14,15 +14,32 @@ class SuggestedSource(BaseModel):
 
 
 class SuggestionRequest(BaseModel):
-    """Request model for source suggestion."""
+    """Request model for source suggestion.
+
+    Acts as a search query wrapper where jurisdiction provides the scope/boundary,
+    and the search_query (optional) allows specific targeting.
+    """
 
     jurisdiction_description: str = Field(
-        ..., description="The description of the jurisdiction (e.g., 'Minimum Wage Regulations')."
+        ...,
+        description="The scope or description of the jurisdiction "
+        "(e.g., 'Central Bank of Nigeria Regulations').",
     )
     jurisdiction_name: Optional[str] = Field(
-        None, description="Optional context or name of the jurisdiction (e.g., 'United Kingdom')."
+        None, description="Optional name of the jurisdiction (e.g., 'Nigeria')."
+    )
+    jurisdiction_prompt: Optional[str] = Field(
+        None,
+        description="Optional AI prompt that guides extraction, summarization, "
+        "or classification tasks for this jurisdiction (e.g., 'Focus on crypto "
+        "asset guidelines and licensing requirements').",
     )
     project_description: str = Field(
         ...,
-        description="User's monitoring goal (e.g., 'Official National Minimum Wage Rates').",
+        description="The broader project goal (e.g., 'Monitor Crypto Asset Guidelines').",
+    )
+    search_query: Optional[str] = Field(
+        None,
+        description="Specific user input to narrow the search "
+        "(e.g., '2024 crypto licensing requirements').",
     )

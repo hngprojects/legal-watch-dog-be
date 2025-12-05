@@ -29,6 +29,7 @@ async def test_discovery_agent():
     # Using broader descriptions simulating the Project/Jurisdiction models
     jurisdiction_name = "United Kingdom"
     jurisdiction_description = "UK minimum wage regulations"
+    jurisdiction_prompt = "Focus on age category breakdown and effective dates for wage rates"
 
     # Detailed project description (similar to Project.master_prompt)
     project_description = (
@@ -40,6 +41,7 @@ async def test_discovery_agent():
     print("\n[INPUT PARAMETERS]")
     print(f"  Jurisdiction Name: {jurisdiction_name}")
     print(f"  Jurisdiction Desc: {jurisdiction_description}")
+    print(f"  Jurisdiction Prompt: {jurisdiction_prompt}")
     print(f"  Goal: {project_description}")
 
     try:
@@ -51,6 +53,7 @@ async def test_discovery_agent():
         sources = await service.suggest_sources(
             jurisdiction_name=jurisdiction_name,
             jurisdiction_description=jurisdiction_description,
+            jurisdiction_prompt=jurisdiction_prompt,
             project_description=project_description,
         )
 

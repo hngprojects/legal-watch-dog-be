@@ -27,23 +27,20 @@ router = APIRouter(
     responses=suggest_sources_responses,
 )
 async def suggest_sources(payload: SuggestionRequest):
-    """Triggers the AI Researcher Agent to find valid sources.
+    """Trigger the AI Researcher Agent to find valid official sources.
 
-    This endpoint combines the jurisdiction name and description to provide
-    broad context to the AI Agent, allowing it to find more accurate official sources
-    for legal monitoring and compliance purposes.
+    Combines jurisdiction context with project description to guide AI discovery
+    of accurate official sources for legal monitoring and compliance purposes.
 
     Args:
-        payload (SuggestionRequest): The request payload containing:
-            - jurisdiction_name (str): Name of the jurisdiction to find sources for
-            - jurisdiction_description (str): Description of jurisdiction's legal scope
-            - project_description (str): Project goal for finding relevant sources
+        payload: The suggestion request containing jurisdiction name, description,
+            optional jurisdiction_prompt, project_description, and search_query.
 
     Returns:
-        JSONResponse: Success response with list of AI-suggested sources.
+        dict: Success response with list of AI-suggested sources in data field.
 
     Raises:
-        HTTPException: 500 if configuration error or discovery agent fails.
+        HTTPException: 500 for configuration error or discovery agent failure.
 
     """
     try:
@@ -51,13 +48,15 @@ async def suggest_sources(payload: SuggestionRequest):
         sources = await service.suggest_sources(
             jurisdiction_name=payload.jurisdiction_name,
             jurisdiction_description=payload.jurisdiction_description,
+            jurisdiction_prompt=payload.jurisdiction_prompt,
             project_description=payload.project_description,
+            search_query=payload.search_query,
         )
 
         return success_response(
             status_code=status.HTTP_200_OK,
             message="Sources suggested successfully",
-            data={"sources": sources},
+            data={"sources": [source.model_dump() for source in sources]},
         )
 
     except ValueError as ve:
@@ -86,32 +85,22 @@ async def accept_suggested_sources(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Accept AI-suggested sources and convert them to active sources.
+    """Accept AI-suggested sources and create them as active source records.
 
-    This endpoint takes the output from the AI suggestion endpoint and creates
-    actual source records in the database. It combines the suggested source data
-    with required creation parameters and validates for duplicates before creation.
+    Converts AI-suggested sources into database records. Validates for duplicates
+    and combines suggested data with creation parameters before persistence.
 
     Args:
-        payload (SourceAccept): The acceptance payload containing:
-            - suggested_sources (List[Dict]): List of suggested sources from AI with:
-              - title (str): Source name
-              - url (HttpUrl): Source URL
-              - snippet (str): Source description
-              - confidence_reason (str): Why AI recommends this source
-              - is_official (bool): Whether this is an official source
-            - jurisdiction_id (uuid.UUID): Parent jurisdiction UUID
-            - source_type (SourceType): Type of source (web, pdf, api)
-            - scrape_frequency (str): Scraping frequency (e.g., DAILY, HOURLY)
-            - scraping_rules (Optional[Dict]): Custom extraction rules
-        db (AsyncSession): Database session.
-        current_user (User): Authenticated user.
+        payload: Acceptance request with suggested sources, jurisdiction_id,
+            source_type, scrape_frequency, and optional scraping_rules.
+        db: Database session for persistence operations.
+        current_user: Authenticated user performing the acceptance.
 
     Returns:
-        JSONResponse: Success response with created sources and count, or error response.
+        dict: Success response with created sources list and count, or error.
 
     Raises:
-        HTTPException: 400 if duplicate URLs exist or invalid data, 422 if validation fails.
+        HTTPException: 400 for duplicate URLs or invalid data; 500 for failures.
 
     """
     try:
