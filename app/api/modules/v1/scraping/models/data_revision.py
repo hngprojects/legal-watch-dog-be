@@ -7,8 +7,9 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import JSON, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .source_model import Source
     from app.api.modules.v1.tickets.models.ticket_model import Ticket
+
+    from .source_model import Source
 
 
 class DataRevision(SQLModel, table=True):
