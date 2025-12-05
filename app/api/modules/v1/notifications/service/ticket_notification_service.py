@@ -33,9 +33,7 @@ async def send_ticket_notifications(ticket_id: str, activity_message: str, sessi
         ticket_uuid = UUID(ticket_id)
 
         # Fetch ticket
-        ticket_result = await session.execute(
-            select(Ticket).where(Ticket.id == ticket_uuid)
-        )
+        ticket_result = await session.execute(select(Ticket).where(Ticket.id == ticket_uuid))
         ticket = ticket_result.scalar_one_or_none()
 
         if not ticket:
@@ -57,9 +55,7 @@ async def send_ticket_notifications(ticket_id: str, activity_message: str, sessi
 
         for user_id in user_ids:
             # Fetch user
-            user_result = await session.execute(
-                select(User).where(User.id == user_id)
-            )
+            user_result = await session.execute(select(User).where(User.id == user_id))
             user = user_result.scalar_one_or_none()
             if not user:
                 continue
@@ -104,9 +100,7 @@ async def send_ticket_notifications(ticket_id: str, activity_message: str, sessi
                 )
 
                 notification.status = (
-                    TicketNotificationStatus.SENT
-                    if success
-                    else TicketNotificationStatus.FAILED
+                    TicketNotificationStatus.SENT if success else TicketNotificationStatus.FAILED
                 )
                 notification.sent_at = datetime.now(timezone.utc)
 
