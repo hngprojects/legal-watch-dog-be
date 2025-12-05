@@ -25,9 +25,7 @@ class ScrapeJobService:
     """Service for managing scrape jobs and background execution."""
 
     @staticmethod
-    async def execute_scrape_job_background(
-        job_id: uuid.UUID, source_id: uuid.UUID
-    ) -> None:
+    async def execute_scrape_job_background(job_id: uuid.UUID, source_id: uuid.UUID) -> None:
         """
         Execute a scrape job asynchronously in the background.
 
@@ -62,9 +60,7 @@ class ScrapeJobService:
 
                     if scrape_result and "data_revision_id" in scrape_result:
                         try:
-                            job.data_revision_id = uuid.UUID(
-                                scrape_result["data_revision_id"]
-                            )
+                            job.data_revision_id = uuid.UUID(scrape_result["data_revision_id"])
                         except (ValueError, TypeError):
                             data_rev_id = scrape_result.get("data_revision_id")
                             logger.warning(
@@ -74,9 +70,7 @@ class ScrapeJobService:
                     if scrape_result:
                         job.is_baseline = scrape_result.get("is_baseline", False)
 
-                    logger.info(
-                        f"Background scrape completed for source {source_id}, job {job_id}"
-                    )
+                    logger.info(f"Background scrape completed for source {source_id}, job {job_id}")
 
                 except Exception as e:
                     logger.error(
@@ -110,7 +104,6 @@ class ScrapeJobService:
                             notify_error,
                         )
 
-
                 await db.commit()
 
         except Exception as e:
@@ -135,9 +128,7 @@ class ScrapeJobService:
         )
         task.add_done_callback(
             lambda t: (
-                logger.error(
-                    "Exception in background scrape job", exc_info=t.exception()
-                )
+                logger.error("Exception in background scrape job", exc_info=t.exception())
                 if t.exception()
                 else None
             )

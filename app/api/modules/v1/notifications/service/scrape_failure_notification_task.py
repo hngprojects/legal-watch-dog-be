@@ -24,9 +24,7 @@ from app.api.modules.v1.users.models.users_model import User
 logger = logging.getLogger("app")
 
 
-async def send_scrape_failure_notifications(
-    source_id: str, job_id: str, error_message: str
-):
+async def send_scrape_failure_notifications(source_id: str, job_id: str, error_message: str):
     """
     Send notifications to ALL users in the project when a scrape job fails.
 
@@ -50,18 +48,14 @@ async def send_scrape_failure_notifications(
             job_uuid = UUID(job_id)
 
             # Fetch the source details
-            source_result = await session.execute(
-                select(Source).where(Source.id == source_uuid)
-            )
+            source_result = await session.execute(select(Source).where(Source.id == source_uuid))
             source = source_result.scalar_one_or_none()
             if not source:
                 logger.warning(f"No source found with id {source_id}")
                 return {"error": "Source not found"}
 
             # Fetch the scrape job details
-            job_result = await session.execute(
-                select(ScrapeJob).where(ScrapeJob.id == job_uuid)
-            )
+            job_result = await session.execute(select(ScrapeJob).where(ScrapeJob.id == job_uuid))
             job = job_result.scalar_one_or_none()
             if not job:
                 logger.warning(f"No scrape job found with id {job_id}")
@@ -106,15 +100,12 @@ async def send_scrape_failure_notifications(
 
             notification_title = f"Scrape Job Failed: {source.name}"
             notification_message = (
-                f"The scrape job for '{source.name}' has failed. "
-                f"Error: {error_message[:200]}..."
+                f"The scrape job for '{source.name}' has failed. Error: {error_message[:200]}..."
                 if len(error_message) > 200
                 else error_message
             )
             for user_id in user_ids:
-                user_result = await session.execute(
-                    select(User).where(User.id == user_id)
-                )
+                user_result = await session.execute(select(User).where(User.id == user_id))
                 user = user_result.scalar_one_or_none()
                 if not user:
                     logger.warning(f"User {user_id} not found, skipping")
@@ -125,8 +116,7 @@ async def send_scrape_failure_notifications(
                     select(Notification).where(
                         Notification.scrape_job_id == job_uuid,
                         Notification.user_id == user.id,
-                        Notification.notification_type
-                        == NotificationType.SCRAPE_FAILED,
+                        Notification.notification_type == NotificationType.SCRAPE_FAILED,
                     )
                 )
                 existing = existing_result.scalar_one_or_none()
@@ -144,9 +134,7 @@ async def send_scrape_failure_notifications(
                         notifications_skipped += 1
                         continue
                     elif existing.status == NotificationStatus.FAILED:
-                        logger.info(
-                            f"Retrying failed notification {existing.notification_id}"
-                        )
+                        logger.info(f"Retrying failed notification {existing.notification_id}")
                         notification = existing
                     else:
                         logger.info(
@@ -197,13 +185,9 @@ async def send_scrape_failure_notifications(
                         context=email_context,
                     )
                     notification.status = (
-                        NotificationStatus.SENT
-                        if success
-                        else NotificationStatus.FAILED
+                        NotificationStatus.SENT if success else NotificationStatus.FAILED
                     )
-                    notification.sent_at = datetime.now(timezone.utc).replace(
-                        tzinfo=None
-                    )
+                    notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     session.add(notification)
                     await session.commit()
                     await session.refresh(notification)
@@ -255,9 +239,7 @@ async def send_scrape_failure_notifications(
 
 
 @shared_task(bind=True, name="send_scrape_failure_notifications", max_retries=3)
-def send_scrape_failure_notifications_task(
-    self, source_id: str, job_id: str, error_message: str
-):
+def send_scrape_failure_notifications_task(self, source_id: str, job_id: str, error_message: str):
     """
     Celery task wrapper for sending scrape failure notifications to ALL project users.
 

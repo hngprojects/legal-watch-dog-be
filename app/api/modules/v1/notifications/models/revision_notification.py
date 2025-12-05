@@ -81,7 +81,7 @@ class Notification(SQLModel, table=True):
         default=None,
         foreign_key="scrape_jobs.id",
         index=True,
-        description="Link to scrape job (used for SCRAPE_FAILED notifications)"
+        description="Link to scrape job (used for SCRAPE_FAILED notifications)",
     )
 
     notification_type: NotificationType = Field(
@@ -136,10 +136,11 @@ class Notification(SQLModel, table=True):
 
     user: Optional["User"] = Relationship()
 
+
 Index(
     "ix_notifications_scrape_job",
     Notification.scrape_job_id,
-    postgresql_where=Notification.scrape_job_id.is_not(None)
+    postgresql_where=Notification.scrape_job_id.is_not(None),
 )
 
 Index(

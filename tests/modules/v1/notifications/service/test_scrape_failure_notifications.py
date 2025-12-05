@@ -97,9 +97,7 @@ class TestScrapeFailureNotifications:
     @patch(
         "app.api.modules.v1.notifications.service.scrape_failure_notification_task.AsyncSessionLocal"
     )
-    @patch(
-        "app.api.modules.v1.notifications.service.scrape_failure_notification_task.send_email"
-    )
+    @patch("app.api.modules.v1.notifications.service.scrape_failure_notification_task.send_email")
     async def test_send_scrape_failure_notifications_success(
         self,
         mock_send_email,
@@ -114,16 +112,10 @@ class TestScrapeFailureNotifications:
 
         # Mock execute results
         mock_session.execute.side_effect = [
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["source"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])
-            ),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["project"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
@@ -132,9 +124,7 @@ class TestScrapeFailureNotifications:
                 )
             ),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["user"])),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=None)
-            ),  # No existing notification
+            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),  # No existing notification
         ]
 
         result = await send_scrape_failure_notifications(
@@ -171,16 +161,10 @@ class TestScrapeFailureNotifications:
         existing_notification.status = NotificationStatus.SENT
 
         mock_session.execute.side_effect = [
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["source"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])
-            ),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["project"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
@@ -229,9 +213,7 @@ class TestScrapeFailureNotifications:
     @patch(
         "app.api.modules.v1.notifications.service.scrape_failure_notification_task.AsyncSessionLocal"
     )
-    @patch(
-        "app.api.modules.v1.notifications.service.scrape_failure_notification_task.send_email"
-    )
+    @patch("app.api.modules.v1.notifications.service.scrape_failure_notification_task.send_email")
     async def test_send_scrape_failure_notifications_email_failure(
         self,
         mock_send_email,
@@ -245,16 +227,10 @@ class TestScrapeFailureNotifications:
         mock_send_email.return_value = False
 
         mock_session.execute.side_effect = [
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["source"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["source"])),
             MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["job"])),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])
-            ),
-            MagicMock(
-                scalar_one_or_none=MagicMock(return_value=mock_objects["project"])
-            ),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["jurisdiction"])),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=mock_objects["project"])),
             MagicMock(
                 scalars=MagicMock(
                     return_value=MagicMock(
