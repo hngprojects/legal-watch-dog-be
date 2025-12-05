@@ -7,13 +7,15 @@ Defines the database schema for sources to be monitored and scraped.
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from sqlalchemy import DateTime
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+
+    from .data_revision import DataRevision
 
 
 class SourceType(str, Enum):
@@ -73,3 +75,5 @@ class Source(SQLModel, table=True):
     )
 
     jurisdiction: Optional["Jurisdiction"] = Relationship(back_populates="sources")
+
+    data_revisions: List["DataRevision"] = Relationship(back_populates="source")

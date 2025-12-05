@@ -83,7 +83,10 @@ async def create_test_entities(
         tuple: (Source, Organization, Project, Jurisdiction, User) objects.
     """
     org = Organization(
-        id=uuid4(), name=f"UK Government Test Org {datetime.now().timestamp()}", email="test@gov.uk", is_verified=True
+        id=uuid4(),
+        name=f"UK Government Test Org {datetime.now().timestamp()}",
+        email="test@gov.uk",
+        is_verified=True,
     )
     db_session.add(org)
     await db_session.commit()
@@ -207,8 +210,10 @@ async def run_single_scrape(
         return None
 
     # Fetch the latest revision (Async Query)
-    query_rev = select(DataRevision).where(DataRevision.source_id == source_id).order_by(
-        desc(DataRevision.scraped_at)
+    query_rev = (
+        select(DataRevision)
+        .where(DataRevision.source_id == source_id)
+        .order_by(desc(DataRevision.scraped_at))
     )
 
     result_rev = await db_session.execute(query_rev)
@@ -311,17 +316,120 @@ async def mock_celery_scraper_worker():
     </body></html>
     """
 
-    print("=" * 80)
-    print("MOCK CELERY WORKER: Scraper Service Pipeline with Change Detection & Email")
-    print("=" * 80)
-    print()
     print("[SETUP] Initializing Async Database Session...")
     print("[SETUP] Mocking SMTP for email notification verification...")
+    print("[SETUP] Mocking AI services to avoid token usage...")
 
     async with AsyncSessionLocal() as db_session:
         try:
-            # Using real SMTP configuration from .env
-            print("[INFO] Using real SMTP configuration for email delivery")
+            # Mock AI services to avoid real API calls
+            with (
+                patch(
+                    "app.api.modules.v1.scraping.service.llm_service.genai.GenerativeModel"
+                ) as mock_genai_model,
+                patch(
+                    "app.api.modules.v1.scraping.service.diff_service.genai.GenerativeModel"
+                ) as mock_diff_model,
+            ):
+                # Mock extraction responses
+                mock_extraction_first = AsyncMock()
+                mock_extraction_first.generate_content.return_value = AsyncMock()
+                mock_extraction_first.generate_content.return_value.text = json.dumps(
+                    {
+                        "summary": (
+                            "The National Minimum Wage and National Living Wage rates for the UK, "
+                            "effective from April 2025, are provided. The National Living Wage for those "  # noqa: E501
+                            "aged 21 and over is £12.21 per hour, while the rate for 18 to 20 year olds is "  # noqa: E501
+                            "£10.00 per hour."
+                        ),
+                        "markdown_summary": (
+                            "## National Minimum Wage and National Living Wage Rates\n\n"
+                            "This document outlines the National Minimum Wage and National Living Wage rates "  # noqa: E501
+                            "applicable in the UK, effective from **April 2025**.\n\n"
+                            "- **Effective Date**: April 2025\n\n"
+                            "### Hourly Rates by Age Category:\n\n"
+                            "- **21 and over (National Living Wage)**: £12.21\n"
+                            "- **18 to 20**: £10.00"
+                        ),
+                        "confidence_score": 0.95,
+                        "extracted_data": {
+                            "key_value_pairs": {
+                                "age_category": "18 to 20",
+                                "effective_date": "April 2025",
+                                "hourly_rate": "£10.00",
+                            }
+                        },
+                    }
+                )
+
+                mock_extraction_second = AsyncMock()
+                mock_extraction_second.generate_content.return_value = AsyncMock()
+                mock_extraction_second.generate_content.return_value.text = json.dumps(
+                    {  # noqa: E501
+                        "summary": (
+                            "The National Minimum Wage and National Living Wage rates for the UK, "
+                            "effective from November 2025, are provided. The National Living Wage for those "  # noqa: E501
+                            "aged 21 and over is £12.75 per hour, while the rate for 18 to 20 year olds is £10.50 per hour."  # noqa: E501
+                        ),
+                        "markdown_summary": (
+                            "## National Minimum Wage and National Living Wage Rates\n\n"
+                            "This analysis summarizes the National Minimum Wage and National Living Wage rates "  # noqa: E501
+                            "for the UK, effective from **November 2025**.\n\n"
+                            "- **Age 21 and over (National Living Wage):** £12.75 per hour\n"
+                            "- **Age 18 to 20:** £10.50 per hour"
+                        ),
+                        "confidence_score": 0.95,
+                        "extracted_data": {
+                            "key_value_pairs": {
+                                "age_group": "18 to 20",
+                                "effective_date": "November 2025",
+                                "hourly_rate": "£10.50",
+                            }
+                        },
+                    }
+                )
+
+                mock_genai_model.side_effect = [mock_extraction_first, mock_extraction_second]
+
+                # Mock diff response for first run (new record)
+                mock_diff_first = AsyncMock()
+                mock_diff_first.generate_content.return_value = AsyncMock()
+                mock_diff_first.generate_content.return_value.text = json.dumps(
+                    {
+                        "is_changed": True,
+                        "confidence": 0.95,
+                        "change_summary": "Initial data extraction (New Record)",
+                        "key_changes": [],
+                    }
+                )
+
+                # Mock diff response for second run (actual change)
+                mock_diff_second = AsyncMock()
+                mock_diff_second.generate_content.return_value = AsyncMock()
+                mock_diff_second.generate_content.return_value.text = json.dumps(
+                    {  # noqa: E501
+                        "is_changed": True,
+                        "confidence": 0.95,
+                        "change_summary": (
+                            "The hourly rate for the age group '18 to 20' has increased from £10.00 to £10.50, "  # noqa: E501
+                            "and the effective date has changed from April 2025 to November 2025."
+                        ),
+                        "key_changes": [
+                            {"field": "hourly_rate", "old_value": "£10.00", "new_value": "£10.50"},
+                            {
+                                "field": "effective_date",
+                                "old_value": "April 2025",
+                                "new_value": "November 2025",
+                            },  # noqa: E501
+                        ],
+                    }
+                )
+
+                # Configure mock to return different responses based on call count
+                mock_diff_model.side_effect = [mock_diff_first, mock_diff_second]
+
+                # Using real SMTP configuration from .env
+                print("[INFO] Using real SMTP configuration for email delivery")
 
             # Create test data and mock source
             source, _, _, _, user = await create_test_entities(db_session, initial_mock_html)
@@ -333,9 +441,7 @@ async def mock_celery_scraper_worker():
             print("-" * 80)
             print("[RUN 1] Initial Extraction (April 2025 Rates)")
             print("-" * 80)
-            revision1 = await run_single_scrape(
-                db_session, source_id, scrape_num=1, timeout=60.0
-            )
+            revision1 = await run_single_scrape(db_session, source_id, scrape_num=1, timeout=60.0)
             if not revision1:
                 return False
 
@@ -368,15 +474,16 @@ async def mock_celery_scraper_worker():
             print("-" * 80)
             print("[RUN 2] Second Scrape - Should Detect Changes")
             print("-" * 80)
-            revision2 = await run_single_scrape(
-                db_session, source_id, scrape_num=2, timeout=60.0
-            )
+            revision2 = await run_single_scrape(db_session, source_id, scrape_num=2, timeout=60.0)
             if not revision2:
                 return False
 
             # Manually trigger notifications since Celery task is skipped in test
             print("[TEST] Manually triggering notifications for revision:", revision2.id)
-            from app.api.modules.v1.notifications.service.revision_notification_task import send_revision_notifications
+            from app.api.modules.v1.notifications.service.revision_notification_task import (
+                send_revision_notifications,
+            )
+
             await send_revision_notifications(str(revision2.id))
 
             # ===== VALIDATION 2: CHANGE DETECTION =====
@@ -392,9 +499,7 @@ async def mock_celery_scraper_worker():
                 print("[V2 FAIL] AI Change Flag: Change was NOT detected!")
 
             # 2. Was Diff Record Created?
-            diff_query = select(ChangeDiff).where(
-                ChangeDiff.new_revision_id == revision2.id
-            )
+            diff_query = select(ChangeDiff).where(ChangeDiff.new_revision_id == revision2.id)
             diff_res = await db_session.execute(diff_query)
             diff_record = diff_res.scalars().first()
 
@@ -447,9 +552,12 @@ async def mock_celery_scraper_worker():
                         DataRevision.source_id == source.id
                     )
                     await db_session.execute(
-                        delete(ChangeDiff).where(
-                            ChangeDiff.new_revision_id.in_(revisions_query)
-                        )
+                        delete(ChangeDiff).where(ChangeDiff.new_revision_id.in_(revisions_query))
+                    )
+
+                    # 2.5. Delete RevisionNotifications for these revisions
+                    await db_session.execute(
+                        delete(Notification).where(Notification.revision_id.in_(revisions_query))
                     )
 
                     # 3. Delete DataRevisions
@@ -457,23 +565,47 @@ async def mock_celery_scraper_worker():
                         delete(DataRevision).where(DataRevision.source_id == source.id)
                     )
 
-                    # 4. Delete Source
+                    # 4. Get Jurisdiction for project_id
+                    jurisdiction = (
+                        await db_session.execute(
+                            select(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
+                        )
+                        .scalars()
+                        .first()
+                    )
+
+                    # 5. Get Project for org_id
+                    project = (
+                        await db_session.execute(
+                            select(Project).where(Project.id == jurisdiction.project_id)
+                        )
+                        .scalars()
+                        .first()
+                    )
+
+                    # 6. Delete Source
                     await db_session.execute(delete(Source).where(Source.id == source.id))
 
-                    # 5. Delete Jurisdiction
-                    await db_session.execute(delete(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id))
+                    # 7. Delete Jurisdiction
+                    await db_session.execute(
+                        delete(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
+                    )
 
-                    # 6. Delete Project
-                    await db_session.execute(delete(Project).where(Project.id == jurisdiction.project_id))
+                    # 8. Delete Project
+                    await db_session.execute(
+                        delete(Project).where(Project.id == jurisdiction.project_id)
+                    )
 
-                    # 7. Delete User
+                    # 9. Delete Organization
+                    await db_session.execute(
+                        delete(Organization).where(Organization.id == project.org_id)
+                    )
+
+                    # 10. Delete User
                     await db_session.execute(delete(User).where(User.id == user.id))
 
-                    # 8. Delete Organization
-                    await db_session.execute(delete(Organization).where(Organization.id == org.id))
-
                     await db_session.commit()
-                    print(f"[CLEANUP] All test entities deleted.")
+                    print("[CLEANUP] All test entities deleted.")
                 else:
                     print("\n[INFO] Cleanup Skipped. Data remains in database.")
                     print(f"[INFO] Inspect Source ID: {source.id}")

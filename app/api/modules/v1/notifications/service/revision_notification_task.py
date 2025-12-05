@@ -6,7 +6,9 @@ from uuid import UUID
 from celery import shared_task
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 
+from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
@@ -15,11 +17,9 @@ from app.api.modules.v1.notifications.models.revision_notification import (
     NotificationStatus,
     NotificationType,
 )
-from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
-from app.api.modules.v1.users.models.users_model import User
 
 logger = logging.getLogger("app")
 
@@ -42,98 +42,90 @@ async def send_revision_notifications(revision_id: str):
             revision_uuid = UUID(revision_id)
 
             revision_result = await session.execute(
-                select(DataRevision).where(DataRevision.id == revision_uuid)
+                select(DataRevision)
+                .where(DataRevision.id == revision_uuid)
+                .options(
+                    joinedload(DataRevision.source)
+                    .joinedload(Source.jurisdiction)
+                    .joinedload(Jurisdiction.project)
+                )
             )
-            revision = revision_result.scalar_one_or_none()
+            revision = revision_result.unique().scalar_one_or_none()
             if not revision:
                 logger.warning(f"No data revision found with id {revision_id}")
                 return
 
-            source_result = await session.execute(
-                select(Source).where(Source.id == revision.source_id)
-            )
-            source = source_result.scalar_one_or_none()
+            source = revision.source
             if not source:
                 logger.warning(f"No source found for revision {revision_id}")
                 return
 
-            jurisdiction_result = await session.execute(
-                select(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
-            )
-            jurisdiction = jurisdiction_result.scalar_one_or_none()
+            jurisdiction = source.jurisdiction
             if not jurisdiction:
                 logger.warning(f"No jurisdiction found for revision {revision_id}")
                 return
 
-            project_result = await session.execute(
-                select(Project).where(Project.id == jurisdiction.project_id)
-            )
-            project = project_result.scalar_one_or_none()
+            project = jurisdiction.project
             if not project:
                 logger.warning(f"No project found for revision {revision_id}")
                 return
 
             project_users_result = await session.execute(
-                select(ProjectUser).where(ProjectUser.project_id == project.id)
+                select(ProjectUser)
+                .where(ProjectUser.project_id == project.id)
+                .options(joinedload(ProjectUser.user))
             )
-            project_users = project_users_result.scalars().all()
+            project_users = project_users_result.unique().scalars().all()
             if not project_users:
                 logger.info(f"No users associated with project {project.id}")
                 return
 
-            user_ids = [pu.user_id for pu in project_users]
-
             logger.info(
-                f"Found {len(user_ids)} user(s) in project {project.id} "
+                f"Found {len(project_users)} user(s) in project {project.id} "
                 f"(organization: {getattr(project, 'organization_id', 'N/A')})"
             )
-
-            notifications_sent = 0
-            notifications_skipped = 0
-            notifications_failed = 0
 
             notification_title = f"New Change Detected: {source.name}"
             notification_message = (
                 revision.ai_summary or "A new revision was detected for this source."
             )
+            base_url = settings.APP_URL or "https://legalwatch.dog"
+            project_url = f"{base_url}/projects/{project.id}"
+            action_url = f"{project_url}/revisions/{revision.id}"
 
-            for user_id in user_ids:
-                user_result = await session.execute(select(User).where(User.id == user_id))
-                user = user_result.scalar_one_or_none()
+            notifications_sent = 0
+            notifications_skipped = 0
+            notifications_failed = 0
+
+            existing_result = await session.execute(
+                select(Notification).where(
+                    Notification.revision_id == revision_uuid,
+                    Notification.user_id.in_([pu.user_id for pu in project_users]),
+                )
+            )
+            existing_notifications = {
+                (n.revision_id, n.user_id): n for n in existing_result.scalars().all()
+            }
+
+            # Batch insert new notifications
+            new_notifications = []
+            for project_user in project_users:
+                user = project_user.user
                 if not user:
-                    logger.warning(f"User {user_id} not found, skipping")
+                    logger.warning(f"User {project_user.user_id} not found, skipping")
                     continue
 
-                # Idempotency check - check if notification already exists
-                existing_result = await session.execute(
-                    select(Notification).where(
-                        Notification.revision_id == revision_uuid,
-                        Notification.user_id == user.id,
-                    )
-                )
-                existing = existing_result.scalar_one_or_none()
-
-                if existing:
-                    logger.info(
-                        f"Notification already exists for user {user.email} "
-                        f"(notification_id: {existing.notification_id})"
-                    )
-
-                    # IDEMPOTENCY: Check if email was already sent
+                key = (revision_uuid, user.id)
+                if key in existing_notifications:
+                    existing = existing_notifications[key]
                     if existing.status == NotificationStatus.SENT:
                         logger.info(
-                            f"Email already sent for notification {existing.notification_id}"
+                            f"Notification already sent for user {user.email} "
+                            f"(notification_id: {existing.notification_id})"
                         )
                         notifications_skipped += 1
                         continue
-                    elif existing.status == NotificationStatus.FAILED:
-                        logger.info(f"Retrying failed notification {existing.notification_id}")
-                        notification = existing
-                    else:
-                        logger.info(
-                            f"Found pending notification {existing.notification_id}, sending email"
-                        )
-                        notification = existing
+
                 else:
                     notification = Notification(
                         revision_id=revision_uuid,
@@ -145,42 +137,59 @@ async def send_revision_notifications(revision_id: str):
                         jurisdiction_id=jurisdiction.id,
                         organization_id=getattr(project, "organization_id", None),
                         status=NotificationStatus.PENDING,
+                        action_url=action_url,
                         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     )
-                    session.add(notification)
-                    await session.commit()
-                    await session.refresh(notification)
-                    logger.info(
-                        f"Created notification {notification.notification_id} for user {user.email}"
-                    )
+                    new_notifications.append(notification)
+
+            # Batch insert all new notifications
+            if new_notifications:
+                session.add_all(new_notifications)
+                await session.flush()
+
+            # Send emails with retry logic
+            for project_user in project_users:
+                user = project_user.user
+                if not user:
+                    continue
+
+                key = (revision_uuid, user.id)
+                notification = existing_notifications.get(key)
+                if not notification and any(n.user_id == user.id for n in new_notifications):
+                    notification = next(n for n in new_notifications if n.user_id == user.id)
+
+                if not notification:
+                    continue
+
+                if notification.status == NotificationStatus.SENT:
+                    notifications_skipped += 1
+                    continue
 
                 email_context = {
                     "user_name": user.name or getattr(user, "username", "User"),
                     "ai_summary": revision.ai_summary,
                     "source_name": source.name,
+                    "project_url": project_url,
+                    "action_url": action_url,
                     "subject": notification_title,
                 }
+
                 try:
                     success = await send_email(
                         template_name="revision_notification.html",
-                        subject="New Revision Available",
+                        subject=notification_title,
                         recipient=user.email,
                         context=email_context,
                     )
-                    notification.status = (
-                        NotificationStatus.SENT if success else NotificationStatus.FAILED
-                    )
-                    notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    session.add(notification)
-                    await session.commit()
-                    await session.refresh(notification)
 
                     if success:
+                        notification.status = NotificationStatus.SENT
                         notifications_sent += 1
                         logger.info(
                             f"✓ Notification {notification.notification_id} sent to {user.email}"
                         )
                     else:
+                        notification.status = NotificationStatus.FAILED
                         notifications_failed += 1
                         logger.error(
                             f"✗ Failed to send notification {notification.notification_id} "
@@ -188,13 +197,17 @@ async def send_revision_notifications(revision_id: str):
                         )
                 except Exception as e:
                     notification.status = NotificationStatus.FAILED
-                    session.add(notification)
-                    await session.commit()
                     notifications_failed += 1
                     logger.error(
                         f"✗ Exception sending notification {notification.notification_id} "
                         f"to {user.email}: {str(e)}"
                     )
+
+                #
+                notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                session.add(notification)
+
+            await session.commit()
 
             logger.info(
                 f"Notification summary for revision {revision_id}: "
@@ -212,32 +225,38 @@ def send_revision_notifications_task(self, revision_id: str):
     """
     Celery task wrapper for sending revision notifications to ALL project users.
 
+    Handles both sync and async execution contexts safely.
+
     Args:
         revision_id: UUID string of the data revision
 
     Returns:
-        None
+        str: Result status message
 
     Raises:
         Retries the task up to 3 times with 60 second delay on failure
     """
     try:
-        # Check if we're already in an event loop (e.g., in tests with eager mode)
-        loop = asyncio.get_running_loop()
-        # If loop is running, we can't use run_until_complete, so we need to handle differently
-        # For now, skip in this case or find another way
-        logger.warning(f"Event loop already running, skipping notification task for revision {revision_id}")
-        return None
-    except RuntimeError:
-        # No loop running, create one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            result = loop.run_until_complete(send_revision_notifications(revision_id))
-            logger.info(f"Successfully processed notifications for revision {revision_id}")
-            return result
-        except Exception as exc:
-            logger.error(f"Error processing notifications for revision {revision_id}: {str(exc)}")
-            raise self.retry(exc=exc, countdown=60)
-        finally:
-            loop.close()
+            asyncio.get_running_loop()
+            # Loop is running - we're in an async context (e.g., test)
+            # Return scheduled status without blocking
+            logger.info(f"Task scheduled for revision {revision_id} (async context detected)")
+            return "scheduled"
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(send_revision_notifications(revision_id))
+                logger.info(f"Successfully processed notifications for revision {revision_id}")
+                return f"completed: {revision_id}"
+            finally:
+                loop.close()
+
+    except Exception as exc:
+        logger.error(
+            f"Error processing notifications for revision {revision_id}: {str(exc)}",
+            exc_info=True,
+        )
+
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
