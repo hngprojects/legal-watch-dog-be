@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from main import app
 
@@ -16,7 +16,9 @@ async def test_trigger_ticket_notification_route():
     ) as mocked_task:
         mocked_task.delay.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        transport = ASGITransport(app=app)
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post("/api/v1/notifications/tickets/123/send?message=hello")
 
         assert response.status_code == 200
