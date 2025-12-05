@@ -1,0 +1,213 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.1, pluggy-1.6.0 -- C:\Users\DanielsFega\legal-watch-dog-be\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\DanielsFega\legal-watch-dog-be
+configfile: pyproject.toml
+plugins: anyio-4.11.0, asyncio-1.3.0, cov-7.0.0, env-1.2.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 14 items
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_sends_emails_success FAILED [  7%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_only_creator FAILED [ 14%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_multiple_project_users PASSED [ 21%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_duplicate_user_handling FAILED [ 28%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_idempotency PASSED [ 35%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_retry_failed PASSED [ 42%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_failure PASSED [ 50%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_exception PASSED [ 57%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_not_found PASSED [ 64%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_missing_user FAILED [ 71%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_invalid_uuid PASSED [ 78%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_empty_message FAILED [ 85%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_context FAILED [ 92%]
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_different_statuses FAILED [100%]
+
+================================== FAILURES ===================================
+E   asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "organizations_pkey"
+    DETAIL:  Key (id)=(9fc7385a-8aba-4610-8c5a-57ff70c22f8c) already exists.
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "organizations_pkey"
+    DETAIL:  Key (id)=(9fc7385a-8aba-4610-8c5a-57ff70c22f8c) already exists.
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "organizations_pkey"
+    DETAIL:  Key (id)=(9fc7385a-8aba-4610-8c5a-57ff70c22f8c) already exists.
+    [SQL: INSERT INTO organizations (id, name, industry, location, plan, logo_url, settings, billing_info, is_active, created_at, updated_at, deleted_at) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::JSON, $8::JSON, $9::BOOLEAN, $10::TIMESTAMP WITH TIME ZONE, $11::TIMESTAMP WITH TIME ZONE, $12::TIMESTAMP WITH TIME ZONE)]
+    [parameters: (UUID('9fc7385a-8aba-4610-8c5a-57ff70c22f8c'), 'Test Org', None, None, None, None, '{"visibility": "private", "require_strong_passwords": true, "require_2fa": true, "allow_external_sharing": false, "audit_logging_enabled": true, "project_default_privacy": "private"}', '{}', True, datetime.datetime(2025, 12, 5, 18, 55, 32, 50887, tzinfo=datetime.timezone.utc), datetime.datetime(2025, 12, 5, 18, 55, 32, 50887, tzinfo=datetime.timezone.utc), None)]
+    (Background on this error at: https://sqlalche.me/e/20/gkpj)
+C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:797: sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "organizations_pkey"
+E   asyncpg.exceptions.NotNullViolationError: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (36b7e2c5-c9d1-4b36-8cf2-6968300b90cd, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:33.093575-12, 2025-12-05 06:55:33.093575-12).
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (36b7e2c5-c9d1-4b36-8cf2-6968300b90cd, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:33.093575-12, 2025-12-05 06:55:33.093575-12).
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (36b7e2c5-c9d1-4b36-8cf2-6968300b90cd, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:33.093575-12, 2025-12-05 06:55:33.093575-12).
+    [SQL: INSERT INTO users (id, email, hashed_password, auth_provider, name, provider_user_id, profile_picture_url, provider_profile_data, avatar_url, is_active, is_verified, created_at, updated_at) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::JSON, $9::VARCHAR, $10::BOOLEAN, $11::BOOLEAN, $12::TIMESTAMP WITH TIME ZONE, $13::TIMESTAMP WITH TIME ZONE)]
+    [parameters: (UUID('36b7e2c5-c9d1-4b36-8cf2-6968300b90cd'), 'creator@test.com', None, 'local', None, None, None, 'null', None, True, False, datetime.datetime(2025, 12, 5, 18, 55, 33, 93575, tzinfo=datetime.timezone.utc), datetime.datetime(2025, 12, 5, 18, 55, 33, 93575, tzinfo=datetime.timezone.utc))]
+    (Background on this error at: https://sqlalche.me/e/20/gkpj)
+C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:797: sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+E   asyncpg.exceptions.NotNullViolationError: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (3be50901-f83c-434b-9936-c3a5bbbebadf, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:35.391799-12, 2025-12-05 06:55:35.391799-12).
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (3be50901-f83c-434b-9936-c3a5bbbebadf, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:35.391799-12, 2025-12-05 06:55:35.391799-12).
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+    DETAIL:  Failing row contains (3be50901-f83c-434b-9936-c3a5bbbebadf, creator@test.com, null, local, null, null, null, null, null, t, f, 2025-12-05 06:55:35.391799-12, 2025-12-05 06:55:35.391799-12).
+    [SQL: INSERT INTO users (id, email, hashed_password, auth_provider, name, provider_user_id, profile_picture_url, provider_profile_data, avatar_url, is_active, is_verified, created_at, updated_at) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::JSON, $9::VARCHAR, $10::BOOLEAN, $11::BOOLEAN, $12::TIMESTAMP WITH TIME ZONE, $13::TIMESTAMP WITH TIME ZONE)]
+    [parameters: (UUID('3be50901-f83c-434b-9936-c3a5bbbebadf'), 'creator@test.com', None, 'local', None, None, None, 'null', None, True, False, datetime.datetime(2025, 12, 5, 18, 55, 35, 391799, tzinfo=datetime.timezone.utc), datetime.datetime(2025, 12, 5, 18, 55, 35, 391799, tzinfo=datetime.timezone.utc))]
+    (Background on this error at: https://sqlalche.me/e/20/gkpj)
+C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:797: sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "name" of relation "users" violates not-null constraint
+E   asyncpg.exceptions.ForeignKeyViolationError: insert or update on table "tickets" violates foreign key constraint "tickets_created_by_user_id_fkey"
+    DETAIL:  Key (created_by_user_id)=(7992888a-7671-4ca8-8777-7e7b7e72e66c) is not present in table "users".
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.ForeignKeyViolationError'>: insert or update on table "tickets" violates foreign key constraint "tickets_created_by_user_id_fkey"
+    DETAIL:  Key (created_by_user_id)=(7992888a-7671-4ca8-8777-7e7b7e72e66c) is not present in table "users".
+
+The above exception was the direct cause of the following exception:
+E   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.ForeignKeyViolationError'>: insert or update on table "tickets" violates foreign key constraint "tickets_created_by_user_id_fkey"
+    DETAIL:  Key (created_by_user_id)=(7992888a-7671-4ca8-8777-7e7b7e72e66c) is not present in table "users".
+    [SQL: INSERT INTO tickets (id, title, description, content, status, priority, is_manual, data_revision_id, source_id, created_by_user_id, assigned_by_user_id, assigned_to_user_id, organization_id, project_id, created_at, updated_at, closed_at) VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::ticketstatus, $6::ticketpriority, $7::BOOLEAN, $8::UUID, $9::UUID, $10::UUID, $11::UUID, $12::UUID, $13::UUID, $14::UUID, $15::TIMESTAMP WITH TIME ZONE, $16::TIMESTAMP WITH TIME ZONE, $17::TIMESTAMP WITH TIME ZONE)]
+    [parameters: (UUID('f6b87e8c-e065-4b12-80bc-887177626976'), 'Missing User Test', None, None, 'OPEN', 'MEDIUM', True, None, None, UUID('7992888a-7671-4ca8-8777-7e7b7e72e66c'), None, None, UUID('9582cf0b-5d99-4ad7-a3e6-58d5fbc56d0f'), UUID('904ffc30-3687-41ea-9d6a-12822f58c9d4'), datetime.datetime(2025, 12, 5, 18, 55, 42, 189124, tzinfo=datetime.timezone.utc), datetime.datetime(2025, 12, 5, 18, 55, 42, 189124, tzinfo=datetime.timezone.utc), None)]
+    (Background on this error at: https://sqlalche.me/e/20/gkpj)
+C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:797: sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.ForeignKeyViolationError'>: insert or update on table "tickets" violates foreign key constraint "tickets_created_by_user_id_fkey"
+E   AssertionError: assert <TicketNotifi...LED: 'FAILED'> == <TicketNotifi....SENT: 'SENT'>
+      
+      - SENT
+      + FAILED
+---------------------------- Captured stderr call -----------------------------
+2025-12-05 19:55:44,376 [ERROR] app send_mail:52 ù Failed to send email to empty@test.com: 'ticket_notification.html' not found in search path: 'C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\core\\dependencies\\email\\templates'
+Traceback (most recent call last):
+  File "C:\Users\DanielsFega\legal-watch-dog-be\app\api\core\dependencies\send_mail.py", line 29, in send_email
+    template = email_templates.get_template(template_name)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\loaders.py", line 209, in get_source
+    raise TemplateNotFound(
+jinja2.exceptions.TemplateNotFound: 'ticket_notification.html' not found in search path: 'C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\core\\dependencies\\email\\templates'
+C:\Users\DanielsFega\legal-watch-dog-be\tests\modules\v1\notifications\service\test_ticket_notification_services.py:633: AssertionError: assert <TicketNotifi...LED: 'FAILED'> == <TicketNotifi....SENT: 'SENT'>
+E   AssertionError: Expected 'mock' to have been called once. Called 0 times.
+---------------------------- Captured stderr call -----------------------------
+2025-12-05 19:55:45,793 [ERROR] app send_mail:52 ù Failed to send email to context@test.com: 'ticket_notification.html' not found in search path: 'C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\core\\dependencies\\email\\templates'
+Traceback (most recent call last):
+  File "C:\Users\DanielsFega\legal-watch-dog-be\app\api\core\dependencies\send_mail.py", line 29, in send_email
+    template = email_templates.get_template(template_name)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\starlette\templating.py", line 132, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\jinja2\loaders.py", line 209, in get_source
+    raise TemplateNotFound(
+jinja2.exceptions.TemplateNotFound: 'ticket_notification.html' not found in search path: 'C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\core\\dependencies\\email\\templates'
+C:\Python312\Lib\unittest\mock.py:926: AssertionError: Expected 'mock' to have been called once. Called 0 times.
+E   AttributeError: type object 'TicketStatus' has no attribute 'RESOLVED'
+C:\Users\DanielsFega\legal-watch-dog-be\tests\modules\v1\notifications\service\test_ticket_notification_services.py:711: AttributeError: type object 'TicketStatus' has no attribute 'RESOLVED'
+============================== warnings summary ===============================
+app\api\modules\v1\scraping\schemas\source_service.py:115
+  C:\Users\DanielsFega\legal-watch-dog-be\app\api\modules\v1\scraping\schemas\source_service.py:115: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    sources: List[SourceCreate] = Field(..., min_items=1, max_items=50)
+
+app\api\modules\v1\scraping\schemas\source_service.py:115
+  C:\Users\DanielsFega\legal-watch-dog-be\app\api\modules\v1\scraping\schemas\source_service.py:115: PydanticDeprecatedSince20: `max_items` is deprecated and will be removed, use `max_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    sources: List[SourceCreate] = Field(..., min_items=1, max_items=50)
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1397
+  C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\_pytest\config\__init__.py:1397: PytestConfigWarning: Unknown config option: env_files
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1397
+  C:\Users\DanielsFega\legal-watch-dog-be\.venv\Lib\site-packages\_pytest\config\__init__.py:1397: PytestConfigWarning: Unknown config option: env_override_existing_values
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py: 14 warnings
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\conftest.py:260: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py: 14 warnings
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\conftest.py:273: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    await session.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_multiple_project_users
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_idempotency
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_retry_failed
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_failure
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_exception
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_not_found
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_empty_message
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_context
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\modules\\v1\\notifications\\service\\ticket_notification_service.py:36: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    ticket_result = await session.execute(select(Ticket).where(Ticket.id == ticket_uuid))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_multiple_project_users
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_idempotency
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_retry_failed
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_failure
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_exception
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_empty_message
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_context
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\modules\\v1\\notifications\\service\\ticket_notification_service.py:44: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    project_users_result = await session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py: 11 warnings
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\modules\\v1\\notifications\\service\\ticket_notification_service.py:58: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    user_result = await session.execute(select(User).where(User.id == user_id))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py: 11 warnings
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\app\\api\\modules\\v1\\notifications\\service\\ticket_notification_service.py:64: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    existing_result = await session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_multiple_project_users
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:207: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_idempotency
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:332: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_retry_failed
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:396: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_failure
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:450: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(select(TicketNotification))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_exception
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:497: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(select(TicketNotification))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_not_found
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:514: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(select(TicketNotification))
+
+tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_empty_message
+  C:\\Users\\DanielsFega\\legal-watch-dog-be\\tests\\modules\\v1\\notifications\\service\\test_ticket_notification_services.py:629: DeprecationWarning: \n          \U0001f6a8 You probably want to use `session.exec()` instead of `session.execute()`.\n  \n          This is the original SQLAlchemy `session.execute()` method that returns objects\n          of type `Row`, and that you have to call `scalars()` to get the model objects.\n  \n          For example:\n  \n          ```Python\n          heroes = await session.execute(select(Hero)).scalars().all()\n          ```\n  \n          instead you could use `exec()`:\n  \n          ```Python\n          heroes = await session.exec(select(Hero)).all()\n          ```\n          \n    result = await async_session.execute(select(TicketNotification))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_sends_emails_success
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_only_creator
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_duplicate_user_handling
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_missing_user
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_empty_message
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_email_context
+FAILED tests/modules/v1/notifications/service/test_ticket_notification_services.py::test_ticket_notification_different_statuses
+================== 7 failed, 7 passed, 76 warnings in 16.30s ==================
