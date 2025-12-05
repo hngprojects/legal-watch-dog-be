@@ -215,6 +215,7 @@ class MicrosoftOAuthService:
             user_id=str(user.id),
             organization_id=None,
             role_id=None,
+            expires_delta=timedelta(days=2),
         )
 
         refresh_token = create_access_token(
@@ -230,7 +231,7 @@ class MicrosoftOAuthService:
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "expires_in": 3600 * 24,
+            "expires_in": 172800,
             "user_id": str(user.id),
             "email": user.email,
             "is_new_user": is_new_user,

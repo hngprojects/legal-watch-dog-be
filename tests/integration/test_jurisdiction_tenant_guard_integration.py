@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.core.dependencies.auth import TenantGuard, get_current_user
+from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as jurisdiction_routes_module
 
 
@@ -64,6 +65,9 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
 
     org_id = uuid4()
 
+    async def fake_billing_guard(organization_id, db=None):
+        return None
+
     def fake_get_current_user():
         return SimpleNamespace(organization_id=org_id)
 
@@ -79,6 +83,7 @@ def test_routes_allow_user_with_org_and_return_data(monkeypatch):
 
     app, client = _build_app_and_client()
     app.dependency_overrides[get_current_user] = fake_get_current_user
+    app.dependency_overrides[require_billing_access] = fake_billing_guard
 
     monkeypatch.setattr(
         jurisdiction_routes_module.service,
