@@ -19,6 +19,7 @@ from app.api.modules.v1.organization.routes import router as organization_router
 from app.api.modules.v1.projects.routes.project_routes import router as project_router
 from app.api.modules.v1.scraping.routes import router as scraping_router
 from app.api.modules.v1.search.routes import data_revision_search_router
+from app.api.modules.v1.tickets.routes import public_router as tickets_public_router
 from app.api.modules.v1.users.routes.users_route import router as users_router
 from app.api.modules.v1.waitlist.routes.waitlist_route import router as waitlist_router
 
@@ -40,3 +41,4 @@ router.include_router(juridiction_router)
 router.include_router(notification_router)
 router.include_router(billing_router)
 router.include_router(data_revision_search_router)
+router.include_router(tickets_public_router)

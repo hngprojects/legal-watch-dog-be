@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from app.api.modules.v1.projects.models.project_model import Project
     from app.api.modules.v1.scraping.models.data_revision import DataRevision
     from app.api.modules.v1.scraping.models.source_model import Source
+    from app.api.modules.v1.tickets.models.ticket_external_access_model import TicketExternalAccess
     from app.api.modules.v1.users.models.users_model import User
 
 
@@ -178,6 +179,10 @@ class Ticket(SQLModel, table=True):
     invited_users: list["User"] = Relationship(
         back_populates="invited_to_tickets",
         link_model=TicketInvitedUser,
+    )
+    external_accesses: list["TicketExternalAccess"] = Relationship(
+        back_populates="ticket",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
     @field_validator("created_by_user_id")
