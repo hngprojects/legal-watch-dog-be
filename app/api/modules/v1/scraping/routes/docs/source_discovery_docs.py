@@ -1,4 +1,47 @@
-"""Documentation for Source Discovery API endpoints."""
+"""OpenAPI documentation schemas for Source Discovery API endpoints.
+
+This module defines response examples and HTTP status code documentation
+for the AI-powered source suggestion and acceptance endpoints.
+"""
+
+suggest_sources_request_schema = {
+    "type": "object",
+    "properties": {
+        "jurisdiction_name": {
+            "type": "string",
+            "nullable": True,
+            "description": "Optional name of the jurisdiction (e.g., 'Nigeria').",
+            "example": "Nigeria",
+        },
+        "jurisdiction_description": {
+            "type": "string",
+            "description": "Scope or description of the jurisdiction "
+            "(e.g., 'Central Bank of Nigeria Regulations').",
+            "example": "Central Bank of Nigeria Regulations",
+        },
+        "jurisdiction_prompt": {
+            "type": "string",
+            "nullable": True,
+            "description": "Optional AI prompt guiding extraction, summarization, "
+            "or classification tasks (e.g., 'Focus on crypto asset guidelines and "
+            "licensing requirements').",
+            "example": "Focus on crypto asset guidelines and licensing requirements",
+        },
+        "project_description": {
+            "type": "string",
+            "description": "Broader project goal (e.g., 'Monitor Crypto Asset Guidelines').",
+            "example": "Monitor Crypto Asset Guidelines",
+        },
+        "search_query": {
+            "type": "string",
+            "nullable": True,
+            "description": "Specific user input to narrow the search "
+            "(e.g., '2024 crypto licensing requirements').",
+            "example": "2024 crypto licensing requirements",
+        },
+    },
+    "required": ["jurisdiction_description", "project_description"],
+}
 
 suggest_sources_responses = {
     200: {
@@ -15,17 +58,19 @@ suggest_sources_responses = {
                             "data": {
                                 "sources": [
                                     {
-                                        "title": "Federal Court Opinions",
-                                        "url": "https://www.uscourts.gov/opinions/",
-                                        "snippet": "Official U.S. Federal Court opinions repo",
-                                        "confidence_reason": "Official gov source",
+                                        "title": "Central Bank of Nigeria - Crypto Guidelines",
+                                        "url": "https://www.cbn.gov.ng/crypto-guidelines",
+                                        "snippet": "Official CBN crypto asset regulations "
+                                        "and guidelines",
+                                        "confidence_reason": "Official government source",
                                         "is_official": True,
                                     },
                                     {
-                                        "title": "Court Rules and Procedures",
-                                        "url": "https://www.uscourts.gov/rules-policies/",
-                                        "snippet": "Federal court rules and procedures",
-                                        "confidence_reason": "Official source for guidelines",
+                                        "title": "CBN Licensing Requirements",
+                                        "url": "https://www.cbn.gov.ng/licensing-requirements",
+                                        "snippet": "Crypto asset licensing procedures "
+                                        "and requirements",
+                                        "confidence_reason": "Official source for licensing info",
                                         "is_official": True,
                                     },
                                 ]
