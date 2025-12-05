@@ -4,6 +4,8 @@ OpenAPI documentation for scrape job routes.
 Provides response schemas and examples for:
 - POST /scrapes/{source_id} - Trigger manual scrape
 - GET /scrapes/{source_id}/{job_id} - Get scrape job status
+- GET /scrapes/{source_id}/active - Get active scrape job
+- GET /scrapes/{source_id} - List scrape jobs for source
 """
 
 manual_scrape_trigger_responses = {
@@ -219,4 +221,163 @@ get_scrape_job_status_custom_errors = ["404"]
 get_scrape_job_status_custom_success = {
     "status_code": 200,
     "description": "Scrape job status retrieved successfully with current state and results.",
+}
+
+
+get_active_scrape_job_responses = {
+    200: {
+        "description": "Active Scrape Job Found",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "active_job": {
+                        "summary": "Active Job Found",
+                        "value": {
+                            "status": "success",
+                            "status_code": 200,
+                            "message": "Active scrape job found for this source",
+                            "data": {
+                                "id": "987e6543-e21c-34d5-b678-556655440000",
+                                "source_id": "123e4567-e89b-12d3-a456-426614174000",
+                                "status": "IN_PROGRESS",
+                                "result": None,
+                                "error_message": None,
+                                "data_revision_id": None,
+                                "is_baseline": False,
+                                "created_at": "2025-12-04T10:30:00Z",
+                                "started_at": "2025-12-04T10:30:05Z",
+                                "completed_at": None,
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    204: {
+        "description": "No Active Scrape Job",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "no_active_job": {
+                        "summary": "No Active Job",
+                        "value": {
+                            "status": "success",
+                            "status_code": 204,
+                            "message": "No active scrape job found for this source",
+                            "data": None,
+                        },
+                    }
+                }
+            }
+        },
+    },
+    404: {
+        "description": "Not Found - Source Not Found",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "source_not_found": {
+                        "summary": "Source Not Found",
+                        "value": {
+                            "status": "error",
+                            "status_code": 404,
+                            "message": "Source not found",
+                            "error_code": "SOURCE_NOT_FOUND",
+                            "errors": {},
+                        },
+                    }
+                }
+            }
+        },
+    },
+}
+
+get_active_scrape_job_custom_errors = ["404"]
+get_active_scrape_job_custom_success = {
+    "status_code": 200,
+    "description": "Active scrape job retrieved successfully. Returns 204 if no active job.",
+}
+
+
+list_scrape_jobs_responses = {
+    200: {
+        "description": "Scrape Jobs Listed Successfully",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "jobs_list": {
+                        "summary": "Jobs List",
+                        "value": {
+                            "status": "success",
+                            "status_code": 200,
+                            "message": "Scrape jobs retrieved successfully",
+                            "data": {
+                                "items": [
+                                    {
+                                        "id": "987e6543-e21c-34d5-b678-556655440000",
+                                        "source_id": "123e4567-e89b-12d3-a456-426614174000",
+                                        "status": "COMPLETED",
+                                        "result": {
+                                            "status": "success",
+                                            "change_detected": True,
+                                            "change_summary": "New regulation added",
+                                        },
+                                        "error_message": None,
+                                        "data_revision_id": "abc12345-d678-90ef-ghij-klmnopqrstuv",
+                                        "is_baseline": False,
+                                        "created_at": "2025-12-04T10:30:00Z",
+                                        "started_at": "2025-12-04T10:30:05Z",
+                                        "completed_at": "2025-12-04T10:31:15Z",
+                                    },
+                                    {
+                                        "id": "876e5432-d21c-43d5-c678-665544330000",
+                                        "source_id": "123e4567-e89b-12d3-a456-426614174000",
+                                        "status": "FAILED",
+                                        "result": None,
+                                        "error_message": (
+                                            "Scrape execution failed. Please try again"
+                                        ),
+                                        "data_revision_id": None,
+                                        "is_baseline": False,
+                                        "created_at": "2025-12-04T09:15:00Z",
+                                        "started_at": "2025-12-04T09:15:02Z",
+                                        "completed_at": "2025-12-04T09:15:30Z",
+                                    },
+                                ],
+                                "total": 2,
+                                "page": 1,
+                                "per_page": 20,
+                            },
+                        },
+                    }
+                }
+            }
+        },
+    },
+    404: {
+        "description": "Not Found - Source Not Found",
+        "content": {
+            "application/json": {
+                "examples": {
+                    "source_not_found": {
+                        "summary": "Source Not Found",
+                        "value": {
+                            "status": "error",
+                            "status_code": 404,
+                            "message": "Source not found",
+                            "error_code": "SOURCE_NOT_FOUND",
+                            "errors": {},
+                        },
+                    }
+                }
+            }
+        },
+    },
+}
+
+list_scrape_jobs_custom_errors = ["404"]
+list_scrape_jobs_custom_success = {
+    "status_code": 200,
+    "description": "Scrape jobs listed successfully with pagination metadata.",
 }
