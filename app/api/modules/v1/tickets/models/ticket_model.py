@@ -183,7 +183,7 @@ class Ticket(SQLModel, table=True):
     @field_validator("created_by_user_id")
     @classmethod
     def validate_creator_for_manual_tickets(cls, v, info):
-        """Validate that manual tickets have a creator."""    
+        """Validate that manual tickets have a creator."""
         is_manual = info.data.get("is_manual", True)
         if is_manual and v is None:
             raise ValueError("Manual tickets must have a created_by_user_id")

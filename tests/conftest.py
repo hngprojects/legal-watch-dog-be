@@ -211,11 +211,11 @@ async def pg_async_session():
                 """)
             )
             tables = [row[0] for row in result.fetchall()]
-            
+
             # Drop each table with CASCADE
             for table in tables:
                 await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-            
+
             # Drop all types (enums)
             result = await conn.execute(
                 text("""
@@ -227,11 +227,11 @@ async def pg_async_session():
             types = [row[0] for row in result.fetchall()]
             for type_name in types:
                 await conn.execute(text(f'DROP TYPE IF EXISTS "{type_name}" CASCADE'))
-                
+
         except Exception:
             # If we can't drop tables, just continue - might be first run
             pass
-            
+
         # Create all tables fresh
         await conn.run_sync(SQLModel.metadata.create_all)
         # Add missing columns that exist in model but not auto-created
