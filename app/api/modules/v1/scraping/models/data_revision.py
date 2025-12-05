@@ -1,10 +1,15 @@
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, Index, text
 from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlmodel import JSON, Field, SQLModel
+from sqlmodel import JSON, Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from app.api.modules.v1.tickets.models.ticket_model import Ticket
+
+    from .source_model import Source
 
 
 class DataRevision(SQLModel, table=True):
@@ -31,11 +36,16 @@ class DataRevision(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     was_change_detected: bool = Field(default=False)
+    is_baseline: bool = Field(default=False)
 
     search_vector: Optional[str] = Field(
         default=None, sa_column=Column(TSVECTOR, nullable=True, server_default=text("NULL"))
     )
 
+    tickets: list["Ticket"] = Relationship(back_populates="data_revision")
+
     __table_args__ = (
         Index("idx_data_revisions_search_vector", "search_vector", postgresql_using="gin"),
     )
+
+    source: Optional["Source"] = Relationship(back_populates="data_revisions")

@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
 
 from app.api.core.security import encrypt_auth_details
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.modules.v1.scraping.schemas.source_service import (
@@ -56,7 +58,8 @@ class SourceService:
             SourceRead: The created source with sanitized fields.
 
         Raises:
-            HTTPException: 400 if source URL already exists in jurisdiction, 500 if creation fails.
+            HTTPException: 400 if required prompts are missing or the URL already exists.
+            HTTPException: 500 if creation fails.
 
         Examples:
             >>> service = SourceService()
@@ -65,6 +68,7 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
+            await self._ensure_prompt_requirements(db, source_data.jurisdiction_id)
             existing_source = await db.scalar(
                 select(Source).where(
                     Source.url == str(source_data.url),
@@ -127,7 +131,8 @@ class SourceService:
             List[SourceRead]: List of created sources with sanitized fields.
 
         Raises:
-            HTTPException: 400 if any URL already exists, 500 if creation fails.
+            HTTPException: 400 if required prompts are missing or URLs already exist.
+            HTTPException: 500 if creation fails.
 
         Examples:
             >>> sources = await service.bulk_create_sources(db, sources_data)
@@ -138,6 +143,9 @@ class SourceService:
             return []
 
         try:
+            unique_jurisdiction_ids = {source.jurisdiction_id for source in sources_data}
+            for jurisdiction_id in unique_jurisdiction_ids:
+                await self._ensure_prompt_requirements(db, jurisdiction_id)
             created_sources = []
             urls_to_check = [str(source.url) for source in sources_data]
 
@@ -492,3 +500,68 @@ class SourceService:
             has_auth=bool(source.auth_details_encrypted),
             created_at=source.created_at,
         )
+
+    async def _ensure_prompt_requirements(
+        self,
+        db: AsyncSession,
+        jurisdiction_id: uuid.UUID,
+    ) -> None:
+        """Validate that project and jurisdiction prompts exist before source creation.
+
+        Args:
+            db (AsyncSession): Async database session used for lookups.
+            jurisdiction_id (uuid.UUID): Jurisdiction identifier associated with the source.
+
+        Returns:
+            None
+
+        Raises:
+            HTTPException: 404 if jurisdiction or project cannot be located.
+            HTTPException: 400 if project instructions, jurisdiction prompt, or both are missing.
+
+        Examples:
+            >>> service = SourceService()
+            >>> await service._ensure_prompt_requirements(db, jurisdiction_id)
+            >>> # Continues without raising when prompts are available
+        """
+
+        jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+        if not jurisdiction or jurisdiction.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Jurisdiction not found",
+            )
+
+        project = await db.get(Project, jurisdiction.project_id)
+        if not project or project.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found for jurisdiction",
+            )
+
+        project_prompt = (project.master_prompt or "").strip()
+        jurisdiction_prompt = (jurisdiction.prompt or "").strip()
+
+        has_project_prompt = bool(project_prompt)
+        has_jurisdiction_prompt = bool(jurisdiction_prompt)
+
+        if has_project_prompt and has_jurisdiction_prompt:
+            return
+
+        if not has_project_prompt and not has_jurisdiction_prompt:
+            message = (
+                "Add the project instruction (master prompt) and jurisdiction prompt before adding "
+                "sources. These instructions guide the AI scraping pipeline."
+            )
+        elif not has_project_prompt:
+            message = (
+                "Add the project instruction (master prompt) before adding sources. "
+                "These instructions guide the AI scraping pipeline."
+            )
+        else:
+            message = (
+                "Add jurisdiction prompt before adding sources. "
+                "These instructions guide the AI scraping pipeline."
+            )
+
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)

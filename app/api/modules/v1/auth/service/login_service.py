@@ -209,6 +209,7 @@ class LoginService:
             user_id=str(user.id),
             organization_id=None,
             role_id=None,
+            expires_delta=timedelta(days=2),
         )
 
         refresh_token = create_access_token(
@@ -228,7 +229,7 @@ class LoginService:
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "expires_in": 3600 * 24,
+            "expires_in": 172800,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -289,6 +290,7 @@ class LoginService:
             user_id=str(user.id),
             organization_id=None,
             role_id=None,
+            expires_delta=timedelta(days=2),
         )
 
         new_refresh_token_jti = str(uuid.uuid4())
@@ -307,7 +309,7 @@ class LoginService:
             "access_token": new_access_token,
             "refresh_token": new_refresh_token,
             "token_type": "bearer",
-            "expires_in": 3600 * 24,
+            "expires_in": 172800,
         }
 
     async def _check_account_lockout(self, email: str) -> Optional[int]:
