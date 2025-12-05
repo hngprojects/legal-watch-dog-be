@@ -59,7 +59,7 @@ class NotificationListResponse(BaseModel):
     notifications: List[NotificationResponse]
     total: int
     page: int
-    page_size: int
+    limit: int
     unread_count: int
 
 
@@ -69,7 +69,7 @@ class NotificationStats(BaseModel):
     total_notifications: int
     unread_count: int
     pending_count: int
-    by_type: Dict[NotificationType, int]
+    by_type: Dict[str, int]
 
 
 class NotificationFilter(BaseModel):
