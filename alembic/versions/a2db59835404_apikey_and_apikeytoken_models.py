@@ -1,7 +1,7 @@
 """APIKey and APIKeyToken Models
 
 Revision ID: a2db59835404
-Revises: d227f5996841
+Revises: a249039be841
 Create Date: 2025-12-05 12:25:06.275885
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = 'a2db59835404'
-down_revision: Union[str, Sequence[str], None] = 'd227f5996841'
+down_revision: Union[str, Sequence[str], None] = 'a249039be841'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
