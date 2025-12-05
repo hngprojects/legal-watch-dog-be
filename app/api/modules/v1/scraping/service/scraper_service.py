@@ -26,6 +26,7 @@ from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
+from app.api.modules.v1.tickets.service.ticket_creation_service import TicketService
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,15 @@ class ScraperService:
                 send_revision_notifications_task.delay(str(new_revision.id))
             elif was_change_detected and not last_revision:
                 logger.info(f"First scrape for source {source.id}. Skipping notification.")
+
+            # Create automatic ticket
+            ticket_service = TicketService(self.db)
+            await ticket_service.create_auto_ticket(
+                revision=new_revision,
+                change_result=change_result,
+                project_id=project.id,
+                org_id=jurisdiction.project.org_id,
+            )
 
         except Exception as e:
             await self.db.rollback()

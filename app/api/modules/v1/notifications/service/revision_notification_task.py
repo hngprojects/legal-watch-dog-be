@@ -18,11 +18,8 @@ from app.api.modules.v1.notifications.models.revision_notification import (
     NotificationType,
 )
 from app.api.modules.v1.projects.models.project_user_model import ProjectUser
-from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
-from app.api.modules.v1.tickets.models.ticket_model import Ticket
-from app.api.modules.v1.tickets.service.ticket_creation_service import TicketCreationService
 
 logger = logging.getLogger("app")
 
@@ -72,60 +69,6 @@ async def send_revision_notifications(revision_id: str):
             if not project:
                 logger.warning(f"No project found for revision {revision_id}")
                 return
-
-            # ========== GET CHANGE DETAILS FROM ChangeDiff ==========
-            change_diff_query = select(ChangeDiff).where(ChangeDiff.new_revision_id == revision.id)
-            change_diff_result = await session.execute(change_diff_query)
-            change_diff = change_diff_result.scalar_one_or_none()
-
-            change_summary = "Change detected"
-            risk_level = "MEDIUM"
-
-            if change_diff and change_diff.diff_patch:
-                change_summary = change_diff.diff_patch.get("change_summary", "Change detected")
-                risk_level = change_diff.diff_patch.get("risk_level", "MEDIUM")
-                logger.info(
-                    f"Found ChangeDiff for revision {revision.id}: {change_summary[:50]}..."
-                )
-            else:
-                logger.warning(
-                    f"No ChangeDiff found for revision {revision.id}, using default values"
-                )
-            # ========== END GET CHANGE DETAILS ==========
-
-            # ========== CREATE TICKET (IDEMPOTENT) ==========
-            # Check if ticket already exists for this revision
-            ticket_result = await session.execute(
-                select(Ticket).where(Ticket.data_revision_id == revision_uuid)
-            )
-            existing_ticket = ticket_result.scalar_one_or_none()
-
-            if existing_ticket:
-                logger.info(
-                    f"Ticket already exists for revision {revision.id}: {existing_ticket.id}"
-                )
-                ticket = existing_ticket
-            else:
-                try:
-                    ticket_service = TicketCreationService(session)
-                    ticket = await ticket_service.create_ticket_from_revision(
-                        revision=revision,
-                        source=source,
-                        jurisdiction=jurisdiction,
-                        project=project,
-                        change_summary=change_summary,
-                        risk_level=risk_level,
-                    )
-                    logger.info(f"Created auto-ticket {ticket.id} for revision {revision.id}")
-                except ValueError as e:
-                    logger.error(f"Failed to create ticket for revision {revision.id}: {e}")
-                    raise
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected error creating ticket for revision {revision.id}: {e}"
-                    )
-                    raise
-            # ========== END TICKET CREATION ==========
 
             project_users_result = await session.execute(
                 select(ProjectUser)
@@ -227,12 +170,10 @@ async def send_revision_notifications(revision_id: str):
                 email_context = {
                     "user_name": user.name or getattr(user, "username", "User"),
                     "ai_summary": revision.ai_summary,
-                    "email_subject": "New Revision Available",
                     "source_name": source.name,
                     "project_url": project_url,
                     "action_url": action_url,
                     "subject": notification_title,
-
                 }
 
                 try:
