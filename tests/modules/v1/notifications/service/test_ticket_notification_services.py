@@ -53,13 +53,6 @@ async def test_ticket_notification_sends_emails_success(async_session):
     async_session.add_all([org, project])
     await async_session.commit()
 
-    # Create Organization and Project to satisfy foreign key constraints
-    org = Organization(id=org_id, name="Test Org")
-    project = Project(id=project_id, org_id=org_id, title="Test Project")
-
-    async_session.add_all([org, project])
-    await async_session.commit()
-
     creator = User(id=uuid4(), email="creator@test.com", name="Creator User")
     assignee = User(id=uuid4(), email="assignee@test.com", name="Assignee User")
     project_user = User(id=uuid4(), email="proj@test.com", name="Project User")
@@ -83,7 +76,10 @@ async def test_ticket_notification_sends_emails_success(async_session):
     async_session.add(link)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
+    ):
         await send_ticket_notifications(str(ticket_id), "Activity update", session=async_session)
 
     result = await async_session.execute(
@@ -114,7 +110,7 @@ async def test_ticket_notification_only_creator(async_session):
     async_session.add_all([org, project])
     await async_session.commit()
 
-    creator = User(id=uuid4(), email="creator@test.com")
+    creator = User(id=uuid4(), email="creator@test.com", name="Creator User")
     async_session.add(creator)
     await async_session.commit()
 
@@ -131,7 +127,10 @@ async def test_ticket_notification_only_creator(async_session):
     async_session.add(ticket)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
+    ):
         await send_ticket_notifications(str(ticket_id), "New ticket created", session=async_session)
 
     result = await async_session.execute(
@@ -191,7 +190,10 @@ async def test_ticket_notification_multiple_project_users(async_session):
     async_session.add_all(links)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
+    ):
         await send_ticket_notifications(str(ticket_id), "Status updated", session=async_session)
 
     result = await async_session.execute(
@@ -224,7 +226,7 @@ async def test_ticket_notification_duplicate_user_handling(async_session):
     async_session.add_all([org, project])
     await async_session.commit()
 
-    creator = User(id=uuid4(), email="creator@test.com")
+    creator = User(id=uuid4(), email="creator@test.com", name="Creator User")
     async_session.add(creator)
     await async_session.commit()
 
@@ -245,7 +247,10 @@ async def test_ticket_notification_duplicate_user_handling(async_session):
     async_session.add(link)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
+    ):
         await send_ticket_notifications(str(ticket_id), "Update", session=async_session)
 
     result = await async_session.execute(
@@ -308,7 +313,8 @@ async def test_ticket_notification_idempotency(async_session):
     await async_session.commit()
 
     with patch(
-        "app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
     ) as mock_email:
         await send_ticket_notifications(str(ticket_id), "Activity update", session=async_session)
 
@@ -373,7 +379,10 @@ async def test_ticket_notification_retry_failed(async_session):
     await async_session.commit()
 
     # Try sending with a different message
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=True),
+    ):
         await send_ticket_notifications(str(ticket_id), "Second attempt", session=async_session)
 
     result = await async_session.execute(
@@ -424,7 +433,10 @@ async def test_ticket_notification_email_failure(async_session):
     async_session.add(ticket)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=False)):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(return_value=False),
+    ):
         await send_ticket_notifications(str(ticket_id), "Activity", session=async_session)
 
     result = await async_session.execute(select(TicketNotification))
@@ -468,7 +480,7 @@ async def test_ticket_notification_email_exception(async_session):
     await async_session.commit()
 
     with patch(
-        "app.api.core.dependencies.send_mail.send_email",
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
         new=AsyncMock(side_effect=Exception("SMTP error")),
     ):
         await send_ticket_notifications(str(ticket_id), "Test message", session=async_session)
@@ -487,7 +499,10 @@ async def test_ticket_not_found(async_session):
 
     Verifies graceful handling of non-existent ticket IDs.
     """
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock()):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(),
+    ):
         await send_ticket_notifications(str(uuid4()), "Msg", session=async_session)
 
     result = await async_session.execute(select(TicketNotification))
@@ -502,10 +517,15 @@ async def test_ticket_notification_missing_user(async_session):
     Test that notifications are skipped for users that don't exist.
 
     Verifies that the service handles missing user records gracefully.
+    This test uses database constraint deferral to simulate orphan references.
     """
+    from sqlalchemy import text
+
     ticket_id = uuid4()
     org_id = uuid4()
     project_id = uuid4()
+    non_existent_user_id = uuid4()  # This user will never exist
+
     # Create Organization and Project to satisfy foreign key constraints
     org = Organization(id=org_id, name="Test Org")
     project = Project(id=project_id, org_id=org_id, title="Test Project")
@@ -513,23 +533,17 @@ async def test_ticket_notification_missing_user(async_session):
     async_session.add_all([org, project])
     await async_session.commit()
 
-    # Create a user that we'll reference but then delete
-    temp_user = User(id=uuid4(), email="temp@test.com", name="Temp User")
-    async_session.add(temp_user)
+    # Create a valid creator
+    creator = User(id=uuid4(), email="creator@test.com", name="Creator User")
+    async_session.add(creator)
     await async_session.commit()
 
-    user_id = temp_user.id
-
-    # Delete the user
-    await async_session.delete(temp_user)
-    await async_session.commit()
-
-    # Create ticket referencing the deleted user
+    # Create ticket with valid creator
     ticket = Ticket(
         id=ticket_id,
         title="Missing User Test",
         status=TicketStatus.OPEN,
-        created_by_user_id=user_id,
+        created_by_user_id=creator.id,
         organization_id=org_id,
         project_id=project_id,
     )
@@ -537,15 +551,34 @@ async def test_ticket_notification_missing_user(async_session):
     async_session.add(ticket)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
-        # Should not raise an error
+    # Temporarily disable FK constraints to insert orphan reference
+    await async_session.execute(text("SET session_replication_role = 'replica'"))
+    await async_session.execute(
+        text("""
+            INSERT INTO project_users (project_id, user_id, created_at)
+            VALUES (:project_id, :user_id, NOW())
+        """),
+        {"project_id": str(project_id), "user_id": str(non_existent_user_id)},
+    )
+    await async_session.commit()
+    # Re-enable FK constraints
+    await async_session.execute(text("SET session_replication_role = 'origin'"))
+    await async_session.commit()
+
+    mock_email = AsyncMock(return_value=True)
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        mock_email,
+    ):
+        # Should not raise an error - should gracefully skip missing user
         await send_ticket_notifications(str(ticket_id), "Test", session=async_session)
 
     result = await async_session.execute(select(TicketNotification))
     rows = result.scalars().all()
 
-    # No notifications should be created since user doesn't exist
-    assert len(rows) == 0
+    # Only 1 notification should be created (for the creator, not the missing project user)
+    assert len(rows) == 1
+    assert rows[0].user_id == creator.id
 
 
 # =========================================================================
@@ -558,7 +591,10 @@ async def test_ticket_notification_invalid_uuid(async_session):
 
     Verifies that the service raises appropriate error for malformed ticket IDs.
     """
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock()):
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        new=AsyncMock(),
+    ):
         with pytest.raises(ValueError):
             await send_ticket_notifications("invalid-uuid", "Message", session=async_session)
 
@@ -596,7 +632,11 @@ async def test_ticket_notification_empty_message(async_session):
     async_session.add(ticket)
     await async_session.commit()
 
-    with patch("app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)):
+    mock_email = AsyncMock(return_value=True)
+    with patch(
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        mock_email,
+    ):
         await send_ticket_notifications(str(ticket_id), "", session=async_session)
 
     result = await async_session.execute(select(TicketNotification))
@@ -642,9 +682,11 @@ async def test_ticket_notification_email_context(async_session):
     async_session.add(ticket)
     await async_session.commit()
 
+    mock_email = AsyncMock(return_value=True)
     with patch(
-        "app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)
-    ) as mock_email:
+        "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+        mock_email,
+    ):
         await send_ticket_notifications(str(ticket_id), "Test activity", session=async_session)
 
         # Verify email was called with correct parameters
@@ -696,9 +738,11 @@ async def test_ticket_notification_different_statuses(async_session):
         async_session.add(ticket)
         await async_session.commit()
 
+        mock_email = AsyncMock(return_value=True)
         with patch(
-            "app.api.core.dependencies.send_mail.send_email", new=AsyncMock(return_value=True)
-        ) as mock_email:
+            "app.api.modules.v1.notifications.service.ticket_notification_service.send_email",
+            mock_email,
+        ):
             await send_ticket_notifications(
                 str(ticket_id), f"Status: {status.value}", session=async_session
             )
