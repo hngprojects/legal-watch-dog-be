@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.api.modules.v1.tickets.models.ticket_model import TicketInvitedUser
-
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
@@ -80,6 +78,4 @@ class User(SQLModel, table=True):
         back_populates="invited_by_user",
         sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )
-    invited_to_tickets: list["Ticket"] = Relationship(
-        back_populates="invited_users", link_model=TicketInvitedUser
-    )
+
