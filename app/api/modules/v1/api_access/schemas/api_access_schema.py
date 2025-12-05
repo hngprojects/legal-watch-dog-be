@@ -12,7 +12,6 @@ class APIKeyCreateSchema(BaseModel):
     organization_id: UUID
     user_id: Optional[UUID] = None
     receiver_email: Optional[EmailStr] = None
-    hashed_key: str
     scope: str
     generated_by: UUID
     is_active: bool = True
