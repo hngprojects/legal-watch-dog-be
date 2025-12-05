@@ -1,14 +1,19 @@
-from typing import List, Optional
-from uuid import UUID
+from typing import List
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.core.dependencies.api_key_auth import require_api_key
 from app.api.db.database import get_db
 from app.api.modules.v1.api_access.models.api_key import ApiKey
+
+# NEW — import schemas from external file
+from app.api.modules.v1.api_access.schemas.api_key_schema import (
+    JurisdictionResponse,
+    ProjectResponse,
+    SourceResponse,
+)
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.source_model import Source
@@ -16,33 +21,6 @@ from app.api.modules.v1.scraping.models.source_model import Source
 router = APIRouter(prefix="/external", tags=["external-api"])
 
 
-# -----------------------------
-# Response Schemas
-# -----------------------------
-class ProjectResponse(BaseModel):
-    id: UUID
-    org_id: UUID
-    title: str
-    description: Optional[str]
-
-
-class JurisdictionResponse(BaseModel):
-    id: UUID
-    project_id: UUID
-    name: str
-    description: Optional[str]
-
-
-class SourceResponse(BaseModel):
-    id: UUID
-    jurisdiction_id: UUID
-    name: str
-    url: str
-
-
-# -----------------------------
-# Routes
-# -----------------------------
 @router.get("/projects", response_model=List[ProjectResponse])
 async def get_projects(
     api_key: ApiKey = Depends(require_api_key), db: AsyncSession = Depends(get_db)
