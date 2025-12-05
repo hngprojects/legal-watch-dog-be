@@ -1,8 +1,8 @@
-"""APIKey and APIKeyToken Models
+"""Ticketing, APIKey and APIToken
 
-Revision ID: a2db59835404
+Revision ID: 003efb182794
 Revises: a249039be841
-Create Date: 2025-12-05 12:25:06.275885
+Create Date: 2025-12-05 14:54:17.183853
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = 'a2db59835404'
+revision: str = '003efb182794'
 down_revision: Union[str, Sequence[str], None] = 'a249039be841'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -63,10 +63,10 @@ def upgrade() -> None:
     op.create_index(op.f('ix_api_key_onboarding_tokens_api_key_id'), 'api_key_onboarding_tokens', ['api_key_id'], unique=False)
     op.create_index(op.f('ix_ticket_invited_users_ticket_id'), 'ticket_invited_users', ['ticket_id'], unique=False)
     op.create_index(op.f('ix_ticket_invited_users_user_id'), 'ticket_invited_users', ['user_id'], unique=False)
-    op.drop_constraint(op.f('fk_ticket_invited_users_ticket_id'), 'ticket_invited_users', type_='foreignkey')
     op.drop_constraint(op.f('fk_ticket_invited_users_user_id'), 'ticket_invited_users', type_='foreignkey')
-    op.create_foreign_key(None, 'ticket_invited_users', 'users', ['user_id'], ['id'])
+    op.drop_constraint(op.f('fk_ticket_invited_users_ticket_id'), 'ticket_invited_users', type_='foreignkey')
     op.create_foreign_key(None, 'ticket_invited_users', 'tickets', ['ticket_id'], ['id'])
+    op.create_foreign_key(None, 'ticket_invited_users', 'users', ['user_id'], ['id'])
     op.alter_column('tickets', 'updated_at',
                existing_type=postgresql.TIMESTAMP(timezone=True),
                nullable=False)
@@ -76,19 +76,19 @@ def upgrade() -> None:
     op.create_index(op.f('ix_tickets_priority'), 'tickets', ['priority'], unique=False)
     op.create_index(op.f('ix_tickets_source_id'), 'tickets', ['source_id'], unique=False)
     op.create_index(op.f('ix_tickets_title'), 'tickets', ['title'], unique=False)
-    op.drop_constraint(op.f('fk_tickets_data_revision_id'), 'tickets', type_='foreignkey')
-    op.drop_constraint(op.f('fk_tickets_organization_id'), 'tickets', type_='foreignkey')
     op.drop_constraint(op.f('fk_tickets_project_id'), 'tickets', type_='foreignkey')
     op.drop_constraint(op.f('fk_tickets_assigned_to_user_id'), 'tickets', type_='foreignkey')
-    op.drop_constraint(op.f('fk_tickets_source_id'), 'tickets', type_='foreignkey')
-    op.drop_constraint(op.f('fk_tickets_created_by_user_id'), 'tickets', type_='foreignkey')
+    op.drop_constraint(op.f('fk_tickets_data_revision_id'), 'tickets', type_='foreignkey')
     op.drop_constraint(op.f('fk_tickets_assigned_by_user_id'), 'tickets', type_='foreignkey')
+    op.drop_constraint(op.f('fk_tickets_source_id'), 'tickets', type_='foreignkey')
+    op.drop_constraint(op.f('fk_tickets_organization_id'), 'tickets', type_='foreignkey')
+    op.drop_constraint(op.f('fk_tickets_created_by_user_id'), 'tickets', type_='foreignkey')
+    op.create_foreign_key(None, 'tickets', 'users', ['assigned_by_user_id'], ['id'])
     op.create_foreign_key(None, 'tickets', 'projects', ['project_id'], ['id'])
     op.create_foreign_key(None, 'tickets', 'users', ['assigned_to_user_id'], ['id'])
-    op.create_foreign_key(None, 'tickets', 'sources', ['source_id'], ['id'])
-    op.create_foreign_key(None, 'tickets', 'users', ['assigned_by_user_id'], ['id'])
-    op.create_foreign_key(None, 'tickets', 'users', ['created_by_user_id'], ['id'])
     op.create_foreign_key(None, 'tickets', 'organizations', ['organization_id'], ['id'])
+    op.create_foreign_key(None, 'tickets', 'sources', ['source_id'], ['id'])
+    op.create_foreign_key(None, 'tickets', 'users', ['created_by_user_id'], ['id'])
     op.create_foreign_key(None, 'tickets', 'data_revisions', ['data_revision_id'], ['id'])
     # ### end Alembic commands ###
 
@@ -103,13 +103,13 @@ def downgrade() -> None:
     op.drop_constraint(None, 'tickets', type_='foreignkey')
     op.drop_constraint(None, 'tickets', type_='foreignkey')
     op.drop_constraint(None, 'tickets', type_='foreignkey')
-    op.create_foreign_key(op.f('fk_tickets_assigned_by_user_id'), 'tickets', 'users', ['assigned_by_user_id'], ['id'], ondelete='SET NULL')
     op.create_foreign_key(op.f('fk_tickets_created_by_user_id'), 'tickets', 'users', ['created_by_user_id'], ['id'], ondelete='SET NULL')
+    op.create_foreign_key(op.f('fk_tickets_organization_id'), 'tickets', 'organizations', ['organization_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key(op.f('fk_tickets_source_id'), 'tickets', 'sources', ['source_id'], ['id'], ondelete='SET NULL')
+    op.create_foreign_key(op.f('fk_tickets_assigned_by_user_id'), 'tickets', 'users', ['assigned_by_user_id'], ['id'], ondelete='SET NULL')
+    op.create_foreign_key(op.f('fk_tickets_data_revision_id'), 'tickets', 'data_revisions', ['data_revision_id'], ['id'], ondelete='SET NULL')
     op.create_foreign_key(op.f('fk_tickets_assigned_to_user_id'), 'tickets', 'users', ['assigned_to_user_id'], ['id'], ondelete='SET NULL')
     op.create_foreign_key(op.f('fk_tickets_project_id'), 'tickets', 'projects', ['project_id'], ['id'], ondelete='CASCADE')
-    op.create_foreign_key(op.f('fk_tickets_organization_id'), 'tickets', 'organizations', ['organization_id'], ['id'], ondelete='CASCADE')
-    op.create_foreign_key(op.f('fk_tickets_data_revision_id'), 'tickets', 'data_revisions', ['data_revision_id'], ['id'], ondelete='SET NULL')
     op.drop_index(op.f('ix_tickets_title'), table_name='tickets')
     op.drop_index(op.f('ix_tickets_source_id'), table_name='tickets')
     op.drop_index(op.f('ix_tickets_priority'), table_name='tickets')
@@ -121,8 +121,8 @@ def downgrade() -> None:
                nullable=True)
     op.drop_constraint(None, 'ticket_invited_users', type_='foreignkey')
     op.drop_constraint(None, 'ticket_invited_users', type_='foreignkey')
-    op.create_foreign_key(op.f('fk_ticket_invited_users_user_id'), 'ticket_invited_users', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key(op.f('fk_ticket_invited_users_ticket_id'), 'ticket_invited_users', 'tickets', ['ticket_id'], ['id'], ondelete='CASCADE')
+    op.create_foreign_key(op.f('fk_ticket_invited_users_user_id'), 'ticket_invited_users', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.drop_index(op.f('ix_ticket_invited_users_user_id'), table_name='ticket_invited_users')
     op.drop_index(op.f('ix_ticket_invited_users_ticket_id'), table_name='ticket_invited_users')
     op.drop_index(op.f('ix_api_key_onboarding_tokens_api_key_id'), table_name='api_key_onboarding_tokens')
