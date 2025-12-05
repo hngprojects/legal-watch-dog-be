@@ -22,6 +22,8 @@ from app.api.modules.v1.search.routes import data_revision_search_router
 from app.api.modules.v1.tickets.routes import (
     guest_access_router,
     participant_router,
+)
+from app.api.modules.v1.tickets.routes import (
     router as ticket_router,
 )
 from app.api.modules.v1.users.routes.users_route import router as users_router

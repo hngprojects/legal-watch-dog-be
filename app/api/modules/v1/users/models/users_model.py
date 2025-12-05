@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from app.api.modules.v1.tickets.models.ticket_model import ExternalParticipant, Ticket
 
 
-
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -78,4 +77,3 @@ class User(SQLModel, table=True):
         back_populates="invited_by_user",
         sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )
-
