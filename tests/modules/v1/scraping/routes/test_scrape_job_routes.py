@@ -1,7 +1,7 @@
 """Tests for scrape job routes (manual scrape trigger and job status endpoints)."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -744,3 +744,254 @@ class TestBackgroundScrapeTask:
             await ScrapeJobService.execute_scrape_job_background(
                 non_existent_job_id, non_existent_source_id
             )
+
+
+class TestGetActiveScrapeJob:
+    """Tests for GET /sources/{source_id}/scrapes/active endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_active_scrape_job_found(
+        self, client, pg_async_session, auth_headers, sample_source, sample_user
+    ):
+        """Test successful retrieval of active scrape job returns 200 OK."""
+        active_job = ScrapeJob(
+            id=uuid.uuid4(),
+            source_id=sample_source.id,
+            status=ScrapeJobStatus.IN_PROGRESS,
+            created_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
+        )
+        pg_async_session.add(active_job)
+        await pg_async_session.commit()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{sample_source.id}/scrapes/active",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["message"] == "Active scrape job found for this source"
+        assert data["data"]["id"] == str(active_job.id)
+        assert data["data"]["source_id"] == str(sample_source.id)
+        assert data["data"]["status"] == ScrapeJobStatus.IN_PROGRESS.value
+
+    @pytest.mark.asyncio
+    async def test_get_active_scrape_job_pending_status(
+        self, client, pg_async_session, auth_headers, sample_source, sample_user
+    ):
+        """Test retrieval of pending scrape job returns 200 OK."""
+        pending_job = ScrapeJob(
+            id=uuid.uuid4(),
+            source_id=sample_source.id,
+            status=ScrapeJobStatus.PENDING,
+            created_at=datetime.now(timezone.utc),
+        )
+        pg_async_session.add(pending_job)
+        await pg_async_session.commit()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{sample_source.id}/scrapes/active",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["data"]["status"] == ScrapeJobStatus.PENDING.value
+
+    @pytest.mark.asyncio
+    async def test_get_active_scrape_job_no_active_job(
+        self, client, pg_async_session, auth_headers, sample_source, sample_user
+    ):
+        """Test 204 when no active scrape job exists."""
+        # Add a completed job (should not be returned)
+        completed_job = ScrapeJob(
+            id=uuid.uuid4(),
+            source_id=sample_source.id,
+            status=ScrapeJobStatus.COMPLETED,
+            created_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        pg_async_session.add(completed_job)
+        await pg_async_session.commit()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{sample_source.id}/scrapes/active",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["message"] == "No active scrape job found for this source"
+
+    @pytest.mark.asyncio
+    async def test_get_active_scrape_job_source_not_found(
+        self, client, pg_async_session, auth_headers, sample_user
+    ):
+        """Test 404 when source doesn't exist."""
+        non_existent_id = uuid.uuid4()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{non_existent_id}/scrapes/active",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert data["message"] == "Source not found"
+        assert data["error"] == "SOURCE_NOT_FOUND"
+
+
+class TestListScrapeJobs:
+    """Tests for GET /sources/{source_id}/scrapes endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_scrape_jobs_success(
+        self, client, pg_async_session, auth_headers, sample_source, sample_user
+    ):
+        """Test successful listing of scrape jobs returns 200 OK."""
+        # Create multiple jobs with different statuses
+        jobs = [
+            ScrapeJob(
+                id=uuid.uuid4(),
+                source_id=sample_source.id,
+                status=ScrapeJobStatus.COMPLETED,
+                created_at=datetime.now(timezone.utc),
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                result={"status": "success", "change_detected": True},
+            ),
+            ScrapeJob(
+                id=uuid.uuid4(),
+                source_id=sample_source.id,
+                status=ScrapeJobStatus.FAILED,
+                created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                started_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                completed_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                error_message="Network timeout",
+            ),
+        ]
+
+        for job in jobs:
+            pg_async_session.add(job)
+        await pg_async_session.commit()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{sample_source.id}/scrapes",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert data["message"] == "Scrape jobs retrieved successfully"
+        assert len(data["data"]["items"]) == 2
+        assert data["data"]["total"] == 2
+        assert data["data"]["page"] == 1
+
+        # Check ordering (newest first)
+        first_job = data["data"]["items"][0]
+        second_job = data["data"]["items"][1]
+        assert first_job["status"] == ScrapeJobStatus.COMPLETED.value
+        assert second_job["status"] == ScrapeJobStatus.FAILED.value
+
+    @pytest.mark.asyncio
+    async def test_list_scrape_jobs_empty_list(
+        self, client, pg_async_session, auth_headers, sample_source, sample_user
+    ):
+        """Test empty list when no jobs exist for source."""
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{sample_source.id}/scrapes",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "SUCCESS"
+        assert len(data["data"]["items"]) == 0
+        assert data["data"]["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_list_scrape_jobs_source_not_found(
+        self, client, pg_async_session, auth_headers, sample_user
+    ):
+        """Test 404 when source doesn't exist."""
+        non_existent_id = uuid.uuid4()
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        response = await client.get(
+            f"/api/v1/sources/{non_existent_id}/scrapes",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert data["message"] == "Source not found"
+        assert data["error"] == "SOURCE_NOT_FOUND"
