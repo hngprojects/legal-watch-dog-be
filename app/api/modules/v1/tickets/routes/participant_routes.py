@@ -2,11 +2,13 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.db.database import get_db
+from app.api.modules.v1.tickets.models.ticket_model import Ticket
 from app.api.modules.v1.tickets.schemas.external_participant_schema import (
     InviteParticipantsRequest,
     InviteParticipantsResponse,
@@ -65,11 +67,6 @@ async def invite_participants(
             - already_invited: List of emails already invited
     """
     try:
-        # Get ticket to extract organization_id for billing check
-        from sqlalchemy import select
-
-        from app.api.modules.v1.tickets.models.ticket_model import Ticket
-
         ticket_result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
         ticket = ticket_result.scalar_one_or_none()
 
@@ -79,7 +76,6 @@ async def invite_participants(
                 message="Ticket not found",
             )
 
-        # Check billing access for the organization
         try:
             await require_billing_access(organization_id=ticket.organization_id, db=db)
         except HTTPException as billing_error:
