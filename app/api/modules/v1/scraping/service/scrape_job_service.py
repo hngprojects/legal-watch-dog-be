@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from sqlmodel import select
 
 from app.api.db.database import AsyncSessionLocal
-from app.api.modules.v1.notifications.service.scrape_faillure_notification_task import (
+from app.api.modules.v1.notifications.service.scrape_failure_notification_task import (
     send_scrape_failure_notifications_task,
 )
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
