@@ -218,7 +218,9 @@ jobs:
               export PATH="$HOME/.local/bin:$PATH"
             fi
 
-            export $(grep -v '^#' .env.prod | xargs)
+            set -a
+            source .env.prod
+            set +a
 
             uv sync
             uv run alembic upgrade head
@@ -452,7 +454,9 @@ jobs:
               export PATH="$HOME/.local/bin:$PATH"
             fi
 
-            export $(grep -v '^#' .env.stage | xargs)
+            set -a
+            source .env.stage
+            set +a
 
             
             uv sync
