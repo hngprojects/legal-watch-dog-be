@@ -148,9 +148,7 @@ class TicketService:
                 )
             )
 
-            logger.info(
-                f"User {user.id} ({user.email}) invited to ticket {ticket_id}"
-            )
+            logger.info(f"User {user.id} ({user.email}) invited to ticket {ticket_id}")
 
         if invited:
             await self.db.commit()
