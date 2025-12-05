@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import TenantGuard
 from app.api.core.dependencies.billing_guard import require_billing_access
+from app.api.core.dependencies.plan_limits import require_jurisdiction_creation_allowed
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.jurisdictions.schemas.jurisdiction_schema import (
@@ -27,7 +28,6 @@ from app.api.utils.response_payloads import error_response, success_response
 
 logger = logging.getLogger("app")
 
-
 router = APIRouter(
     prefix="/organizations/{organization_id}/jurisdictions",
     tags=["Jurisdictions"],
@@ -37,7 +37,12 @@ router = APIRouter(
 service = JurisdictionService()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=JurisdictionResponseSchema)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    response_model=JurisdictionResponseSchema,
+    dependencies=[Depends(require_jurisdiction_creation_allowed)],
+)
 async def create_jurisdiction(
     organization_id: UUID, payload: JurisdictionCreateSchema, db: AsyncSession = Depends(get_db)
 ):

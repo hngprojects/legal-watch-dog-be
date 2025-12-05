@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import Session
 
 from app.api.core.config import settings
+from app.api.core.dependencies.plan_limits import PlanLimits
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
 from app.api.modules.v1.projects.models.project_model import Project
@@ -93,13 +94,22 @@ def test_scrape_source_success(sync_session: Session):
         patch(
             "app.api.modules.v1.scraping.service.scraper_service.ScraperService"
         ) as mock_scraper_cls,
+        patch(
+            "app.api.modules.v1.scraping.service.tasks.get_plan_limits_for_org",
+            new=AsyncMock(
+                return_value=PlanLimits(
+                    max_projects=None,
+                    max_jurisdictions=None,
+                    monthly_scans=None,
+                )
+            ),
+        ),
+        patch(
+            "app.api.modules.v1.scraping.service.tasks._count_monthly_scans_for_org",
+            new=AsyncMock(return_value=0),
+        ),
     ):
         mock_db = MagicMock()
-        mock_session_cls.return_value.__aenter__.return_value = mock_db
-        mock_db.execute = AsyncMock()
-        mock_db.add = MagicMock(side_effect=sync_session.add)
-        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
-        mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
 
         async def mock_execute(stmt):
             result = MagicMock()
@@ -108,7 +118,16 @@ def test_scrape_source_success(sync_session: Session):
             )
             return result
 
-        mock_db.execute.side_effect = mock_execute
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+        mock_db.add = MagicMock(side_effect=sync_session.add)
+        mock_db.commit = AsyncMock(side_effect=lambda: sync_session.commit())
+        mock_db.refresh = AsyncMock(side_effect=lambda obj: sync_session.refresh(obj))
+
+        # Context manager for AsyncSessionLocal()
+        mock_session_ctx = AsyncMock()
+        mock_session_ctx.__aenter__.return_value = mock_db
+        mock_session_ctx.__aexit__.return_value = None
+        mock_session_cls.return_value = mock_session_ctx
 
         mock_scraper_instance = MagicMock()
         mock_scraper_instance.execute_scrape_job = AsyncMock(

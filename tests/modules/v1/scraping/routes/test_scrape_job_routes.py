@@ -10,6 +10,7 @@ from fastapi import status
 from httpx import ASGITransport, AsyncClient
 
 from app.api.core.dependencies.auth import get_current_user
+from app.api.core.dependencies.plan_limits import PlanLimits
 from app.api.db.database import get_db
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.organization_model import Organization
@@ -19,6 +20,44 @@ from app.api.modules.v1.scraping.models.source_model import Source, SourceType
 from app.api.modules.v1.scraping.service.scrape_job_service import ScrapeJobService
 from app.api.modules.v1.users.models.users_model import User
 from main import app
+
+
+@pytest.fixture(autouse=True)
+def allow_billing_and_unlimited_scans(monkeypatch):
+    """
+    By default, allow billing & remove scan limits so existing tests behave
+    as before. Individual tests can override this monkeypatch if needed.
+    """
+    from app.api.core.dependencies import plan_limits as plan_limits_mod
+
+    async def fake_get_plan_limits_for_org(org_id, db):
+        return PlanLimits(
+            max_projects=None,
+            max_jurisdictions=None,
+            monthly_scans=None,
+        )
+
+    async def fake_count_monthly_scans_for_org(org_id, db):
+        return 0
+
+    async def fake_require_billing_access(organization_id, db):
+        return None
+
+    monkeypatch.setattr(
+        plan_limits_mod,
+        "get_plan_limits_for_org",
+        fake_get_plan_limits_for_org,
+    )
+    monkeypatch.setattr(
+        plan_limits_mod,
+        "_count_monthly_scans_for_org",
+        fake_count_monthly_scans_for_org,
+    )
+    monkeypatch.setattr(
+        plan_limits_mod,
+        "require_billing_access",
+        fake_require_billing_access,
+    )
 
 
 @pytest.fixture
@@ -744,3 +783,69 @@ class TestBackgroundScrapeTask:
             await ScrapeJobService.execute_scrape_job_background(
                 non_existent_job_id, non_existent_source_id
             )
+
+    @pytest.mark.asyncio
+    async def test_manual_scrape_trigger_blocked_when_monthly_scan_limit_reached(
+        self,
+        client,
+        pg_async_session,
+        auth_headers,
+        sample_source,
+        sample_user,
+        monkeypatch,
+    ):
+        """
+        When monthly_scans is reached for an org, the dependency
+        require_scan_allowed_for_source should raise 402 PAYMENT_REQUIRED,
+        and the route should return 402.
+        """
+
+        async def override_get_db():
+            yield pg_async_session
+
+        async def override_get_current_user():
+            return sample_user
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        from app.api.core.dependencies import plan_limits as plan_limits_mod
+
+        async def fake_get_plan_limits_for_org(org_id, db):
+            return PlanLimits(
+                max_projects=None,
+                max_jurisdictions=None,
+                monthly_scans=5,
+            )
+
+        async def fake_count_monthly_scans_for_org(org_id, db):
+            return 5
+
+        async def fake_require_billing_access(organization_id, db):
+            return None
+
+        monkeypatch.setattr(
+            plan_limits_mod,
+            "get_plan_limits_for_org",
+            fake_get_plan_limits_for_org,
+        )
+        monkeypatch.setattr(
+            plan_limits_mod,
+            "_count_monthly_scans_for_org",
+            fake_count_monthly_scans_for_org,
+        )
+        monkeypatch.setattr(
+            plan_limits_mod,
+            "require_billing_access",
+            fake_require_billing_access,
+        )
+
+        response = await client.post(
+            f"/api/v1/sources/{sample_source.id}/scrapes",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        data = response.json()
+        assert data["status_code"] == status.HTTP_402_PAYMENT_REQUIRED
+        assert "monthly scan limit" in data["message"].lower()

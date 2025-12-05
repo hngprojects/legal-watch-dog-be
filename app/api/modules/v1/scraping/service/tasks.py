@@ -17,7 +17,13 @@ from celery.utils.log import get_task_logger
 from sqlmodel import select, update
 
 from app.api.core.config import settings
+from app.api.core.dependencies.plan_limits import (
+    _count_monthly_scans_for_org,
+    get_plan_limits_for_org,
+)
 from app.api.db.database import AsyncSessionLocal
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
 
 # Apply nest_asyncio to allow asyncio.run() inside Celery tasks
@@ -96,6 +102,46 @@ async def _scrape_source_async(source_id: str) -> str:
         if not source:
             logger.warning(f"Source {source_id} not found.")
             return f"Source {source_id} not found."
+
+        org_stmt = (
+            select(Project.org_id)
+            .select_from(Source)
+            .join(Jurisdiction, Source.jurisdiction_id == Jurisdiction.id)
+            .join(Project, Jurisdiction.project_id == Project.id)
+            .where(Source.id == source_id)
+        )
+        org_result = await db.execute(org_stmt)
+        org_id = org_result.scalar_one_or_none()
+
+        if not org_id:
+            logger.warning(f"Could not resolve organization for source {source_id}. Skipping.")
+            return f"Skipped: organization not found for source {source_id}"
+
+        limits = await get_plan_limits_for_org(org_id, db)
+
+        if limits.monthly_scans is not None:
+            used_scans = await _count_monthly_scans_for_org(org_id, db)
+            if used_scans >= limits.monthly_scans:
+                logger.info(
+                    f"Skipping scrape for source {source_id}: "
+                    f"org {org_id} has used {used_scans}/{limits.monthly_scans} scans."
+                )
+
+                now = datetime.now(timezone.utc)
+                first_of_next_month = (
+                    now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                    + timedelta(days=32)
+                ).replace(day=1)
+                source.next_scrape_time = first_of_next_month
+                source.last_error = "Monthly scan limit reached for your current plan."
+
+                db.add(source)
+                await db.commit()
+
+                return (
+                    f"Skipped: monthly scan limit reached for org {org_id} "
+                    f"({used_scans}/{limits.monthly_scans})."
+                )
 
         try:
             scraper_service = ScraperService(db)
