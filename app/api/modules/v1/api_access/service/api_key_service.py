@@ -159,7 +159,6 @@ class APIKeyService:
         if not api_key.rotation_enabled:
             raise PermissionError("Rotation is disabled for this API key")
 
-        # Avoid double-rotating within the configured window
         now = datetime.now(timezone.utc)
         window_days = api_key.rotation_interval_days or settings.API_KEY_ROTATION_WINDOW_DAYS
         if api_key.last_rotated_at and api_key.last_rotated_at >= now - timedelta(days=window_days):
@@ -168,10 +167,8 @@ class APIKeyService:
             )
             return ""
 
-        # Create a brand-new API key record mapped to the same key_name
         scopes = api_key.scope.split(",") if api_key.scope else []
 
-        # Use the service's create helper to ensure hashing and DB write
         new_api_key, raw_key = await self.generate_and_hash_api_key(
             db=db,
             key_name=api_key.key_name,

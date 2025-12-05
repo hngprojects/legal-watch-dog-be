@@ -46,7 +46,7 @@ class APIKeyOutSchema(BaseModel):
     organization_name: str
     user_name: Optional[str]
     receiver_email: Optional[EmailStr] = None
-    hashed_key: str
+    api_key: str
     scope: str
     generated_by: str
     is_active: bool = True
