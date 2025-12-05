@@ -1,4 +1,3 @@
-# tests/modules/v1/tickets/service/test_ticket_creation_service.py
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,7 +8,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_create_auto_ticket_with_admin_user():
     """Test creating an auto ticket when an admin user exists."""
-    # Patch all imports before importing the service
+    
     select_patch = "app.api.modules.v1.tickets.service.ticket_creation_service.select"
     user_patch = "app.api.modules.v1.tickets.service.ticket_creation_service.User"
     datetime_patch = "app.api.modules.v1.tickets.service.ticket_creation_service.datetime"
@@ -19,18 +18,18 @@ async def test_create_auto_ticket_with_admin_user():
         patch(user_patch) as mock_user_class,
         patch(datetime_patch) as mock_datetime,
     ):
-        # Import after patching
+        
         from app.api.modules.v1.tickets.models.ticket_model import TicketPriority
         from app.api.modules.v1.tickets.service.ticket_creation_service import TicketService
 
-        # Setup mocks
+ 
         mock_db = AsyncMock()
 
-        # Mock datetime
+        
         fixed_time = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         mock_datetime.now.return_value = fixed_time
 
-        # Mock User class attributes
+    
         mock_user_class.organization_id = MagicMock()
         mock_user_class.organization_id.__eq__ = MagicMock(return_value=True)
 
@@ -40,7 +39,7 @@ async def test_create_auto_ticket_with_admin_user():
         mock_user_class.is_superuser = MagicMock()
         mock_user_class.is_superuser.is_ = MagicMock(return_value=True)
 
-        # Mock select chain
+      
         mock_select_obj = MagicMock()
         mock_select.return_value = mock_select_obj
         mock_where_obj = MagicMock()
@@ -48,22 +47,22 @@ async def test_create_auto_ticket_with_admin_user():
         mock_limit_obj = MagicMock()
         mock_where_obj.limit.return_value = mock_limit_obj
 
-        # Mock query execution result - CRITICAL FIX HERE
+       
         mock_admin_user = MagicMock()
         mock_admin_user.id = uuid.uuid4()
 
-        # Create a proper mock for scalars().first()
+        
         mock_scalars = MagicMock()
         mock_scalars.first.return_value = mock_admin_user
 
-        # Create mock for execute() result - NOT an AsyncMock
+        
         mock_execute_result = MagicMock()
         mock_execute_result.scalars.return_value = mock_scalars
 
-        # Make execute() return the mock result (not an AsyncMock)
+        
         mock_db.execute.return_value = mock_execute_result
 
-        # Mock test data
+     
         mock_revision = MagicMock()
         mock_revision.id = uuid.uuid4()
         mock_revision.source_id = "test-source-123"
@@ -74,7 +73,7 @@ async def test_create_auto_ticket_with_admin_user():
         )
         mock_change_result.risk_level = "HIGH"
 
-        # Create service and execute
+      
         service = TicketService(mock_db)
         result = await service.create_auto_ticket(
             revision=mock_revision,
@@ -83,7 +82,7 @@ async def test_create_auto_ticket_with_admin_user():
             organization_id=uuid.uuid4(),
         )
 
-        # Assertions
+    
         expected_title = f"Change Detected in Source {mock_revision.source_id}"
         assert result.title == expected_title
 
@@ -110,10 +109,10 @@ async def test_create_auto_ticket_without_admin_user():
     with patch(select_patch) as mock_select, patch(user_patch) as mock_user_class:
         from app.api.modules.v1.tickets.service.ticket_creation_service import TicketService
 
-        # Setup mocks
+   
         mock_db = AsyncMock()
 
-        # Mock User class attributes
+    
         mock_user_class.organization_id = MagicMock()
         mock_user_class.organization_id.__eq__ = MagicMock(return_value=True)
         mock_user_class.is_active = MagicMock()
@@ -121,7 +120,7 @@ async def test_create_auto_ticket_without_admin_user():
         mock_user_class.is_superuser = MagicMock()
         mock_user_class.is_superuser.is_ = MagicMock(return_value=True)
 
-        # Mock select chain
+     
         mock_select_obj = MagicMock()
         mock_select.return_value = mock_select_obj
         mock_where_obj = MagicMock()
@@ -129,7 +128,7 @@ async def test_create_auto_ticket_without_admin_user():
         mock_limit_obj = MagicMock()
         mock_where_obj.limit.return_value = mock_limit_obj
 
-        # Mock query to return None (no admin user) - CRITICAL FIX HERE
+      
         mock_scalars = MagicMock()
         mock_scalars.first.return_value = None
 
@@ -137,7 +136,7 @@ async def test_create_auto_ticket_without_admin_user():
         mock_result.scalars.return_value = mock_scalars
         mock_db.execute.return_value = mock_result
 
-        # Mock test data
+  
         mock_revision = MagicMock()
         mock_revision.id = uuid.uuid4()
         mock_revision.source_id = "another-source"
@@ -146,7 +145,7 @@ async def test_create_auto_ticket_without_admin_user():
         mock_change_result.change_summary = "Minor configuration changes"
         mock_change_result.risk_level = "LOW"
 
-        # Create service and execute
+     
         service = TicketService(mock_db)
         result = await service.create_auto_ticket(
             revision=mock_revision,
@@ -155,7 +154,7 @@ async def test_create_auto_ticket_without_admin_user():
             organization_id=uuid.uuid4(),
         )
 
-        # Assertions
+
         assert result.created_by_user_id is None
         expected_title = f"Change Detected in Source {mock_revision.source_id}"
         assert result.title == expected_title
