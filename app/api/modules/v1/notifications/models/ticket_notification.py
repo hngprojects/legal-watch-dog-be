@@ -81,3 +81,16 @@ class TicketNotification(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True),
         default=None,
     )
+
+    is_read: bool = Field(
+        default=False,
+        nullable=False,
+        index=True,
+        description="Whether the notification has been read by the user",
+    )
+
+    read_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+        description="Timestamp when the notification was marked as read",
+    )

@@ -84,7 +84,35 @@ async def send_ticket_notifications(ticket_id: str, activity_message: str, sessi
                     message=activity_message,
                 )
                 session.add(notification)
-                # no commit yet — wait until after send_email
+                await (
+                    session.flush()
+                )  # Flush to get ID and allow sending event before commit if desired
+
+                # BROADCAST NOTIFICATION VIA WEBSOCKET
+                try:
+                    from app.api.events.models import EventTopic, NotificationEvent
+                    from app.api.ws.connection_manager import manager
+
+                    websocket_payload = {
+                        "notification_id": str(notification.notification_id),
+                        "ticket_id": str(notification.ticket_id),
+                        "user_id": str(notification.user_id),
+                        "message": notification.message,
+                        "created_at": notification.created_at.isoformat(),
+                        "status": "PENDING",
+                        "is_read": False,
+                    }
+
+                    event = NotificationEvent(
+                        topic=EventTopic.NOTIFICATIONS,
+                        event="notification.created",
+                        payload=websocket_payload,
+                        recipient_ids=[notification.user_id],
+                    )
+                    await manager.send_event(event)
+                    logger.info(f"Broadcasted notification event for user {notification.user_id}")
+                except Exception as ws_exc:
+                    logger.error(f"Failed to broadcast websocket event: {str(ws_exc)}")
 
             # Try sending email
             try:
