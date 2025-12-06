@@ -32,6 +32,31 @@ async def create_api_key(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Create a new API key for a given organization.
+
+    Generates an API key with the specified details and stores it in the database.
+    Additional background tasks (e.g., sending notifications) may be executed.
+
+    **Path / Query Parameters**
+    - organization_id: UUID of the organization for which the API key is created.
+
+    **Request Body**
+    - api_key_in: Schema containing API key details such as name, permissions, and expiration.
+
+    **Dependencies**
+    - background_tasks: Optional background tasks to run after creation.
+    - db: Async database session.
+    - current_user_permissions: Permissions of the requesting user, used for access control.
+
+    **Returns**
+    - APIKeyOutSchema: Information about the newly created API key
+    (e.g., ID, name, key value, permissions, expiration).
+
+    **Status Codes**
+    - 200 OK: API key successfully created.
+    - 403 Forbidden: User does not have permission to create API keys for this organization.
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -63,7 +88,7 @@ async def create_api_key(
     return APIKeyOutSchema(
         key_name=api_key_obj.key_name,
         organization_name=api_key_obj.organization.name,
-        user_name=api_key_obj.user.name if api_key_obj.user else None,
+        user_name=api_key_obj.owner_user.name if api_key_obj.owner_user else None,
         receiver_email=api_key_obj.receiver_email,
         api_key=raw_key,
         scope=api_key_obj.scope,
@@ -86,6 +111,30 @@ async def list_api_keys(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Retrieve a paginated list of API keys for a given organization.
+
+    Returns API keys associated with `organization_id`, supporting pagination
+    via `page` and `limit`.
+
+    **Query Parameters**
+    - page: Page number to retrieve (default: 1, ≥1)
+    - limit: Number of items per page (default: 20, 1-100)
+
+    **Path / Query Parameters**
+    - organization_id: UUID of the organization
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Returns**
+    - List of APIKeyOutSchema objects representing the organization's API keys
+
+    **Status Codes**
+    - 200 OK: API keys retrieved successfully
+    - 403 Forbidden: User does not have permission to view API keys for this organization
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -100,7 +149,7 @@ async def list_api_keys(
         APIKeyOutSchema(
             key_name=k.key_name,
             organization_name=k.organization.name,
-            user_name=k.user.name if k.user else None,
+            user_name=k.owner_user.name if k.owner_user else None,
             receiver_email=k.receiver_email,
             api_key=k.hashed_key,
             scope=k.scope,
@@ -126,6 +175,30 @@ async def get_api_key(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Retrieve details of a specific API key for an organization.
+
+    Fetches information about the API key identified by `api_key_id` within
+    the given `organization_id`.
+
+    **Path Parameters**
+    - api_key_id: UUID of the API key to retrieve
+
+    **Query / Path Parameters**
+    - organization_id: UUID of the organization the API key belongs to
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Returns**
+    - APIKeyOutSchema: Details of the requested API key (e.g., name, value, permissions, expiration)
+
+    **Status Codes**
+    - 200 OK: API key retrieved successfully
+    - 403 Forbidden: User does not have permission to access this API key
+    - 404 Not Found: API key does not exist
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -136,7 +209,7 @@ async def get_api_key(
     return APIKeyOutSchema(
         key_name=api_key.key_name,
         organization_name=api_key.organization.name,
-        user_name=api_key.user.name if api_key.user else None,
+        user_name=api_key.owner_user.name if api_key.owner_user else None,
         receiver_email=api_key.receiver_email,
         api_key=api_key.hashed_key,
         scope=api_key.scope,
@@ -159,6 +232,33 @@ async def update_api_key(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Update an existing API key for a given organization.
+
+    Applies the provided `updates` to the API key identified by `api_key_id`.
+    Only fields included in the `updates` dictionary will be modified.
+
+    **Path Parameters**
+    - api_key_id: UUID of the API key to update
+
+    **Query / Path Parameters**
+    - organization_id: UUID of the organization the API key belongs to
+
+    **Request Body**
+    - updates: Dictionary of fields to update (e.g., name, permissions, expiration)
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Returns**
+    - APIKeyOutSchema: Updated details of the API key
+
+    **Status Codes**
+    - 200 OK: API key updated successfully
+    - 403 Forbidden: User does not have permission to update this API key
+    - 404 Not Found: API key does not exist
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -177,6 +277,27 @@ async def delete_api_key(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Delete a specific API key for a given organization.
+
+    Removes the API key identified by `api_key_id` from the specified
+    `organization_id`. This action is irreversible.
+
+    **Path Parameters**
+    - api_key_id: UUID of the API key to delete
+
+    **Query / Path Parameters**
+    - organization_id: UUID of the organization the API key belongs to
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Status Codes**
+    - 204 No Content: API key deleted successfully
+    - 403 Forbidden: User does not have permission to delete this API key
+    - 404 Not Found: API key does not exist
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -195,6 +316,30 @@ async def rotate_api_key(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Rotate (regenerate) the value of an existing API key.
+
+    Generates a new API key value for the key identified by `api_key_id`
+    within the specified `organization_id`. The previous key value is invalidated.
+
+    **Path Parameters**
+    - api_key_id: UUID of the API key to rotate
+
+    **Query / Path Parameters**
+    - organization_id: UUID of the organization the API key belongs to
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Returns**
+    - str: The new API key value
+
+    **Status Codes**
+    - 200 OK: API key rotated successfully
+    - 403 Forbidden: User does not have permission to rotate this API key
+    - 404 Not Found: API key does not exist
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -219,6 +364,33 @@ async def set_rotation(
     db: AsyncSession = Depends(get_db),
     current_user_permissions: dict = Depends(get_current_user),
 ):
+    """
+    Enable or disable automatic rotation for a specific API key.
+
+    Updates the rotation setting of the API key identified by `api_key_id`
+    within the specified `organization_id` according to the provided payload.
+
+    **Path Parameters**
+    - api_key_id: UUID of the API key to update rotation settings
+
+    **Query / Path Parameters**
+    - organization_id: UUID of the organization the API key belongs to
+
+    **Request Body**
+    - payload: RotationToggleSchema indicating whether rotation should be enabled or disabled
+
+    **Dependencies**
+    - db: Async database session
+    - current_user_permissions: Permissions of the requesting user for access control
+
+    **Returns**
+    - APIKeyOutSchema: Updated API key information including rotation settings
+
+    **Status Codes**
+    - 200 OK: Rotation setting updated successfully
+    - 403 Forbidden: User does not have permission to update this API key
+    - 404 Not Found: API key does not exist
+    """
     if not service.can_generate_key(current_user_permissions):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -238,7 +410,7 @@ async def set_rotation(
     return APIKeyOutSchema(
         key_name=updated.key_name,
         organization_name=updated.organization.name,
-        user_name=updated.user.name if updated.user else None,
+        user_name=updated.owner_user.name if updated.owner_user else None,
         receiver_email=updated.receiver_email,
         api_key=updated.hashed_key,
         scope=updated.scope,

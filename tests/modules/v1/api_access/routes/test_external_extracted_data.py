@@ -215,3 +215,77 @@ async def test_download_source_insufficient_scope(client, pg_async_session, samp
     url = f"/api/v1/external/sources/{resource['source'].id}/extracted-data/download"
     resp = await client.get(url)
     assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_list_sources_happy_path(client, pg_async_session, sample_resource_setup):
+    resource = sample_resource_setup
+
+    async def override_get_db():
+        yield pg_async_session
+
+    api_key_obj = SimpleNamespace(organization_id=resource["organization"].id, scope="read:source")
+
+    async def override_api_key():
+        return api_key_obj
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_api_key_from_header] = override_api_key
+
+    url = "/api/v1/external/sources"
+    resp = await client.get(url)
+    assert resp.status_code == status.HTTP_200_OK
+    body = resp.json()
+    assert body["status"] == "SUCCESS"
+    items = body["data"]["items"]
+    assert any(item["id"] == str(resource["source"].id) for item in items)
+
+
+@pytest.mark.asyncio
+async def test_list_jurisdictions_happy_path(client, pg_async_session, sample_resource_setup):
+    resource = sample_resource_setup
+
+    async def override_get_db():
+        yield pg_async_session
+
+    api_key_obj = SimpleNamespace(
+        organization_id=resource["organization"].id, scope="read:jurisdiction"
+    )
+
+    async def override_api_key():
+        return api_key_obj
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_api_key_from_header] = override_api_key
+
+    url = "/api/v1/external/jurisdictions"
+    resp = await client.get(url)
+    assert resp.status_code == status.HTTP_200_OK
+    body = resp.json()
+    assert body["status"] == "SUCCESS"
+    items = body["data"]["items"]
+    assert any(item["id"] == str(resource["jurisdiction"].id) for item in items)
+
+
+@pytest.mark.asyncio
+async def test_list_projects_happy_path(client, pg_async_session, sample_resource_setup):
+    resource = sample_resource_setup
+
+    async def override_get_db():
+        yield pg_async_session
+
+    api_key_obj = SimpleNamespace(organization_id=resource["organization"].id, scope="read:project")
+
+    async def override_api_key():
+        return api_key_obj
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_api_key_from_header] = override_api_key
+
+    url = "/api/v1/external/projects"
+    resp = await client.get(url)
+    assert resp.status_code == status.HTTP_200_OK
+    body = resp.json()
+    assert body["status"] == "SUCCESS"
+    items = body["data"]["items"]
+    assert any(item["id"] == str(resource["project"].id) for item in items)

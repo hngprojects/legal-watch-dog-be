@@ -10,9 +10,155 @@ from starlette.responses import StreamingResponse
 
 from app.api.core.dependencies.api_key_auth import api_key_has_scope, get_api_key_from_header
 from app.api.db.database import get_db
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+from app.api.modules.v1.projects.models.project_model import Project
+from app.api.modules.v1.scraping.models.data_revision import DataRevision
+from app.api.modules.v1.scraping.models.source_model import Source
 from app.api.utils.response_payloads import success_response
 
 router = APIRouter(prefix="/external", tags=["External Extracted Data"])
+
+
+@router.get("/sources", status_code=status.HTTP_200_OK)
+async def list_sources(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=500),
+    name: Optional[str] = Query(None, description="Optional name filter"),
+    slug: Optional[str] = Query(None, description="Optional slug filter"),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List sources visible to the API key.
+
+    Returns a paginated list of sources (id, name, slug, jurisdiction_id). If the
+    API key is scoped to an organization, results are restricted to that organization.
+    """
+    required_scope = "read:source"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    stmt = select(Source)
+    if name:
+        stmt = stmt.where(Source.name.ilike(f"%{name}%"))
+    if slug:
+        stmt = stmt.where(getattr(Source, "slug", None) == slug)
+
+    if getattr(api_key, "organization_id", None):
+        stmt = (
+            stmt.join(Jurisdiction, Source.jurisdiction_id == Jurisdiction.id)
+            .join(Project, Jurisdiction.project_id == Project.id)
+            .where(Project.org_id == getattr(api_key, "organization_id"))
+        )
+
+    stmt = stmt.offset(skip).limit(limit)
+    res = await db.execute(stmt)
+    items = [
+        {
+            "id": str(s.id),
+            "name": s.name,
+            "slug": getattr(s, "slug", None),
+            "jurisdiction_id": str(s.jurisdiction_id) if s.jurisdiction_id else None,
+        }
+        for s in res.scalars().all()
+    ]
+
+    return success_response(
+        status_code=status.HTTP_200_OK, message="Sources listed", data={"items": items}
+    )
+
+
+@router.get("/jurisdictions", status_code=status.HTTP_200_OK)
+async def list_jurisdictions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=500),
+    name: Optional[str] = Query(None, description="Optional name filter"),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List jurisdictions visible to the API key.
+
+    Returns a paginated list of jurisdictions (id, name, project_id). If the API
+    key is org-scoped, results are restricted to that organization.
+    """
+    required_scope = "read:jurisdiction"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.projects.models.project_model import Project
+
+    stmt = select(Jurisdiction)
+    if name:
+        stmt = stmt.where(Jurisdiction.name.ilike(f"%{name}%"))
+
+    if getattr(api_key, "organization_id", None):
+        stmt = stmt.join(Project, Jurisdiction.project_id == Project.id).where(
+            Project.org_id == getattr(api_key, "organization_id")
+        )
+
+    stmt = stmt.offset(skip).limit(limit)
+    res = await db.execute(stmt)
+    items = [
+        {"id": str(j.id), "name": j.name, "project_id": str(j.project_id)}
+        for j in res.scalars().all()
+    ]
+
+    return success_response(
+        status_code=status.HTTP_200_OK, message="Jurisdictions listed", data={"items": items}
+    )
+
+
+@router.get("/projects", status_code=status.HTTP_200_OK)
+async def list_projects(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=500),
+    name: Optional[str] = Query(None, description="Optional name filter"),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List projects visible to the API key.
+
+    Returns a paginated list of projects (id, title, org_id). If the API key is
+    org-scoped, returns only projects for that org.
+    """
+    required_scope = "read:project"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    from app.api.modules.v1.projects.models.project_model import Project
+
+    stmt = select(Project)
+    if name:
+        stmt = stmt.where(Project.title.ilike(f"%{name}%"))
+
+    if getattr(api_key, "organization_id", None):
+        stmt = stmt.where(Project.org_id == getattr(api_key, "organization_id"))
+
+    stmt = stmt.offset(skip).limit(limit)
+    res = await db.execute(stmt)
+    items = [
+        {"id": str(p.id), "title": p.title, "org_id": str(p.org_id)} for p in res.scalars().all()
+    ]
+
+    return success_response(
+        status_code=status.HTTP_200_OK, message="Projects listed", data={"items": items}
+    )
+
+
+def _iter_json_bytes(revisions):
+    """Helper generator to stream JSON for download responses."""
+    yield b"["
+    first = True
+    for r in revisions:
+        if not first:
+            yield b","
+        else:
+            first = False
+        yield json.dumps(r).encode("utf-8")
+    yield b"]"
 
 
 @router.get("/sources/{source_id}/extracted-data", status_code=status.HTTP_200_OK)
@@ -30,12 +176,32 @@ async def get_source_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Retrieve extracted data for a given source.
+
+    Returns paginated revision records for `source_id`, optionally filtered
+    by date range and whether they contain extracted data.
+
+    **Query Parameters**
+    - skip: Records to skip (≥0)
+    - limit: Max records to return (1-1000)
+    - start_date / end_date: ISO8601 datetime filters for `scraped_at`
+    - only_with_extracted: Return only revisions with `extracted_data`
+
+    **Path Parameters**
+    - source_id: UUID of the source
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - List of revision objects matching the filters.
+
+    **Status Codes**
+    - 200 OK: Data retrieved successfully
+    """
     required_scope = "read:source"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
-
-    from app.api.modules.v1.scraping.models.data_revision import DataRevision
-    from app.api.modules.v1.scraping.models.source_model import Source
 
     if getattr(api_key, "organization_id", None):
         stmt_check = select(Source).where(
@@ -112,19 +278,6 @@ async def get_source_extracted_data(
     )
 
 
-def _iter_json_bytes(revisions):
-    """Helper generator to stream JSON for download responses."""
-    yield b"["
-    first = True
-    for r in revisions:
-        if not first:
-            yield b","
-        else:
-            first = False
-        yield json.dumps(r).encode("utf-8")
-    yield b"]"
-
-
 @router.get("/sources/{source_id}/extracted-data/download", status_code=status.HTTP_200_OK)
 async def download_source_extracted_data(
     source_id: uuid.UUID,
@@ -136,6 +289,30 @@ async def download_source_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Download extracted data for a given source.
+
+    Returns a file containing revision records for `source_id`, optionally
+    filtered by date range and whether they include extracted data. Supports
+    pagination via `skip` and `limit`.
+
+    **Query Parameters**
+    - skip: Number of records to skip (≥0)
+    - limit: Maximum number of records to include (1-5000)
+    - start_date / end_date: Optional ISO8601 datetime filters
+    - only_with_extracted: If True, include only revisions with extracted data
+
+    **Path Parameters**
+    - source_id: UUID of the source
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - File download containing the extracted data.
+
+    **Status Codes**
+    - 200 OK: File ready for download
+    """
     required_scope = "download:data_revision"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
@@ -197,6 +374,30 @@ async def download_jurisdiction_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Download extracted data for a given jurisdiction.
+
+    Returns a file containing revision records for `jurisdiction_id`, with
+    optional filtering by date range and whether they include extracted data.
+    Supports pagination via `skip` and `limit`.
+
+    **Query Parameters**
+    - skip: Number of records to skip (≥0)
+    - limit: Maximum number of records to include (1-5000)
+    - start_date / end_date: Optional ISO8601 datetime filters
+    - only_with_extracted: If True, include only revisions with extracted data
+
+    **Path Parameters**
+    - jurisdiction_id: UUID of the jurisdiction
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - File download containing the extracted data.
+
+    **Status Codes**
+    - 200 OK: File ready for download
+    """
     required_scope = "download:data_revision"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
@@ -262,6 +463,30 @@ async def download_project_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Download extracted data for a given project.
+
+    Returns a file containing revision records for `project_id`, optionally
+    filtered by date range and whether they contain extracted data. Supports
+    pagination via `skip` and `limit`.
+
+    **Query Parameters**
+    - skip: Number of records to skip (≥0)
+    - limit: Maximum number of records to include (1-5000)
+    - start_date / end_date: Optional ISO8601 datetime filters
+    - only_with_extracted: If True, include only revisions with extracted data
+
+    **Path Parameters**
+    - project_id: UUID of the project
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - File download containing the extracted data.
+
+    **Status Codes**
+    - 200 OK: File ready for download
+    """
     required_scope = "download:data_revision"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
@@ -332,6 +557,29 @@ async def get_jurisdiction_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Retrieve extracted data for a given jurisdiction.
+
+    Returns paginated revision records for `jurisdiction_id`, optionally
+    filtered by date range and whether they contain extracted data.
+
+    **Query Parameters**
+    - skip: Number of records to skip (≥0)
+    - limit: Maximum number of records to return (1-1000)
+    - start_date / end_date: ISO8601 datetime filters for `scraped_at`
+    - only_with_extracted: If True, return only revisions with `extracted_data`
+
+    **Path Parameters**
+    - jurisdiction_id: UUID of the jurisdiction
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - List of revision objects matching the filters.
+
+    **Status Codes**
+    - 200 OK: Data retrieved successfully
+    """
     required_scope = "read:jurisdiction"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
@@ -416,6 +664,29 @@ async def get_project_extracted_data(
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Retrieve extracted data for a given project.
+
+    Returns paginated revision records for `project_id`, optionally filtered
+    by date range and whether they contain extracted data.
+
+    **Query Parameters**
+    - skip: Number of records to skip (≥0)
+    - limit: Maximum number of records to return (1-1000)
+    - start_date / end_date: ISO8601 datetime filters for `scraped_at`
+    - only_with_extracted: If True, return only revisions with `extracted_data`
+
+    **Path Parameters**
+    - project_id: UUID of the project
+
+    Requires a valid API key in the header.
+
+    **Returns**
+    - List of revision objects matching the filters.
+
+    **Status Codes**
+    - 200 OK: Data retrieved successfully
+    """
     required_scope = "read:project"
     if not api_key_has_scope(api_key, required_scope):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
