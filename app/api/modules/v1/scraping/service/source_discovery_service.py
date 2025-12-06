@@ -14,14 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class SourceDiscoveryService:
-    """Orchestrates the discovery, filtering, and validation of official data sources.
+    """Orchestrates the discovery, filtering, and validation of data sources.
 
     This service combines Generative AI (Gemini) for reasoning and query generation
-    with an external Search API (Tavily) to find and verify official government
-    or regulatory websites.
+    with an external Search API (Tavily) to find and verify relevant websites.
 
-    It treats the Jurisdiction as the primary entity to discover, using the Project
-    intent only for context and filtering.
+    It treats the Jurisdiction as the authoritative boundary but allows for broader
+    source discovery (not limited to government sites), validating relevance and recency.
     """
 
     def __init__(self):
@@ -41,32 +40,41 @@ class SourceDiscoveryService:
         self,
         jurisdiction_name: str,
         jurisdiction_description: Optional[str],
-        project_description: str,
+        jurisdiction_prompt: Optional[str] = None,
+        project_description: str = "",
+        search_query: Optional[str] = None,
     ) -> List[SuggestedSource]:
-        """Discover and validate official sources for a specific jurisdiction.
+        """Discover and validate sources based on context and user input.
 
         This method executes a pipeline:
-        1. Generates search queries focused on finding the Jurisdiction's official body/repository.
+        1. Generates targeted search queries (Official + Reputable Third-Party).
         2. Executes searches against the live web.
-        3. Filters results for official domains, using the project description to ensure relevance.
+        3. Filters results for relevance, directness (deep links), and recency.
         4. Validates that the URLs are reachable.
 
         Args:
-            jurisdiction_name (str): The name of the jurisdiction (e.g., 'United Kingdom', 'GDPR').
+            jurisdiction_name (str): The name of the jurisdiction (e.g., 'United Kingdom').
             jurisdiction_description (Optional[str]): Detailed context about the jurisdiction.
+            jurisdiction_prompt (Optional[str]): AI guidance for extraction or
+                classification tasks (e.g., 'Focus on crypto guidelines').
             project_description (str): The monitoring goal (used as context).
+            search_query (Optional[str]): Specific user input to narrow the search.
 
         Returns:
-            List[SuggestedSource]: A list of validated, official source candidates.
+            List[SuggestedSource]: A list of validated source candidates.
         """
         search_queries = await self._generate_search_queries(
-            jurisdiction_name, jurisdiction_description, project_description
+            jurisdiction_name,
+            jurisdiction_description,
+            jurisdiction_prompt,
+            project_description,
+            search_query,
         )
 
         raw_results = await self._execute_search(search_queries)
 
         suggested_sources = await self._analyze_and_filter_results(
-            raw_results, jurisdiction_name, project_description
+            raw_results, jurisdiction_name, jurisdiction_prompt, project_description, search_query
         )
 
         valid_sources = await self._validate_urls(suggested_sources)
@@ -74,14 +82,21 @@ class SourceDiscoveryService:
         return valid_sources
 
     async def _generate_search_queries(
-        self, jurisdiction_name: str, jurisdiction_desc: Optional[str], project_desc: str
+        self,
+        jurisdiction_name: str,
+        jurisdiction_desc: Optional[str],
+        jurisdiction_prompt: Optional[str],
+        project_desc: str,
+        user_query: Optional[str],
     ) -> List[str]:
-        """Generate targeted search queries to find the Jurisdiction's official sources.
+        """Generate targeted search queries to find diverse, relevant sources.
 
         Args:
             jurisdiction_name (str): The name of the jurisdiction.
-            jurisdiction_desc (str): Description of the jurisdiction.
+            jurisdiction_desc (Optional[str]): Description of the jurisdiction.
+            jurisdiction_prompt (Optional[str]): AI guidance for extraction or classification tasks.
             project_desc (str): The user's monitoring goal.
+            user_query (Optional[str]): Specific input from the user.
 
         Returns:
             List[str]: A list of search query strings.
@@ -90,22 +105,40 @@ class SourceDiscoveryService:
         if jurisdiction_desc:
             jurisdiction_context += f" ({jurisdiction_desc})"
 
+        # Build jurisdiction guidance section
+        jurisdiction_guidance = ""
+        if jurisdiction_prompt:
+            jurisdiction_guidance = (
+                f'\nJURISDICTION GUIDANCE (AI Extraction Focus): "{jurisdiction_prompt}"'
+            )
+
+        if user_query:
+            task_instruction = (
+                f"Generate 5 targeted search queries to find varied sources for '{user_query}' "
+                f"relevant to the jurisdiction: '{jurisdiction_context}'.\n"
+                "- Include queries for official government announcements.\n"
+                "- Include queries for reputable industry news or legal analysis pages.\n"
+                "- Focus on finding 'latest' or 'current' information pages.\n"
+                "- Ensure the queries explicitly include the jurisdiction name."
+            )
+        else:
+            task_instruction = (
+                f"Generate 5 specific search queries to find high-quality information sources "
+                f"for monitoring '{project_desc}' in '{jurisdiction_context}'.\n"
+                "- Target official gazettes, regulatory bodies, AND reputable news/analysis hubs.\n"
+                "- Prioritize queries that look for 'updates', 'news', or 'latest regulations'."
+            )
+
         prompt = f"""
-        You are an expert Legal Researcher.
+        You are an Expert Web Researcher.
         
-        PRIMARY OBJECTIVE: Find the OFFICIAL website, gazette, or repository for this Jurisdiction:
-        "{jurisdiction_context}"
+        PRIMARY BOUNDARY (Jurisdiction): "{jurisdiction_context}"{jurisdiction_guidance}
+        CONTEXT (Project Goal): "{project_desc}"
         
-        CONTEXT (User's Goal): The user wants to monitor this jurisdiction for:
-        "{project_desc}"
+        TASK:
+        {task_instruction}
         
-        Task:
-        Generate 3 specific search queries to find the official home page or legislation
-        repository for this Jurisdiction.
-        - Focus on finding the *source* (the authority), not just a news article about the topic.
-        - If the jurisdiction is a body (e.g., "NIST"), look for their standards page.
-        - If the jurisdiction is a country/state, look for their official gazette or department
-        related to the context.        Output strictly a JSON list of strings.
+        Output strictly a JSON list of strings.
         """
         response = await self.llm.generate_content_async(
             prompt, generation_config={"response_mime_type": "application/json"}
@@ -123,7 +156,8 @@ class SourceDiscoveryService:
         """
         aggregated_results = []
 
-        for query in queries[:2]:
+        # Increase query limit to get more raw results (up to 4 queries)
+        for query in queries[:4]:
             try:
                 response = await asyncio.to_thread(
                     self.tavily_client.search,
@@ -141,33 +175,61 @@ class SourceDiscoveryService:
         return aggregated_results
 
     async def _analyze_and_filter_results(
-        self, search_results: List[Dict], jurisdiction_name: str, intent: str
+        self,
+        search_results: List[Dict],
+        jurisdiction_name: str,
+        jurisdiction_prompt: Optional[str],
+        intent: str,
+        user_query: Optional[str],
     ) -> List[SuggestedSource]:
-        """Filter search results to identify only official sources for the Jurisdiction.
+        """Filter results for relevance, deep links, and quality (Official & Unofficial).
 
         Args:
             search_results (List[Dict]): Raw results from the search API.
             jurisdiction_name (str): The target jurisdiction.
+            jurisdiction_prompt (Optional[str]): AI guidance for extraction or classification tasks.
             intent (str): The monitoring intent.
+            user_query (Optional[str]): The specific user search input.
 
         Returns:
-            List[SuggestedSource]: A list of sources deemed 'official' by the LLM.
+            List[SuggestedSource]: A list of sources filtered by the LLM.
         """
+        # Deduplicate by URL
         unique_results = {res["url"]: res for res in search_results}.values()
 
+        specific_intent = user_query if user_query else intent
+
+        # Build jurisdiction guidance section
+        jurisdiction_guidance = ""
+        if jurisdiction_prompt:
+            jurisdiction_guidance = (
+                f'\nJURISDICTION GUIDANCE (AI Extraction Focus): "{jurisdiction_prompt}"'
+            )
+
         prompt = f"""
-        I have a list of search results. I need to identify the OFFICIAL source(s) for the
-        Jurisdiction: "{jurisdiction_name}"
+        I have a list of search results. I need to identify VALID, HIGH-QUALITY sources for the
+        Jurisdiction: "{jurisdiction_name}"{jurisdiction_guidance}
         
-        The user intends to monitor: "{intent}"
+        We are looking for sources relevant to: "{specific_intent}"
         
         Search Results:
         {json.dumps(list(unique_results))}
         
         Task:
-        1. Identify which URLs belong to the OFFICIAL authority for "{jurisdiction_name}".
-        2. Discard news articles, blogs, or third-party summaries.
-        3. Return a JSON list of the best candidates.
+        1. Select ALL high-quality sources (Official Government sites AND
+           reputable Industry/Legal news).
+        2. FILTER OUT:
+           - Broken or low-quality spam blogs.
+           - Generic "Table of Contents" or "Landing Pages" if a direct content page is available.
+           - Sources unrelated to "{jurisdiction_name}".
+        3. PRIORITIZE:
+           - "Deep Links" that contain the actual information
+             (e.g., a specific regulation page vs. a homepage).
+           - Recent or frequently updated pages.
+           - Sources that align with the jurisdiction guidance above, if provided.
+        4. Determine `is_official`: true for government/regulatory bodies,
+           false for news/blogs/firms.
+        5. Return as many valid options as found.
         
         JSON Schema:
         [
@@ -175,9 +237,9 @@ class SourceDiscoveryService:
             "title": "Page Title",
             "url": "https://...",
             "snippet": "Description...",
-            "confidence_reason": "Why is this valid? e.g. 'It is the official site of "
-            f"[{jurisdiction_name}]'",
-            "is_official": true
+            "confidence_reason": "Why is this a good source? e.g. 'Direct link to "
+            "2024 regulations'",
+            "is_official": boolean
           }}
         ]
         """
@@ -187,23 +249,45 @@ class SourceDiscoveryService:
         )
 
         parsed = json.loads(response.text)
-        return [SuggestedSource(**item) for item in parsed if item.get("is_official")]
+        return [SuggestedSource(**item) for item in parsed]
 
     async def _validate_urls(self, sources: List[SuggestedSource]) -> List[SuggestedSource]:
-        """Verify that the suggested source URLs are reachable."""
+        """Verify that the suggested source URLs are reachable.
+
+        Args:
+            sources (List[SuggestedSource]): The list of potential sources.
+
+        Returns:
+            List[SuggestedSource]: The list of sources that returned a successful HTTP status.
+        """
         valid_sources = []
         for source in sources:
             try:
-                resp = await self.http_client.head(source.url, follow_redirects=True, timeout=3.0)
-                if resp.status_code < 400:
-                    valid_sources.append(source)
-            except Exception:
+                # Use a standard browser User-Agent to avoid immediate blocking
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 "
+                    "Safari/537.36"
+                }
+
+                # Try HEAD first
                 try:
-                    resp = await self.http_client.get(
-                        source.url, follow_redirects=True, timeout=5.0
+                    resp = await self.http_client.head(
+                        source.url, follow_redirects=True, timeout=5.0, headers=headers
                     )
                     if resp.status_code < 400:
                         valid_sources.append(source)
+                        continue
                 except Exception:
-                    logger.warning(f"Discarding dead URL: {source.url}")
+                    pass  # HEAD failed, fallback to GET
+
+                # Fallback to GET if HEAD fails or isn't allowed
+                resp = await self.http_client.get(
+                    source.url, follow_redirects=True, timeout=8.0, headers=headers
+                )
+                if resp.status_code < 400:
+                    valid_sources.append(source)
+            except Exception:
+                logger.warning(f"Discarding unreachable URL: {source.url}")
+
         return valid_sources

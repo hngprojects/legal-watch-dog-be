@@ -9,9 +9,8 @@ if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
-    from app.api.modules.v1.tickets.models.ticket_model import Ticket
-else:
-    from app.api.modules.v1.tickets.models.ticket_model import TicketInvitedUser
+    from app.api.modules.v1.tickets.models.comment_model import Comment
+    from app.api.modules.v1.tickets.models.ticket_model import ExternalParticipant, Ticket
 
 
 class User(SQLModel, table=True):
@@ -60,6 +59,12 @@ class User(SQLModel, table=True):
         back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     project_users: list["ProjectUser"] = Relationship(back_populates="user")
+
+    comments: list["Comment"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
@@ -75,7 +80,7 @@ class User(SQLModel, table=True):
         back_populates="assigned_to_user",
         sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to_user_id]"},
     )
-    invited_to_tickets: list["Ticket"] = Relationship(
-        back_populates="invited_users",
-        link_model=TicketInvitedUser,
+    invited_external_participants: list["ExternalParticipant"] = Relationship(
+        back_populates="invited_by_user",
+        sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )

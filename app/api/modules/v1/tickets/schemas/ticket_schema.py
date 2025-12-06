@@ -1,0 +1,200 @@
+"""
+Ticket Schemas
+Pydantic schemas for ticket-related API operations.
+"""
+
+from datetime import datetime
+from typing import List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.api.modules.v1.tickets.models.ticket_model import TicketPriority, TicketStatus
+
+
+class TicketBase(BaseModel):
+    """Base schema for ticket creation and updates."""
+
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Ticket title",
+        examples=["Review legislative change in Section 4.2"],
+    )
+    description: Optional[str] = Field(
+        None,
+        description="Detailed description of the issue or observation",
+        examples=["New regulation requires immediate compliance review"],
+    )
+    content: Optional[dict] = Field(
+        None,
+        description="Structured data about detected changes or observations",
+        examples=[{"section": "4.2", "change_type": "amendment", "details": "..."}],
+    )
+    priority: TicketPriority = Field(
+        default=TicketPriority.MEDIUM,
+        description="Ticket priority level (low, medium, high, critical)",
+    )
+    source_id: Optional[UUID] = Field(
+        None,
+        description="Optional source ID where the change was detected",
+    )
+    data_revision_id: Optional[UUID] = Field(
+        None,
+        description="Optional data revision ID that triggered this ticket",
+    )
+    change_diff_id: Optional[UUID] = Field(
+        None,
+        description="Optional change diff ID linking to the detected change",
+    )
+    assigned_to_user_id: Optional[UUID] = Field(
+        None,
+        description="User ID to assign this ticket to",
+    )
+    project_id: UUID = Field(
+        ...,
+        description="Project ID this ticket belongs to",
+    )
+
+
+class TicketCreate(TicketBase):
+    """Schema for creating a new ticket."""
+
+    @field_validator(
+        "source_id", "data_revision_id", "change_diff_id", "assigned_to_user_id", mode="before"
+    )
+    @classmethod
+    def empty_str_to_none(cls, v):
+        """Convert empty strings to None for optional UUID fields."""
+        if v == "" or v is None:
+            return None
+        return v
+
+
+class TicketUpdate(BaseModel):
+    """Schema for updating an existing ticket."""
+
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    content: Optional[dict] = None
+    status: Optional[TicketStatus] = Field(
+        None, description="Ticket status (open, in_progress, resolved, closed, cancelled)"
+    )
+    priority: Optional[TicketPriority] = Field(
+        None, description="Ticket priority (low, medium, high, critical)"
+    )
+    assigned_to_user_id: Optional[UUID] = None
+    assigned_by_user_id: Optional[UUID] = None
+
+
+class TicketInviteUsers(BaseModel):
+    """Schema for inviting users to a ticket."""
+
+    user_ids: List[UUID] = Field(
+        ...,
+        min_length=1,
+        description="List of user IDs to invite to the ticket",
+    )
+
+
+class UserDetail(BaseModel):
+    """Schema for user information in ticket responses."""
+
+    id: UUID
+    email: str
+    name: str
+    avatar_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InvitedUserDetail(UserDetail):
+    """User detail with invitation timestamp."""
+
+    invited_at: datetime = Field(..., description="When this user was invited to the ticket")
+
+
+class TicketResponse(BaseModel):
+    """Schema for ticket response."""
+
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    content: Optional[dict] = None
+    status: TicketStatus
+    priority: TicketPriority
+    is_manual: bool
+    source_id: Optional[UUID] = None
+    data_revision_id: Optional[UUID] = None
+    change_diff_id: Optional[UUID] = None
+    created_by_user_id: Optional[UUID] = None
+    assigned_by_user_id: Optional[UUID] = None
+    assigned_to_user_id: Optional[UUID] = None
+    organization_id: UUID
+    project_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    closed_at: Optional[datetime] = None
+
+    created_by_user: Optional[UserDetail] = None
+    assigned_by_user: Optional[UserDetail] = None
+    assigned_to_user: Optional[UserDetail] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TicketListFilters(BaseModel):
+    """Query parameters for filtering tickets."""
+
+    status: Optional[TicketStatus] = Field(None, description="Filter by ticket status")
+    priority: Optional[TicketPriority] = Field(None, description="Filter by priority level")
+    assigned_to_me: bool = Field(False, description="Show only tickets assigned to current user")
+    created_by_me: bool = Field(False, description="Show only tickets created by current user")
+    search: Optional[str] = Field(
+        None, max_length=255, description="Search in title and description"
+    )
+    page: int = Field(1, ge=1, description="Page number for pagination")
+    limit: int = Field(20, ge=1, le=100, description="Number of items per page")
+
+
+class TicketListResponse(BaseModel):
+    """Schema for paginated ticket list response."""
+
+    data: List[TicketResponse] = Field(
+        ...,
+        description="List of tickets for the current page",
+    )
+    total: int = Field(
+        ...,
+        description="Total number of tickets matching the criteria",
+        examples=[42],
+    )
+    page: int = Field(
+        ...,
+        ge=1,
+        description="Current page number",
+        examples=[1],
+    )
+    limit: int = Field(
+        ...,
+        ge=1,
+        le=100,
+        description="Number of items per page",
+        examples=[20],
+    )
+    total_pages: int = Field(
+        ...,
+        description="Total number of pages",
+        examples=[3],
+    )
+
+
+class TicketDetailResponse(TicketResponse):
+    """Schema for detailed ticket response with invited users."""
+
+    invited_users: List[InvitedUserDetail] = Field(
+        default=[], description="Users invited to collaborate on this ticket"
+    )
+
+    model_config = ConfigDict(from_attributes=True)

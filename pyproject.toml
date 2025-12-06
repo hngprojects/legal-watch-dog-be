@@ -67,6 +67,7 @@ dependencies = [
     "authlib>=1.6.5",
     "tavily-python>=0.7.13",
     "nest-asyncio>=1.6.0",
+    "passlib>=1.7.4",
 ]
 
 
