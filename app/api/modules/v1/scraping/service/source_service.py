@@ -21,6 +21,7 @@ from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdict
 from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.scraping.models.source_model import Source
+from app.api.modules.v1.scraping.schemas.baseline_schema import BaselineAcceptanceRequest
 from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceRead,
@@ -475,6 +476,166 @@ class SourceService:
 
         logger.info(f"Retrieved {len(revisions)} revisions for source {source_id} (total: {total})")
         return revisions, total
+
+    async def accept_revision_as_baseline(
+        self,
+        db: AsyncSession,
+        revision_id: uuid.UUID,
+        acceptance_data: BaselineAcceptanceRequest,
+        user_id: uuid.UUID,
+    ) -> DataRevision:
+        """
+        Mark a revision as the accepted baseline for its source.
+
+        This operation is atomic:
+        1. Verifies the revision exists
+        2. Unsets 'is_baseline' for any existing baseline for this source
+        3. Sets 'is_baseline' to True for the target revision
+        4. Records acceptance metadata (user, time, notes)
+
+        Args:
+            db (AsyncSession): Database session.
+            revision_id (uuid.UUID): ID of the revision to accept.
+            acceptance_data (BaselineAcceptanceRequest): Acceptance details (notes).
+            user_id (uuid.UUID): ID of the user accepting the baseline.
+
+        Returns:
+            DataRevision: The updated revision.
+
+        Raises:
+            HTTPException: 404 if revision not found.
+        """
+        revision = await db.get(DataRevision, revision_id)
+        if not revision:
+            logger.warning(f"Cannot accept baseline - revision not found: {revision_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Revision not found",
+            )
+
+        try:
+            # Unset existing baseline for this source
+            # We do this in the same transaction to ensure only one baseline exists
+            statement = (
+                select(DataRevision)
+                .where(DataRevision.source_id == revision.source_id)
+                .where(DataRevision.is_baseline == True)  # noqa: E712
+            )
+            existing_baselines = await db.execute(statement)
+            for old_baseline in existing_baselines.scalars().all():
+                old_baseline.is_baseline = False
+                db.add(old_baseline)
+
+            # Set new baseline
+            revision.is_baseline = True
+            revision.baseline_accepted_at = func.now()
+            revision.baseline_accepted_by = user_id
+            revision.baseline_notes = acceptance_data.notes
+
+            db.add(revision)
+            await db.commit()
+            await db.refresh(revision)
+
+            logger.info(
+                f"Revision {revision_id} accepted as baseline "
+                f"for source {revision.source_id} by user {user_id}"
+            )
+
+            return revision
+
+        except Exception as e:
+            await db.rollback()
+            logger.error(
+                f"Failed to accept baseline for revision {revision_id}: {str(e)}", exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to accept baseline",
+            )
+
+    async def get_current_baseline(
+        self,
+        db: AsyncSession,
+        source_id: uuid.UUID,
+    ) -> Optional[DataRevision]:
+        """
+        Retrieve the currently accepted baseline for a source.
+
+        Args:
+            db (AsyncSession): Database session.
+            source_id (uuid.UUID): The source UUID.
+
+        Returns:
+            Optional[DataRevision]: The current baseline revision, or None if none exists.
+        """
+        statement = (
+            select(DataRevision)
+            .where(DataRevision.source_id == source_id)
+            .where(DataRevision.is_baseline == True)  # noqa: E712
+        )
+        result = await db.execute(statement)
+        baseline = result.scalar_one_or_none()
+
+        if baseline:
+            logger.debug(f"Found active baseline {baseline.id} for source {source_id}")
+        else:
+            logger.debug(f"No active baseline found for source {source_id}")
+
+        return baseline
+
+    async def get_baseline_history(
+        self,
+        db: AsyncSession,
+        source_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[List[DataRevision], int]:
+        """
+        Retrieve history of accepted baselines for a source.
+
+        Returns all revisions that have acceptance metadata (baseline_accepted_at is not None),
+        ordered by acceptance time (most recent first). This includes both the current
+        baseline and historical baselines.
+
+        Args:
+            db (AsyncSession): Database session.
+            source_id (uuid.UUID): The source UUID.
+            skip (int): Pagination skip.
+            limit (int): Pagination limit.
+
+        Returns:
+            tuple: (List[DataRevision], total_count)
+        """
+        # Verify source exists first
+        source = await db.get(Source, source_id)
+        if not source:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source not found",
+            )
+
+        query = (
+            select(DataRevision)
+            .where(DataRevision.source_id == source_id)
+            .where(DataRevision.baseline_accepted_at.is_not(None))
+            .order_by(DataRevision.baseline_accepted_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await db.execute(query)
+        history = result.scalars().all()
+
+        count_query = (
+            select(func.count())
+            .where(DataRevision.source_id == source_id)
+            .where(DataRevision.baseline_accepted_at.is_not(None))
+        )
+        count_result = await db.execute(count_query)
+        total = count_result.scalar_one()
+
+        logger.info(f"Retrieved {len(history)} historical baselines for source {source_id}")
+        return history, total
 
     def _to_read_schema(self, source: Source) -> SourceRead:
         """

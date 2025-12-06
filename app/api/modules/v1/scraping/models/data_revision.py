@@ -38,6 +38,12 @@ class DataRevision(SQLModel, table=True):
     was_change_detected: bool = Field(default=False)
     is_baseline: bool = Field(default=False)
 
+    # Baseline acceptance fields
+    is_baseline: bool = Field(default=False, index=True)
+    baseline_accepted_at: Optional[datetime] = Field(default=None)
+    baseline_accepted_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    baseline_notes: Optional[str] = Field(default=None, max_length=500)
+
     search_vector: Optional[str] = Field(
         default=None, sa_column=Column(TSVECTOR, nullable=True, server_default=text("NULL"))
     )
@@ -46,6 +52,7 @@ class DataRevision(SQLModel, table=True):
 
     __table_args__ = (
         Index("idx_data_revisions_search_vector", "search_vector", postgresql_using="gin"),
+        Index("idx_data_revisions_source_baseline", "source_id", "is_baseline"),
     )
 
     source: Optional["Source"] = Relationship(back_populates="data_revisions")

@@ -42,6 +42,11 @@ from app.api.modules.v1.scraping.routes.docs.source_routes_docs import (
     update_source_patch_responses,
     update_source_responses,
 )
+from app.api.modules.v1.scraping.schemas.baseline_schema import (
+    BaselineAcceptanceRequest,
+    BaselineHistoryResponse,
+    BaselineResponse,
+)
 from app.api.modules.v1.scraping.schemas.data_revision_schema import (
     DataRevisionResponse,
     PaginatedRevisions,
@@ -52,7 +57,18 @@ from app.api.modules.v1.scraping.schemas.source_service import (
     SourceCreate,
     SourceUpdate,
 )
+from app.api.modules.v1.scraping.schemas.verification_schema import (
+    ChangeVerificationRequest,
+    ChangeVerificationResponse,
+    ChangeVerificationUpdate,
+    FalsePositiveMetrics,
+    SuppressionRuleCreate,
+    SuppressionRuleResponse,
+    SuppressionRuleUpdate,
+)
+from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 from app.api.modules.v1.scraping.service.source_service import SourceService
+from app.api.modules.v1.scraping.service.verification_service import VerificationService
 from app.api.modules.v1.users.models.users_model import User
 from app.api.utils.pagination import calculate_pagination
 from app.api.utils.response_payloads import success_response
@@ -490,3 +506,332 @@ async def get_source_revisions(
 
 get_source_revisions._custom_errors = get_source_revisions_custom_errors
 get_source_revisions._custom_success = get_source_revisions_custom_success
+
+
+@router.post("/{source_id}/scrapes", status_code=status.HTTP_200_OK)
+async def manual_scrape_trigger(
+    source_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Manually triggers a scrape for a specific source.
+
+    WARNING: This runs SYNCHRONOUSLY. The request will wait until
+    scraping, AI extraction, and diffing are complete.
+    This may cause timeouts if the process takes > 60 seconds.
+
+    Args:
+        source_id (UUID): The UUID of the source to scrape
+
+    Returns:
+        JSONResponse: Success response with scrape results or error response
+    """
+    query = select(Source).where(Source.id == source_id)
+    result = await db.execute(query)
+    source = result.scalars().first()
+
+    if not source:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Source not found",
+            error="SOURCE_NOT_FOUND",
+        )
+
+    if not source.is_active:
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="Cannot scrape inactive source. Please enable it first.",
+            error="SOURCE_INACTIVE",
+        )
+
+    try:
+        service = ScraperService(db)
+        scrape_result = await service.execute_scrape_job(str(source.id))
+
+        return success_response(
+            status_code=status.HTTP_200_OK,
+            message="Scrape executed successfully",
+            data={
+                "source_id": str(source.id),
+                "status": "COMPLETED",
+                "result": scrape_result,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Manual scrape failed for source {source_id}: {str(e)}")
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Scrape execution failed",
+            error="SCRAPE_EXECUTION_FAILED",
+            errors={"details": str(e)},
+        )
+
+
+manual_scrape_trigger._custom_errors = manual_scrape_trigger_custom_errors
+manual_scrape_trigger._custom_success = manual_scrape_trigger_custom_success
+
+
+@router.post(
+    "/revisions/{revision_id}/accept-baseline",
+    status_code=status.HTTP_200_OK,
+    response_model=BaselineResponse,
+)
+async def accept_baseline(
+    revision_id: uuid.UUID,
+    request: BaselineAcceptanceRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mark a specific revision as the accepted baseline for its source.
+    This will unset any previously accepted baseline for the same source.
+    """
+    source_service = SourceService()
+    return await source_service.accept_revision_as_baseline(
+        db, revision_id, request, current_user.id
+    )
+
+
+@router.get(
+    "/{source_id}/baseline",
+    status_code=status.HTTP_200_OK,
+    response_model=Optional[BaselineResponse],
+)
+async def get_source_baseline(
+    source_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve the currently accepted baseline for a source.
+    Returns null if no baseline has been accepted.
+    """
+    source_service = SourceService()
+    return await source_service.get_current_baseline(db, source_id)
+
+
+@router.get(
+    "/{source_id}/baseline-history",
+    status_code=status.HTTP_200_OK,
+    response_model=BaselineHistoryResponse,
+)
+async def get_baseline_history(
+    source_id: uuid.UUID,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve history of accepted baselines for a source.
+    """
+    source_service = SourceService()
+    history, total = await source_service.get_baseline_history(db, source_id, skip, limit)
+
+    return BaselineHistoryResponse(
+        revisions=history,
+        total=total,
+        page=(skip // limit) + 1,
+        limit=limit,
+    )
+
+
+# ==================== Change Verification Endpoints ====================
+
+
+@router.post(
+    "/changes/{diff_id}/verify",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ChangeVerificationResponse,
+)
+async def verify_change(
+    diff_id: uuid.UUID,
+    request: ChangeVerificationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Verify a detected change as true or false positive.
+
+    Mark a change as either a true positive (meaningful change) or false positive
+    (non-meaningful change). Optionally create a suppression rule to prevent
+    similar false positives in the future.
+    """
+    service = VerificationService()
+    return await service.verify_change(db, diff_id, request, current_user.id)
+
+
+@router.patch(
+    "/verifications/{verification_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=ChangeVerificationResponse,
+)
+async def update_verification(
+    verification_id: uuid.UUID,
+    update: ChangeVerificationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update an existing change verification.
+
+    Only the original verifier can update their verification.
+    """
+    service = VerificationService()
+    return await service.update_verification(
+        db, verification_id, update, current_user.id
+    )
+
+
+@router.get(
+    "/{source_id}/verified-changes",
+    status_code=status.HTTP_200_OK,
+)
+async def get_verified_changes(
+    source_id: uuid.UUID,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get verified changes for a source with pagination.
+    """
+    service = VerificationService()
+    verifications, total = await service.get_verified_changes(
+        db, source_id, skip, limit
+    )
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Verified changes retrieved successfully",
+        data={
+            "verifications": [
+                ChangeVerificationResponse.model_validate(v).model_dump()
+                for v in verifications
+            ],
+            "total": total,
+            "page": (skip // limit) + 1,
+            "limit": limit,
+        },
+    )
+
+
+# ==================== Suppression Rules Endpoints ====================
+
+
+@router.post(
+    "/{source_id}/suppression-rules",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SuppressionRuleResponse,
+)
+async def create_suppression_rule(
+    source_id: uuid.UUID,
+    rule_data: SuppressionRuleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a new suppression rule for a source.
+
+    Suppression rules filter out non-meaningful changes during diff analysis.
+    Supported rule types:
+    - JSON_PATH: Suppress changes to specific JSON paths
+    - REGEX: Suppress content matching regex patterns
+    - FIELD_NAME: Suppress changes to specific top-level fields
+    """
+    service = VerificationService()
+    return await service.create_suppression_rule(
+        db, source_id, rule_data, current_user.id
+    )
+
+
+@router.get(
+    "/{source_id}/suppression-rules",
+    status_code=status.HTTP_200_OK,
+)
+async def get_suppression_rules(
+    source_id: uuid.UUID,
+    active_only: bool = Query(True, description="Only return active rules"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get suppression rules for a source.
+    """
+    service = VerificationService()
+    rules = await service.get_suppression_rules(db, source_id, active_only)
+
+    return success_response(
+        status_code=status.HTTP_200_OK,
+        message="Suppression rules retrieved successfully",
+        data={
+            "rules": [
+                SuppressionRuleResponse.model_validate(r).model_dump() for r in rules
+            ],
+            "count": len(rules),
+        },
+    )
+
+
+@router.patch(
+    "/suppression-rules/{rule_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SuppressionRuleResponse,
+)
+async def update_suppression_rule(
+    rule_id: uuid.UUID,
+    update: SuppressionRuleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update a suppression rule.
+
+    Can update the pattern, description, or active status.
+    """
+    service = VerificationService()
+    return await service.update_suppression_rule(db, rule_id, update, current_user.id)
+
+
+@router.delete(
+    "/suppression-rules/{rule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_suppression_rule(
+    rule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a suppression rule.
+    """
+    service = VerificationService()
+    await service.delete_suppression_rule(db, rule_id, current_user.id)
+    return None
+
+
+# ==================== False Positive Metrics ====================
+
+
+@router.get(
+    "/{source_id}/fp-metrics",
+    status_code=status.HTTP_200_OK,
+    response_model=FalsePositiveMetrics,
+)
+async def get_false_positive_metrics(
+    source_id: uuid.UUID,
+    period_days: int = Query(30, ge=1, le=365, description="Period in days"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get false positive metrics for a source.
+
+    Returns statistics on change verification accuracy over the specified period,
+    including total changes, verified changes, false positives, and false positive rate.
+    """
+    service = VerificationService()
+    return await service.get_false_positive_metrics(db, source_id, period_days)
