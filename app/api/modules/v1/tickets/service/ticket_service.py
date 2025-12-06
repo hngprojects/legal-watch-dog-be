@@ -9,7 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlmodel import and_, or_, select
+from sqlmodel import and_, desc, or_, select
 
 from app.api.modules.v1.projects.utils.project_utils import (
     check_project_user_exists,
@@ -78,6 +78,7 @@ class TicketService:
         data: TicketCreate,
         organization_id: UUID,
         user_id: UUID,
+        project_id: UUID,
     ) -> Ticket:
         """
         Create a new manual ticket from source and revision data.
@@ -104,7 +105,7 @@ class TicketService:
             if not source:
                 raise ValueError("Source not found")
 
-            project_id = source.project_id
+            project_id = project_id
 
             project = await get_project_by_id(self.db, project_id, organization_id)
             if not project:
@@ -242,6 +243,130 @@ class TicketService:
 
         result = await self.db.execute(statement)
         return result.scalar_one_or_none()
+
+    async def get_tickets_by_source(
+        self,
+        source_id: UUID,
+        user_id: UUID,
+    ) -> list[Ticket]:
+        """
+        Get all tickets for a specific source.
+
+        Derives organization and project from the source via jurisdiction,
+        then fetches all associated tickets.
+
+        Args:
+            source_id: Source UUID to filter tickets
+            user_id: User UUID requesting the tickets
+
+        Returns:
+            List of Ticket objects
+
+        Raises:
+            ValueError: If source, jurisdiction, or project not found, or user not a member
+        """
+        from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+        from app.api.modules.v1.scraping.models.source_model import Source
+
+        # Get source
+        source_query = select(Source).where(Source.id == source_id)
+        source_result = await self.db.execute(source_query)
+        source = source_result.scalar_one_or_none()
+
+        if not source:
+            raise ValueError("Source not found")
+
+        # Get jurisdiction from source
+        jurisdiction_query = select(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
+        jurisdiction_result = await self.db.execute(jurisdiction_query)
+        jurisdiction = jurisdiction_result.scalar_one_or_none()
+
+        if not jurisdiction:
+            raise ValueError("Jurisdiction not found for this source")
+
+        project_id = jurisdiction.project_id
+
+        # Get project from jurisdiction
+        from app.api.modules.v1.projects.models.project_model import Project
+
+        project_query = select(Project).where(Project.id == project_id)
+        project_result = await self.db.execute(project_query)
+        project = project_result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError("Project not found for this jurisdiction")
+
+        organization_id = project.org_id
+
+        # Verify user is a member of the project
+        is_project_member = await check_project_user_exists(self.db, project_id, user_id)
+        if not is_project_member:
+            raise ValueError("You must be a member of the project to view tickets")
+
+        logger.info(
+            f"Fetching tickets for source_id={source_id}, "
+            f"organization_id={organization_id}, project_id={project_id}"
+        )
+
+        statement = (
+            select(Ticket)
+            .where(Ticket.source_id == source_id)
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
+            )
+            .order_by(desc(Ticket.created_at))
+        )
+
+        result = await self.db.execute(statement)
+        return result.scalars().all()
+
+    async def get_ticket_details(
+        self,
+        ticket_id: UUID,
+        user_id: UUID,
+    ) -> Optional[Ticket]:
+        """
+        Get detailed ticket information by ID.
+
+        Fetches ticket and validates user has access through project membership.
+
+        Args:
+            ticket_id: Ticket UUID
+            user_id: User UUID requesting the ticket
+
+        Returns:
+            Ticket object with all relationships loaded
+
+        Raises:
+            ValueError: If ticket not found or user lacks access
+        """
+        statement = (
+            select(Ticket)
+            .where(Ticket.id == ticket_id)
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
+                selectinload(Ticket.invited_users),
+            )
+        )
+
+        result = await self.db.execute(statement)
+        ticket = result.scalar_one_or_none()
+
+        if not ticket:
+            return None
+
+        # Verify user has access to this ticket through project membership
+        is_project_member = await check_project_user_exists(self.db, ticket.project_id, user_id)
+        if not is_project_member:
+            raise ValueError("You must be a member of the project to view this ticket")
+
+        logger.info(f"Retrieved ticket {ticket_id} for user {user_id}")
+
+        return ticket
 
     async def list_tickets(
         self,

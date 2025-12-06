@@ -33,7 +33,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=TicketResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=TicketResponse)
 async def create_manual_ticket(
     data: TicketCreate,
     db: AsyncSession = Depends(get_db),
@@ -109,6 +109,7 @@ async def create_manual_ticket(
             data=data,
             organization_id=organization_id,
             user_id=current_user.id,
+            project_id=project.id,
         )
 
         logger.info(f"Successfully created ticket {ticket.id} for user {current_user.id}")
@@ -129,5 +130,130 @@ async def create_manual_ticket(
         logger.exception(f"Error creating ticket: {str(e)}, user_id={user_id}")
         return error_response(
             message="An error occurred while creating the ticket",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@router.get("", status_code=status.HTTP_200_OK)
+async def get_tickets_by_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get all tickets for a specific source.
+
+    Retrieves all tickets associated with a source. Organization and project
+    are automatically derived from the source.
+
+    **Query Parameters:**
+    - **source_id** (required): Source UUID to fetch tickets for
+
+    **Returns:**
+    - List of tickets for the specified source, ordered by creation date (newest first)
+
+    **Access Control:**
+    - User must be a member of the project associated with the source
+    """
+    user_id = str(current_user.id)
+
+    try:
+        from uuid import UUID
+
+        source_uuid = UUID(source_id)
+
+        ticket_service = TicketService(db)
+        tickets = await ticket_service.get_tickets_by_source(
+            source_id=source_uuid,
+            user_id=current_user.id,
+        )
+
+        logger.info(
+            f"Successfully retrieved {len(tickets)} tickets for source {source_id}, "
+            f"user_id={user_id}"
+        )
+
+        return success_response(
+            data=tickets,
+            message=f"Retrieved {len(tickets)} ticket(s)",
+            status_code=status.HTTP_200_OK,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Validation error fetching tickets: {str(e)}, user_id={user_id}")
+        return error_response(
+            message=str(e),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        logger.exception(f"Error fetching tickets by source: {str(e)}, user_id={user_id}")
+        return error_response(
+            message="An error occurred while fetching tickets",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@router.get("/{ticket_id}", status_code=status.HTTP_200_OK)
+async def get_ticket_by_id(
+    ticket_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get a single ticket by ID.
+
+    Retrieves detailed information about a specific ticket.
+
+    **Path Parameters:**
+    - **ticket_id** (required): Ticket UUID
+
+    **Returns:**
+    - Ticket details including created_by, assigned_to, assigned_by users, and invited users
+
+    **Access Control:**
+    - User must be a member of the project associated with the ticket
+
+    **Errors:**
+    - 404: Ticket not found
+    - 403: User does not have access to this ticket
+    """
+    user_id = str(current_user.id)
+
+    try:
+        from uuid import UUID
+
+        ticket_uuid = UUID(ticket_id)
+
+        ticket_service = TicketService(db)
+        ticket = await ticket_service.get_ticket_details(
+            ticket_id=ticket_uuid,
+            user_id=current_user.id,
+        )
+
+        if not ticket:
+            logger.warning(f"Ticket {ticket_id} not found, user_id={user_id}")
+            return error_response(
+                message="Ticket not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        logger.info(f"Successfully retrieved ticket {ticket_id}, user_id={user_id}")
+
+        return success_response(
+            data=ticket,
+            message="Ticket retrieved successfully",
+            status_code=status.HTTP_200_OK,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Validation error fetching ticket: {str(e)}, user_id={user_id}")
+        return error_response(
+            message=str(e),
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.exception(f"Error fetching ticket: {str(e)}, user_id={user_id}")
+        return error_response(
+            message="An error occurred while fetching the ticket",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
