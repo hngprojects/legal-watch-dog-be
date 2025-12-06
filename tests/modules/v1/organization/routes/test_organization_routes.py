@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, status
 
+from app.api.core.config import settings
 from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.modules.v1.billing.models.billing_account import BillingStatus
 from app.api.modules.v1.organization.routes.organization_route import (
@@ -252,9 +253,11 @@ async def test_cancel_invitation_success():
 
 
 @pytest.mark.asyncio
-async def test_require_billing_access_allows_active_org():
+async def test_require_billing_access_allows_active_org(monkeypatch):
     """Billing guard should allow orgs with allowed billing status."""
-    return  # So temporarily disabling the guard as requested
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "prod")
+
     mock_db = AsyncMock()
     org_id = uuid.uuid4()
 
@@ -277,9 +280,11 @@ async def test_require_billing_access_allows_active_org():
 
 
 @pytest.mark.asyncio
-async def test_require_billing_access_blocked_org_raises():
-    """Billing guard should block orgs with BLOCKED billing status."""
-    return  # So temporarily disabling the guard as requested
+async def test_require_billing_access_blocked_org_raises(monkeypatch):
+    """Billing guard should block orgs with BLOCKED billing status.(on non-dev envs)"""
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "prod")
+
     mock_db = AsyncMock()
     org_id = uuid.uuid4()
 
@@ -303,9 +308,10 @@ async def test_require_billing_access_blocked_org_raises():
 
 
 @pytest.mark.asyncio
-async def test_require_billing_access_no_account_raises_payment_required():
-    """Billing guard should reject orgs with no billing account."""
-    return
+async def test_require_billing_access_no_account_raises_payment_required(monkeypatch):
+    """Billing guard should reject orgs with no billing account. (on non-dev envs)"""
+    monkeypatch.setattr(settings, "ENVIRONMENT", "prod")
+
     mock_db = AsyncMock()
     org_id = uuid.uuid4()
 

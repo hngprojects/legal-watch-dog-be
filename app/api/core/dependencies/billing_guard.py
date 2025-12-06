@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.core.config import settings
 from app.api.db.database import get_db
 from app.api.modules.v1.billing.models.billing_account import BillingAccount, BillingStatus
 from app.api.modules.v1.billing.service.billing_service import get_billing_service
@@ -17,6 +18,8 @@ async def require_billing_access(
 ) -> BillingAccount:
     """
     Validate an organization’s billing state before allowing access to protected routes.
+    EDIT: In `dev` ENVIRONMENT, the guard is effectively disabled and simply returns
+        the billing account (or None) without blocking access.
 
     Args:
         organization_id (UUID): ID of the organization whose billing access is being checked.
@@ -30,10 +33,11 @@ async def require_billing_access(
     """
     service = get_billing_service(db)
     account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
-    # So temporarily disabling the guard as requested
-    return account
-    # remove the above line when we decide to re-enable the guard
-    account: BillingAccount | None = await service.get_billing_account_by_org(organization_id)
+
+    env = settings.ENVIRONMENT.lower()
+    if env in ("dev", "development"):
+        return account
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
