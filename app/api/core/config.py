@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     )
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
+    ENABLE_REALTIME_WEBSOCKETS: bool = config(
+        "ENABLE_REALTIME_WEBSOCKETS", default=False, cast=bool
+    )
+    REALTIME_WEBSOCKET_PATH: str = config("REALTIME_WEBSOCKET_PATH", default="/ws")
+    REALTIME_NOTIFICATIONS_CHANNEL: str = config(
+        "REALTIME_NOTIFICATIONS_CHANNEL", default="events:notifications"
+    )
+    REALTIME_SCRAPE_CHANNEL: str = config("REALTIME_SCRAPE_CHANNEL", default="events:scrape_jobs")
+    REALTIME_HEARTBEAT_INTERVAL: int = config("REALTIME_HEARTBEAT_INTERVAL", default=30, cast=int)
 
     # Socials
     SOCIAL_FACEBOOK: str = config("SOCIAL_FACEBOOK", default="https://facebook.com")
@@ -201,6 +210,23 @@ class Settings(BaseSettings):
     @property
     def STRIPE_CHECKOUT_CANCEL_URL(self) -> str:
         return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_CANCEL_PATH}"
+
+    @property
+    def REALTIME_CHANNEL_MAP(self) -> dict[str, str]:
+        """Return topic to Redis channel mapping for realtime delivery.
+
+        Returns:
+            dict[str, str]: Mapping consumed by event publisher/subscribers.
+
+        Examples:
+            >>> settings.REALTIME_CHANNEL_MAP["notifications"]
+            'events:notifications'
+        """
+
+        return {
+            "notifications": self.REALTIME_NOTIFICATIONS_CHANNEL,
+            "scrape_jobs": self.REALTIME_SCRAPE_CHANNEL,
+        }
 
     # Billing Configuration
     TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
