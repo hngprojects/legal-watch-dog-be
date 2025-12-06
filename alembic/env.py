@@ -26,6 +26,7 @@ from app.api.modules.v1.contact_us.models.contact_us_model import ContactUs
 from app.api.modules.v1.hire_specialists.models.specialist_models import SpecialistHire
 from app.api.modules.v1.notifications.models.revision_notification import Notification
 from app.api.modules.v1.tickets.models.ticket_model import Ticket, ExternalParticipant, TicketStatus
+from app.api.modules.v1.comment.models.comment_model import Comment
 
 
 # this is the Alembic Config object, which provides
