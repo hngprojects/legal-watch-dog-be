@@ -506,7 +506,7 @@ class SourceService:
         db: AsyncSession,
         jurisdiction_id: uuid.UUID,
     ) -> None:
-        """Validate that project and jurisdiction prompts exist before source creation.
+        """Validate that jurisdiction prompt exists before source creation.
 
         Args:
             db (AsyncSession): Async database session used for lookups.
@@ -517,12 +517,12 @@ class SourceService:
 
         Raises:
             HTTPException: 404 if jurisdiction or project cannot be located.
-            HTTPException: 400 if project instructions, jurisdiction prompt, or both are missing.
+            HTTPException: 400 if jurisdiction prompt is missing.
 
         Examples:
             >>> service = SourceService()
             >>> await service._ensure_prompt_requirements(db, jurisdiction_id)
-            >>> # Continues without raising when prompts are available
+            >>> # Continues without raising when jurisdiction prompt is available
         """
 
         jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
@@ -539,29 +539,11 @@ class SourceService:
                 detail="Project not found for jurisdiction",
             )
 
-        project_prompt = (project.master_prompt or "").strip()
         jurisdiction_prompt = (jurisdiction.prompt or "").strip()
 
-        has_project_prompt = bool(project_prompt)
-        has_jurisdiction_prompt = bool(jurisdiction_prompt)
-
-        if has_project_prompt and has_jurisdiction_prompt:
-            return
-
-        if not has_project_prompt and not has_jurisdiction_prompt:
-            message = (
-                "Add the project instruction (master prompt) and jurisdiction prompt before adding "
-                "sources. These instructions guide the AI scraping pipeline."
-            )
-        elif not has_project_prompt:
-            message = (
-                "Add the project instruction (master prompt) before adding sources. "
-                "These instructions guide the AI scraping pipeline."
-            )
-        else:
+        if not bool(jurisdiction_prompt):
             message = (
                 "Add jurisdiction prompt before adding sources. "
                 "These instructions guide the AI scraping pipeline."
             )
-
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
