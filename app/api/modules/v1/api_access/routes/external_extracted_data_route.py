@@ -1,8 +1,12 @@
+import json
 import uuid
+from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import StreamingResponse
 
 from app.api.core.dependencies.api_key_auth import api_key_has_scope, get_api_key_from_header
 from app.api.db.database import get_db
@@ -16,6 +20,13 @@ async def get_source_extracted_data(
     source_id: uuid.UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    start_date: Optional[str] = Query(
+        None, description="ISO8601 start datetime to filter scraped_at"
+    ),
+    end_date: Optional[str] = Query(None, description="ISO8601 end datetime to filter scraped_at"),
+    only_with_extracted: bool = Query(
+        False, description="Return only revisions with extracted_data"
+    ),
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
@@ -58,7 +69,27 @@ async def get_source_extracted_data(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Organization mismatch"
             )
 
-    stmt = select(DataRevision).where(DataRevision.source_id == source_id).offset(skip).limit(limit)
+    stmt = select(DataRevision).where(DataRevision.source_id == source_id)
+
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
     revisions = result.scalars().all()
 
@@ -81,11 +112,223 @@ async def get_source_extracted_data(
     )
 
 
+def _iter_json_bytes(revisions):
+    """Helper generator to stream JSON for download responses."""
+    yield b"["
+    first = True
+    for r in revisions:
+        if not first:
+            yield b","
+        else:
+            first = False
+        yield json.dumps(r).encode("utf-8")
+    yield b"]"
+
+
+@router.get("/sources/{source_id}/extracted-data/download", status_code=status.HTTP_200_OK)
+async def download_source_extracted_data(
+    source_id: uuid.UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=5000),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    only_with_extracted: bool = Query(False),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    required_scope = "download:data_revision"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    from app.api.modules.v1.scraping.models.data_revision import DataRevision
+
+    stmt = select(DataRevision).where(DataRevision.source_id == source_id)
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    revisions = result.scalars().all()
+
+    payload = [
+        {
+            "id": str(r.id),
+            "source_id": str(r.source_id),
+            "scraped_at": getattr(r, "scraped_at", None).isoformat()
+            if getattr(r, "scraped_at", None)
+            else None,
+            "extracted_data": r.extracted_data or {},
+        }
+        for r in revisions
+    ]
+
+    headers = {
+        "Content-Disposition": f"attachment; filename=source_{source_id}_extracted_data.json"
+    }
+    return StreamingResponse(
+        _iter_json_bytes(payload), media_type="application/json", headers=headers
+    )
+
+
+@router.get(
+    "/jurisdictions/{jurisdiction_id}/extracted-data/download", status_code=status.HTTP_200_OK
+)
+async def download_jurisdiction_extracted_data(
+    jurisdiction_id: uuid.UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=5000),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    only_with_extracted: bool = Query(False),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    required_scope = "download:data_revision"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    from app.api.modules.v1.scraping.models.data_revision import DataRevision
+    from app.api.modules.v1.scraping.models.source_model import Source
+
+    stmt = (
+        select(DataRevision)
+        .join(Source, DataRevision.source_id == Source.id)
+        .where(Source.jurisdiction_id == jurisdiction_id)
+    )
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    revisions = result.scalars().all()
+
+    payload = [
+        {
+            "id": str(r.id),
+            "source_id": str(r.source_id),
+            "scraped_at": getattr(r, "scraped_at", None).isoformat()
+            if getattr(r, "scraped_at", None)
+            else None,
+            "extracted_data": r.extracted_data or {},
+        }
+        for r in revisions
+    ]
+
+    headers = {
+        "Content-Disposition": f"attachment; "
+        f"filename=jurisdiction_{jurisdiction_id}_extracted_data.json"
+    }
+    return StreamingResponse(
+        _iter_json_bytes(payload), media_type="application/json", headers=headers
+    )
+
+
+@router.get("/projects/{project_id}/extracted-data/download", status_code=status.HTTP_200_OK)
+async def download_project_extracted_data(
+    project_id: uuid.UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=5000),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    only_with_extracted: bool = Query(False),
+    api_key=Depends(get_api_key_from_header),
+    db: AsyncSession = Depends(get_db),
+):
+    required_scope = "download:data_revision"
+    if not api_key_has_scope(api_key, required_scope):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient scope")
+
+    from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+    from app.api.modules.v1.scraping.models.data_revision import DataRevision
+    from app.api.modules.v1.scraping.models.source_model import Source
+
+    stmt = (
+        select(DataRevision)
+        .join(Source, DataRevision.source_id == Source.id)
+        .join(Jurisdiction, Source.jurisdiction_id == Jurisdiction.id)
+        .where(Jurisdiction.project_id == project_id)
+    )
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    revisions = result.scalars().all()
+
+    payload = [
+        {
+            "id": str(r.id),
+            "source_id": str(r.source_id),
+            "scraped_at": getattr(r, "scraped_at", None).isoformat()
+            if getattr(r, "scraped_at", None)
+            else None,
+            "extracted_data": r.extracted_data or {},
+        }
+        for r in revisions
+    ]
+
+    headers = {
+        "Content-Disposition": f"attachment; filename=project_{project_id}_extracted_data.json"
+    }
+    return StreamingResponse(
+        _iter_json_bytes(payload), media_type="application/json", headers=headers
+    )
+
+
 @router.get("/jurisdictions/{jurisdiction_id}/extracted-data", status_code=status.HTTP_200_OK)
 async def get_jurisdiction_extracted_data(
     jurisdiction_id: uuid.UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    start_date: Optional[str] = Query(
+        None, description="ISO8601 start datetime to filter scraped_at"
+    ),
+    end_date: Optional[str] = Query(None, description="ISO8601 end datetime to filter scraped_at"),
+    only_with_extracted: bool = Query(
+        False, description="Return only revisions with extracted_data"
+    ),
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
@@ -115,9 +358,27 @@ async def get_jurisdiction_extracted_data(
         select(DataRevision)
         .join(Source, DataRevision.source_id == Source.id)
         .where(Source.jurisdiction_id == jurisdiction_id)
-        .offset(skip)
-        .limit(limit)
     )
+
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
     revisions = result.scalars().all()
 
@@ -145,6 +406,13 @@ async def get_project_extracted_data(
     project_id: uuid.UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    start_date: Optional[str] = Query(
+        None, description="ISO8601 start datetime to filter scraped_at"
+    ),
+    end_date: Optional[str] = Query(None, description="ISO8601 end datetime to filter_scraped_at"),
+    only_with_extracted: bool = Query(
+        False, description="Return only revisions with extracted_data"
+    ),
     api_key=Depends(get_api_key_from_header),
     db: AsyncSession = Depends(get_db),
 ):
@@ -171,9 +439,28 @@ async def get_project_extracted_data(
         .join(Source, DataRevision.source_id == Source.id)
         .join(Jurisdiction, Source.jurisdiction_id == Jurisdiction.id)
         .where(Jurisdiction.project_id == project_id)
-        .offset(skip)
-        .limit(limit)
     )
+
+    # apply date filters
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            stmt = stmt.where(DataRevision.scraped_at >= sd)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid start_date"
+            )
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            stmt = stmt.where(DataRevision.scraped_at <= ed)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid end_date")
+
+    if only_with_extracted:
+        stmt = stmt.where(DataRevision.extracted_data.isnot(None))
+
+    stmt = stmt.offset(skip).limit(limit)
 
     result = await db.execute(stmt)
     revisions = result.scalars().all()
