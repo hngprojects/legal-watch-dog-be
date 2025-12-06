@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, QueuePool
 from sqlmodel import SQLModel
 
 from app.api.core.config import settings
@@ -32,6 +33,11 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=True,
     future=True,
+    poolclass=QueuePool if DB_TYPE == "postgresql" else NullPool,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=3600,
 )
 
 AsyncSessionLocal = async_sessionmaker(

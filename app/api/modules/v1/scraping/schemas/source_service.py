@@ -8,9 +8,10 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 from app.api.modules.v1.scraping.models.source_model import SourceType
+from app.api.modules.v1.scraping.validators import URLValidator, URLValidationError
 
 
 class SourceCreate(BaseModel):
@@ -34,6 +35,34 @@ class SourceCreate(BaseModel):
     scrape_frequency: str = Field(default="DAILY", min_length=1)
     auth_details: Optional[Dict] = None
     scraping_rules: Optional[Dict] = {}
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: HttpUrl) -> HttpUrl:
+        """Validate URL format and domain restrictions.
+        
+        Args:
+            v (HttpUrl): The URL to validate.
+        
+        Returns:
+            HttpUrl: The validated URL.
+        
+        Raises:
+            ValueError: If URL validation fails.
+        
+        
+        """
+        
+        is_valid, error_msg, error_code = URLValidator.validate_url_format(str(v))
+        if not is_valid:
+            raise ValueError(error_msg)
+        
+        
+        is_valid, error_msg, error_code = URLValidator.validate_domain(str(v))
+        if not is_valid:
+            raise ValueError(error_msg)
+        
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={

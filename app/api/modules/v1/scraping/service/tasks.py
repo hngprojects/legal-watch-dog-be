@@ -10,7 +10,6 @@ import json
 import random
 from datetime import datetime, timedelta, timezone
 
-import nest_asyncio
 import redis
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -19,9 +18,6 @@ from sqlmodel import select, update
 from app.api.core.config import settings
 from app.api.db.database import AsyncSessionLocal
 from app.api.modules.v1.scraping.models.source_model import ScrapeFrequency, Source
-
-# Apply nest_asyncio to allow asyncio.run() inside Celery tasks
-nest_asyncio.apply()
 
 logger = get_task_logger(__name__)
 
@@ -134,8 +130,8 @@ async def _scrape_source_async(source_id: str) -> str:
 def scrape_source(self, source_id: str):
     """Celery worker task to scrape a single source.
 
-    Executes the async scraping logic synchronously. Handles exponential backoff
-    retries and dead-letter queueing upon exhaustion.
+    Executes the async scraping logic with proper event loop management.
+    Handles exponential backoff retries and dead-letter queueing upon exhaustion.
 
     Args:
         source_id (str): The UUID of the source.
@@ -144,7 +140,13 @@ def scrape_source(self, source_id: str):
         str: Success or Failure message.
     """
     try:
-        return asyncio.run(_scrape_source_async(source_id))
+        # Create a new event loop for this task to avoid connection conflicts
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(_scrape_source_async(source_id))
+        finally:
+            loop.close()
     except Exception as exc:
         redis_client = redis.Redis(connection_pool=redis_pool)
 
@@ -227,6 +229,7 @@ def dispatch_due_sources(self):
     """Celery Beat task to schedule scraping jobs.
 
     Uses a distributed Redis lock to prevent overlapping runs.
+    Properly manages asyncio event loop to avoid conflicts with asyncpg connections.
 
     Returns:
         str: Summary of dispatch action.
@@ -241,8 +244,14 @@ def dispatch_due_sources(self):
         if not lock_acquired:
             return "Skipped: Dispatch task locked."
 
-        total_dispatched = asyncio.run(_dispatch_due_sources_async(self.app))
-        return f"Dispatched {total_dispatched} sources."
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            total_dispatched = loop.run_until_complete(_dispatch_due_sources_async(self.app))
+            return f"Dispatched {total_dispatched} sources."
+        finally:
+            loop.close()
 
     except redis.RedisError as e:
         logger.error(f"Redis error: {e}", exc_info=True)

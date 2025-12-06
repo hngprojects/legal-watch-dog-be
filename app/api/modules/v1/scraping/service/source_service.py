@@ -26,6 +26,7 @@ from app.api.modules.v1.scraping.schemas.source_service import (
     SourceRead,
     SourceUpdate,
 )
+from app.api.modules.v1.scraping.validators import URLValidationError, URLValidator
 
 logger = logging.getLogger("app")
 
@@ -59,6 +60,7 @@ class SourceService:
 
         Raises:
             HTTPException: 400 if required prompts are missing or the URL already exists.
+            HTTPException: 422 if URL is unreachable or invalid.
             HTTPException: 500 if creation fails.
 
         Examples:
@@ -68,6 +70,19 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
+            #
+            try:
+                await URLValidator.validate_url_comprehensive(
+                    source_data.url,
+                    check_reachability=True,
+                )
+            except URLValidationError as e:
+                logger.warning(f"URL validation failed for {source_data.url}: {e.message}")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=e.message,
+                )
+
             await self._ensure_prompt_requirements(db, source_data.jurisdiction_id)
             existing_source = await db.scalar(
                 select(Source).where(
@@ -132,6 +147,7 @@ class SourceService:
 
         Raises:
             HTTPException: 400 if required prompts are missing or URLs already exist.
+            HTTPException: 422 if any URL is unreachable or invalid.
             HTTPException: 500 if creation fails.
 
         Examples:
@@ -143,6 +159,22 @@ class SourceService:
             return []
 
         try:
+            
+            for idx, source_data in enumerate(sources_data):
+                try:
+                    await URLValidator.validate_url_comprehensive(
+                        source_data.url,
+                        check_reachability=True,
+                    )
+                except URLValidationError as e:
+                    logger.warning(
+                        f"URL validation failed for source #{idx + 1} ({source_data.url}): {e.message}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"URL validation failed for source #{idx + 1}: {e.message}",
+                    )
+
             unique_jurisdiction_ids = {source.jurisdiction_id for source in sources_data}
             for jurisdiction_id in unique_jurisdiction_ids:
                 await self._ensure_prompt_requirements(db, jurisdiction_id)
