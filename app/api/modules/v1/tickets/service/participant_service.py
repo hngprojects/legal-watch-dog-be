@@ -36,8 +36,6 @@ class ParticipantService:
         self,
         ticket_id: UUID,
         emails: List[str],
-        role: str,
-        expiry_days: int,
         current_user_id: UUID,
     ) -> InviteParticipantsResponse:
         """
@@ -49,15 +47,13 @@ class ParticipantService:
           → Send notification email with regular ticket link
           → They log in normally to view ticket
         - If NO (external participant):
-          → Create ExternalParticipant record
-          → Generate JWT magic link
+          → Create ExternalParticipant record with "Guest" role
+          → Generate JWT magic link (expires in 2 days)
           → Send guest access email
 
         Args:
             ticket_id: The UUID of the ticket
             emails: List of email addresses (internal or external)
-            role: Role description for external participants
-            expiry_days: Expiration for external guest access (internal users don't expire)
             current_user_id: The UUID of the current user making the request
 
         Returns:
@@ -67,6 +63,9 @@ class ParticipantService:
         Raises:
             ValueError: If ticket not found, user lacks permission, or user not member of org
         """
+
+        role = "Guest"
+        expiry_days = 2
 
         statement = (
             select(Ticket)

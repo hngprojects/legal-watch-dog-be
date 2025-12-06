@@ -13,17 +13,6 @@ class InviteParticipantsRequest(BaseModel):
         max_length=20,
         description="List of email addresses to invite (internal users or external participants)",
     )
-    role: str = Field(
-        default="Guest",
-        max_length=100,
-        description="Role description for external participants (e.g., 'Legal Counsel')",
-    )
-    expiry_days: int = Field(
-        default=7,
-        ge=1,
-        le=90,
-        description="Number of days until external guest access expires",
-    )
 
 
 class InternalUserInvitationResponse(BaseModel):
@@ -84,7 +73,7 @@ class InviteParticipantsResponse(BaseModel):
                     {
                         "participant_id": "123e4567-e89b-12d3-a456-426614174001",
                         "email": "counsel@lawfirm.com",
-                        "role": "Legal Counsel",
+                        "role": "Guest",
                         "is_internal": False,
                         "invited_at": "2025-12-05T10:30:00Z",
                         "expires_at": "2025-12-12T10:30:00Z",
@@ -123,7 +112,7 @@ class GuestTicketAccessResponse(BaseModel):
                 "created_at": "2025-12-05T10:00:00Z",
                 "project_name": "Contract Management System",
                 "participant_email": "counsel@lawfirm.com",
-                "participant_role": "Legal Counsel",
+                "participant_role": "Guest",
                 "access_expires_at": "2025-12-12T10:30:00Z",
             }
         }
