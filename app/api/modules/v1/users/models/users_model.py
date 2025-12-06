@@ -6,9 +6,12 @@ from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.api_access.models.api_key_model import APIKey
+    from app.api.modules.v1.notifications.models.revision_notification import Notification
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_user_model import ProjectUser
+    from app.api.modules.v1.tickets.models.comment_model import Comment
     from app.api.modules.v1.tickets.models.ticket_model import ExternalParticipant, Ticket
 
 
@@ -58,6 +61,12 @@ class User(SQLModel, table=True):
         back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     project_users: list["ProjectUser"] = Relationship(back_populates="user")
+
+    comments: list["Comment"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
     sent_invitations: list["Invitation"] = Relationship(
         back_populates="inviter", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
@@ -77,3 +86,19 @@ class User(SQLModel, table=True):
         back_populates="invited_by_user",
         sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )
+
+    owned_api_keys: list["APIKey"] = Relationship(
+        back_populates="owner_user",
+        sa_relationship_kwargs={
+            "foreign_keys": ("[app.api.modules.v1.api_access.models.api_key_model.APIKey.user_id]"),
+        },
+    )
+    generated_api_keys: list["APIKey"] = Relationship(
+        back_populates="generated_by_user",
+        sa_relationship_kwargs={
+            "foreign_keys": (
+                "[app.api.modules.v1.api_access.models.api_key_model.APIKey.generated_by]"
+            ),
+        },
+    )
+    notifications: list["Notification"] = Relationship(back_populates="user")

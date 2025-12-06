@@ -10,6 +10,7 @@ celery_app = Celery(
     include=[
         "app.api.modules.v1.scraping.service.tasks",
         "app.api.modules.v1.notifications.service.revision_notification_task",
+        "app.api.modules.v1.api_access.service.rotation_tasks",
     ],
 )
 
@@ -28,5 +29,9 @@ celery_app.conf.beat_schedule = {
     "dispatch-due-sources-every-minute": {
         "task": "app.api.modules.v1.scraping.service.tasks.dispatch_due_sources",
         "schedule": crontab(minute="*"),
+    },
+    "rotate-due-api-keys-every-hour": {
+        "task": "app.api.modules.v1.api_access.service.rotation_tasks.rotate_due_keys",
+        "schedule": crontab(minute=0, hour="*/1"),
     },
 }

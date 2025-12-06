@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     )
     APP_URL: str = config("APP_URL", default="https://minamoto.emerj.net")
     DEV_URL: str = config("DEV_URL", default="http://localhost:3000")
+    ENABLE_REALTIME_WEBSOCKETS: bool = config(
+        "ENABLE_REALTIME_WEBSOCKETS", default=False, cast=bool
+    )
+    REALTIME_WEBSOCKET_PATH: str = config("REALTIME_WEBSOCKET_PATH", default="/ws")
+    REALTIME_NOTIFICATIONS_CHANNEL: str = config(
+        "REALTIME_NOTIFICATIONS_CHANNEL", default="events:notifications"
+    )
+    REALTIME_SCRAPE_CHANNEL: str = config("REALTIME_SCRAPE_CHANNEL", default="events:scrape_jobs")
+    REALTIME_HEARTBEAT_INTERVAL: int = config("REALTIME_HEARTBEAT_INTERVAL", default=30, cast=int)
 
     # Socials
     SOCIAL_FACEBOOK: str = config("SOCIAL_FACEBOOK", default="https://facebook.com")
@@ -202,6 +211,23 @@ class Settings(BaseSettings):
     def STRIPE_CHECKOUT_CANCEL_URL(self) -> str:
         return f"{self.FRONTEND_URL}{self.STRIPE_CHECKOUT_CANCEL_PATH}"
 
+    @property
+    def REALTIME_CHANNEL_MAP(self) -> dict[str, str]:
+        """Return topic to Redis channel mapping for realtime delivery.
+
+        Returns:
+            dict[str, str]: Mapping consumed by event publisher/subscribers.
+
+        Examples:
+            >>> settings.REALTIME_CHANNEL_MAP["notifications"]
+            'events:notifications'
+        """
+
+        return {
+            "notifications": self.REALTIME_NOTIFICATIONS_CHANNEL,
+            "scrape_jobs": self.REALTIME_SCRAPE_CHANNEL,
+        }
+
     # Billing Configuration
     TRIAL_DURATION_DAYS: int = config("TRIAL_DURATION_DAYS", default=14, cast=int)
     MICROSOFT_REDIRECT_URI: str = config(
@@ -233,6 +259,7 @@ class Settings(BaseSettings):
 
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="user@organization.com")
 
+    # Apple OAuth
     APPLE_TEAM_ID: str = config("APPLE_TEAM_ID", default="your-apple-developer-team-id")
     APPLE_CLIENT_ID: str = config("APPLE_CLIENT_ID", default="your-apple-developer-client-id")
     APPLE_KEY_ID: str = config("APPLE_KEY_ID", default="your-apple-developer-key-identifier")
@@ -245,6 +272,15 @@ class Settings(BaseSettings):
     APPLE_REDIRECT_URI: str = config(
         "APPLE_REDIRECT_URI", default="http://localhost:8000/auth/apple/callback"
     )
+
+    # API_ACCESS_KEY
+    API_KEY_MAX_EXPIRATION_DAYS: int = config("API_KEY_MAX_EXPIRATION_DAYS", default=60, cast=int)
+    API_KEY_DEFAULT_EXPIRATION_DAYS: int = config(
+        "API_KEY_DEFAULT_EXPIRATION_DAYS", default=15, cast=int
+    )
+    API_KEY_FRONTEND_URL: str = config("API_KEY_FRONTEND_URL", default="legalwatch.dog/keys/view")
+    API_KEY_ROTATION_WINDOW_DAYS: int = config("API_KEY_ROTATION_WINDOW_DAYS", default=3, cast=int)
+    WEB_SECRET_KEY: str = config("WEB_SECRET_KEY", default="your-web-header")
 
     model_config = SettingsConfigDict(extra="allow")
 

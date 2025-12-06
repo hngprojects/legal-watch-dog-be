@@ -26,6 +26,7 @@ from app.api.modules.v1.scraping.service.diff_service import DiffAIService
 from app.api.modules.v1.scraping.service.extractor_service import TextExtractorService
 from app.api.modules.v1.scraping.service.llm_service import AIExtractionService
 from app.api.modules.v1.scraping.service.pdf_service import PDFService
+from app.api.modules.v1.tickets.service.ticket_creation_service import TicketService
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ class ScraperService:
 
         diff_patch = {}
         was_change_detected = False
+        change_result = None
 
         if last_revision and last_revision.content_hash == content_hash:
             logger.info(f"Content unchanged (hash: {content_hash[:8]}...). Skipping AI.")
@@ -204,9 +206,22 @@ class ScraperService:
 
             if was_change_detected and last_revision:
                 logger.info(f"Triggering notifications for revision {new_revision.id}")
+
                 send_revision_notifications_task.delay(str(new_revision.id))
+
             elif was_change_detected and not last_revision:
                 logger.info(f"First scrape for source {source.id}. Skipping notification.")
+
+            # Create automatic ticket
+            if was_change_detected and change_result is not None and last_revision:
+                ticket_service = TicketService(self.db)
+            await ticket_service.create_auto_ticket(
+                revision=new_revision,
+                change_result=change_result,
+                source=source,
+                project=project,
+                jurisdiction=jurisdiction,
+            )
 
         except Exception as e:
             await self.db.rollback()
