@@ -1,7 +1,9 @@
+import json
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from starlette.responses import JSONResponse
 
 from app.api.modules.v1.api_access.enums.api_key_scope import Scopes
 from app.api.modules.v1.api_access.routes import api_key_route
@@ -15,8 +17,18 @@ async def test_get_api_key_scopes_authorized(monkeypatch):
 
     result = await api_key_route.get_api_key_scopes(org_id, current_user_permissions={})
 
-    assert isinstance(result, list)
-    values = {r.value for r in result}
+    if isinstance(result, JSONResponse):
+        body = json.loads(result.body)
+        scopes_list = body.get("data", {}).get("scopes", [])
+    else:
+        scopes_list = result
+
+    values = set()
+    for r in scopes_list:
+        if isinstance(r, dict):
+            values.add(r.get("value"))
+        else:
+            values.add(r.value)
     expected = {s.value for s in Scopes}
     assert values == expected
 
