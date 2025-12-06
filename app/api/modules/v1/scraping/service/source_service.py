@@ -541,7 +541,7 @@ class SourceService:
 
         jurisdiction_prompt = (jurisdiction.prompt or "").strip()
 
-        if not bool(jurisdiction_prompt):
+        if not jurisdiction_prompt:
             message = (
                 "Add jurisdiction prompt before adding sources. "
                 "These instructions guide the AI scraping pipeline."

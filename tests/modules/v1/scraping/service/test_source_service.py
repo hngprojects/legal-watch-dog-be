@@ -278,7 +278,7 @@ class TestSourceServiceCreate:
 
         configure_prompt_validation(mock_db, project=project)
         mock_db.scalar = AsyncMock(return_value=None)
-        mock_db.add = AsyncMock()
+        mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
