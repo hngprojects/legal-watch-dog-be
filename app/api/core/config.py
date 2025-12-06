@@ -280,6 +280,7 @@ class Settings(BaseSettings):
     )
     API_KEY_FRONTEND_URL: str = config("API_KEY_FRONTEND_URL", default="legalwatch.dog/keys/view")
     API_KEY_ROTATION_WINDOW_DAYS: int = config("API_KEY_ROTATION_WINDOW_DAYS", default=3, cast=int)
+    WEB_SECRET_KEY: str = config("WEB_SECRET_KEY", default="your-web-header")
 
     model_config = SettingsConfigDict(extra="allow")
 

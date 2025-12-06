@@ -31,7 +31,7 @@ async def webhook_onboard(
     Security: requires X-WEBHOOK-SECRET header matching settings.SECRET_KEY.
     Returns the raw API key in response (only once) so the integrator can store it.
     """
-    if x_webhook_secret is None or x_webhook_secret != settings.SECRET_KEY:
+    if x_webhook_secret is None or x_webhook_secret != settings.WEB_SECRET_KEY:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook secret")
 
     crud = APIKeyCRUD()
