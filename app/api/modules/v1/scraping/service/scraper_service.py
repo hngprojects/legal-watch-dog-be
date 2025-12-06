@@ -204,7 +204,9 @@ class ScraperService:
 
             if was_change_detected and last_revision:
                 logger.info(f"Triggering notifications for revision {new_revision.id}")
+
                 send_revision_notifications_task.delay(str(new_revision.id))
+
             elif was_change_detected and not last_revision:
                 logger.info(f"First scrape for source {source.id}. Skipping notification.")
 
