@@ -7,6 +7,7 @@ from sqlalchemy import JSON, Column, DateTime, Index, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.api_access.models.api_key_model import APIKey
     from app.api.modules.v1.organization.models.invitation_model import Invitation
     from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
     from app.api.modules.v1.projects.models.project_model import Project
@@ -101,6 +102,9 @@ class Organization(SQLModel, table=True):
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     tickets: list["Ticket"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    api_keys: list["APIKey"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
