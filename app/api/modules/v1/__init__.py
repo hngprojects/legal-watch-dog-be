@@ -20,6 +20,9 @@ from app.api.modules.v1.jurisdictions.routes.jurisdiction_route import (
     router as juridiction_router,
 )
 from app.api.modules.v1.notifications.routes.notification_route import router as notification_router
+from app.api.modules.v1.notifications.routes.ticket_notification_routes import (
+    router as ticket_notif_router,
+)
 from app.api.modules.v1.organization.routes import router as organization_router
 from app.api.modules.v1.projects.routes.project_routes import router as project_router
 from app.api.modules.v1.scraping.routes import router as scraping_router
@@ -53,6 +56,7 @@ router.include_router(juridiction_router)
 router.include_router(notification_router)
 router.include_router(billing_router)
 router.include_router(data_revision_search_router)
+router.include_router(ticket_notif_router)
 router.include_router(participant_router)
 router.include_router(guest_access_router)
 router.include_router(api_key_router)

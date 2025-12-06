@@ -49,6 +49,23 @@ class NotificationResponse(NotificationBase):
     created_at: datetime
     sent_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
+    is_read: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TicketNotificationResponse(BaseModel):
+    """Response schema for a ticket notification."""
+
+    notification_id: uuid.UUID
+    ticket_id: uuid.UUID
+    user_id: uuid.UUID
+    message: str
+    status: str
+    created_at: datetime
+    sent_at: Optional[datetime] = None
+    is_read: bool
+    read_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +74,16 @@ class NotificationListResponse(BaseModel):
     """Response schema for list of notifications with pagination."""
 
     notifications: List[NotificationResponse]
+    total: int
+    page: int
+    limit: int
+    unread_count: int
+
+
+class TicketNotificationListResponse(BaseModel):
+    """Response schema for list of ticket notifications."""
+
+    notifications: List[TicketNotificationResponse]
     total: int
     page: int
     limit: int
