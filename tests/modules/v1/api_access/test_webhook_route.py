@@ -103,7 +103,7 @@ async def test_webhook_onboard_creates_key(client, pg_async_session):
         "generated_by": str(user.id),
     }
 
-    headers = {"X-WEBHOOK-SECRET": settings.SECRET_KEY}
+    headers = {"X-WEBHOOK-SECRET": settings.WEB_SECRET_KEY}
 
     resp = await client.post("/api/v1/webhooks/onboard", json=payload, headers=headers)
     assert resp.status_code == status.HTTP_201_CREATED
