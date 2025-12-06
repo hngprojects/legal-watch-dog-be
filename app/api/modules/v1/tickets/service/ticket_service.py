@@ -5,13 +5,16 @@ Business logic for ticket operations with proper database integration.
 
 import json
 import logging
-from typing import Optional
+import math
+from typing import Any, Dict, Optional
 from uuid import UUID
 
+from sqlalchemy import desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import and_, or_, select
 
+from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
 from app.api.modules.v1.projects.utils.project_utils import (
     check_project_user_exists,
     get_project_by_id,
@@ -19,6 +22,7 @@ from app.api.modules.v1.projects.utils.project_utils import (
 from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
 from app.api.modules.v1.scraping.models.data_revision import DataRevision
 from app.api.modules.v1.tickets.models.ticket_model import (
+    ExternalParticipant,
     Ticket,
     TicketPriority,
     TicketStatus,
@@ -230,7 +234,7 @@ class TicketService:
         q: Optional[str] = None,
         page: int = 1,
         limit: int = 20,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
         List tickets with filtering and pagination.
 
@@ -252,10 +256,12 @@ class TicketService:
         Raises:
             ValueError: If project not found or user not a member
         """
+        # Verify project exists and belongs to organization
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
             raise ValueError("Project not found or does not belong to this organization")
 
+        # Verify user is a project member
         is_project_member = await check_project_user_exists(self.db, project_id, user_id)
         if not is_project_member:
             raise ValueError("You must be a member of the project to view tickets")
@@ -266,13 +272,23 @@ class TicketService:
             f"page={page}, limit={limit}"
         )
 
-        statement = select(Ticket).where(
-            and_(
-                Ticket.organization_id == organization_id,
-                Ticket.project_id == project_id,
+        # Build base query
+        statement = (
+            select(Ticket)
+            .where(
+                and_(
+                    Ticket.organization_id == organization_id,
+                    Ticket.project_id == project_id,
+                )
+            )
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
             )
         )
 
+        # Apply filters
         if status:
             statement = statement.where(Ticket.status == status)
 
@@ -291,3 +307,382 @@ class TicketService:
                 Ticket.description.ilike(f"%{q}%"),
             )
             statement = statement.where(search_filter)
+
+        # Get total count
+        count_statement = select(func.count()).select_from(statement.subquery())
+        total_result = await self.db.execute(count_statement)
+        total = total_result.scalar() or 0
+
+        # Apply sorting (newest first)
+        statement = statement.order_by(desc(Ticket.created_at))
+
+        # Apply pagination
+        offset = (page - 1) * limit
+        statement = statement.offset(offset).limit(limit)
+
+        # Execute query
+        result = await self.db.execute(statement)
+        tickets = result.scalars().all()
+
+        # Calculate total pages
+        total_pages = math.ceil(total / limit) if total > 0 else 0
+
+        # Build response
+        tickets_data = [self._build_ticket_response(ticket) for ticket in tickets]
+
+        return {
+            "data": tickets_data,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        }
+
+    async def get_ticket_details(
+        self,
+        ticket_id: UUID,
+        organization_id: UUID,
+        user_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        Get detailed ticket information with all relationships loaded.
+
+        Args:
+            ticket_id: Ticket UUID
+            organization_id: Organization UUID for access control
+            user_id: User UUID requesting the details
+
+        Returns:
+            Dictionary with complete ticket details
+
+        Raises:
+            ValueError: If ticket not found or user doesn't have access
+        """
+        # Verify organization membership
+        result = await self.db.execute(
+            select(UserOrganization)
+            .where(UserOrganization.user_id == user_id)
+            .where(UserOrganization.organization_id == organization_id)
+        )
+        membership = result.scalars().first()
+        if not membership:
+            raise ValueError("User not a member of this organization")
+
+        statement = (
+            select(Ticket)
+            .where(
+                and_(
+                    Ticket.id == ticket_id,
+                    Ticket.organization_id == organization_id,
+                )
+            )
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
+                selectinload(Ticket.source),
+                selectinload(Ticket.data_revision),
+                selectinload(Ticket.change_diff),
+                selectinload(Ticket.external_participants),
+            )
+        )
+
+        result = await self.db.execute(statement)
+        ticket = result.scalar_one_or_none()
+
+        if not ticket:
+            raise ValueError(f"Ticket with id {ticket_id} not found")
+
+        return self._build_ticket_detail_response(ticket)
+
+    async def get_ticket_members(
+        self,
+        ticket_id: UUID,
+        organization_id: UUID,
+        user_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        Get all members (users and external participants) involved in a ticket.
+
+        Args:
+            ticket_id: Ticket UUID
+            organization_id: Organization UUID for access control
+            user_id: User UUID requesting the data
+
+        Returns:
+            Dictionary containing ticket members
+
+        Raises:
+            ValueError: If ticket not found or user doesn't have access
+        """
+        # Verify organization membership
+        result = await self.db.execute(
+            select(UserOrganization)
+            .where(UserOrganization.user_id == user_id)
+            .where(UserOrganization.organization_id == organization_id)
+        )
+        membership = result.scalars().first()
+        if not membership:
+            raise ValueError("User not a member of this organization")
+
+        # Get ticket with all user relationships and external participants
+        statement = (
+            select(Ticket)
+            .where(
+                and_(
+                    Ticket.id == ticket_id,
+                    Ticket.organization_id == organization_id,
+                )
+            )
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
+                selectinload(Ticket.external_participants).selectinload(
+                    ExternalParticipant.invited_by_user
+                ),
+            )
+        )
+
+        result = await self.db.execute(statement)
+        ticket = result.scalar_one_or_none()
+
+        if not ticket:
+            raise ValueError(f"Ticket with id {ticket_id} not found")
+
+        # Build external participants list
+        external_participants = []
+        if ticket.external_participants:
+            for participant in ticket.external_participants:
+                external_participants.append(
+                    {
+                        "id": str(participant.id),
+                        "email": participant.email,
+                        "role": participant.role,
+                        "invited_at": participant.invited_at.isoformat()
+                        if participant.invited_at
+                        else None,
+                        "invited_by_user": self._build_user_detail(participant.invited_by_user)
+                        if participant.invited_by_user
+                        else None,
+                        "last_accessed_at": participant.last_accessed_at.isoformat()
+                        if participant.last_accessed_at
+                        else None,
+                        "is_active": participant.is_active,
+                        "expires_at": participant.expires_at.isoformat()
+                        if participant.expires_at
+                        else None,
+                    }
+                )
+
+        # Count unique members (core users + external participants)
+        unique_user_ids = set()
+        if ticket.created_by_user_id:
+            unique_user_ids.add(ticket.created_by_user_id)
+        if ticket.assigned_by_user_id:
+            unique_user_ids.add(ticket.assigned_by_user_id)
+        if ticket.assigned_to_user_id:
+            unique_user_ids.add(ticket.assigned_to_user_id)
+
+        # Add external participants count
+        total_members = len(unique_user_ids) + len(external_participants)
+
+        return {
+            "ticket_id": str(ticket.id),
+            "created_by_user": self._build_user_detail(ticket.created_by_user)
+            if ticket.created_by_user
+            else None,
+            "assigned_by_user": self._build_user_detail(ticket.assigned_by_user)
+            if ticket.assigned_by_user
+            else None,
+            "assigned_to_user": self._build_user_detail(ticket.assigned_to_user)
+            if ticket.assigned_to_user
+            else None,
+            "external_participants": external_participants,
+            "total_members": total_members,
+        }
+
+    async def list_tickets_by_organization(
+        self,
+        organization_id: UUID,
+        user_id: UUID,
+        status: Optional[TicketStatus] = None,
+        priority: Optional[TicketPriority] = None,
+        project_id: Optional[UUID] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        List tickets across all projects in an organization.
+
+        Args:
+            organization_id: Organization UUID
+            user_id: User UUID requesting the list
+            status: Optional status filter
+            priority: Optional priority filter
+            project_id: Optional project filter
+            page: Page number
+            limit: Items per page
+
+        Returns:
+            Dictionary with tickets list and pagination metadata
+
+        Raises:
+            ValueError: If user is not a member of the organization
+        """
+        # Verify organization membership
+        result = await self.db.execute(
+            select(UserOrganization)
+            .where(UserOrganization.user_id == user_id)
+            .where(UserOrganization.organization_id == organization_id)
+        )
+        membership = result.scalars().first()
+        if not membership:
+            raise ValueError("User not a member of this organization")
+
+        logger.info(
+            f"Listing organization tickets for organization_id={organization_id}, "
+            f"status={status}, priority={priority}, page={page}, limit={limit}"
+        )
+
+        # Build base query
+        statement = (
+            select(Ticket)
+            .where(Ticket.organization_id == organization_id)
+            .options(
+                selectinload(Ticket.created_by_user),
+                selectinload(Ticket.assigned_by_user),
+                selectinload(Ticket.assigned_to_user),
+            )
+        )
+
+        # Apply filters
+        if status:
+            statement = statement.where(Ticket.status == status)
+
+        if priority:
+            statement = statement.where(Ticket.priority == priority)
+
+        if project_id:
+            statement = statement.where(Ticket.project_id == project_id)
+
+        # Get total count
+        count_statement = select(func.count()).select_from(statement.subquery())
+        total_result = await self.db.execute(count_statement)
+        total = total_result.scalar() or 0
+
+        # Apply sorting (newest first)
+        statement = statement.order_by(desc(Ticket.created_at))
+
+        # Apply pagination
+        offset = (page - 1) * limit
+        statement = statement.offset(offset).limit(limit)
+
+        # Execute query
+        result = await self.db.execute(statement)
+        tickets = result.scalars().all()
+
+        # Calculate total pages
+        total_pages = math.ceil(total / limit) if total > 0 else 0
+
+        # Build response
+        tickets_data = [self._build_ticket_response(ticket) for ticket in tickets]
+
+        return {
+            "data": tickets_data,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        }
+
+    def _build_user_detail(self, user) -> Optional[Dict[str, Any]]:
+        """Helper function to build user detail dictionary from User object."""
+        if not user:
+            return None
+
+        return {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "avatar_url": user.avatar_url,
+        }
+
+    def _build_ticket_response(self, ticket: Ticket) -> Dict[str, Any]:
+        """Helper function to build ticket response dictionary."""
+        # Parse content JSON safely
+        content_dict = None
+        if ticket.content:
+            try:
+                content_dict = json.loads(ticket.content)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON in ticket {ticket.id} content")
+                content_dict = None
+
+        return {
+            "id": str(ticket.id),
+            "title": ticket.title,
+            "description": ticket.description,
+            "content": content_dict,
+            "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
+            "priority": ticket.priority.value
+            if hasattr(ticket.priority, "value")
+            else ticket.priority,
+            "is_manual": ticket.is_manual,
+            "source_id": str(ticket.source_id) if ticket.source_id else None,
+            "data_revision_id": str(ticket.data_revision_id) if ticket.data_revision_id else None,
+            "change_diff_id": str(ticket.change_diff_id) if ticket.change_diff_id else None,
+            "created_by_user_id": str(ticket.created_by_user_id)
+            if ticket.created_by_user_id
+            else None,
+            "assigned_by_user_id": str(ticket.assigned_by_user_id)
+            if ticket.assigned_by_user_id
+            else None,
+            "assigned_to_user_id": str(ticket.assigned_to_user_id)
+            if ticket.assigned_to_user_id
+            else None,
+            "organization_id": str(ticket.organization_id),
+            "project_id": str(ticket.project_id),
+            "created_at": ticket.created_at.isoformat(),
+            "updated_at": ticket.updated_at.isoformat(),
+            "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
+            "created_by_user": self._build_user_detail(ticket.created_by_user)
+            if hasattr(ticket, "created_by_user") and ticket.created_by_user
+            else None,
+            "assigned_by_user": self._build_user_detail(ticket.assigned_by_user)
+            if hasattr(ticket, "assigned_by_user") and ticket.assigned_by_user
+            else None,
+            "assigned_to_user": self._build_user_detail(ticket.assigned_to_user)
+            if hasattr(ticket, "assigned_to_user") and ticket.assigned_to_user
+            else None,
+        }
+
+    def _build_ticket_detail_response(self, ticket: Ticket) -> Dict[str, Any]:
+        """Helper function to build detailed ticket response with all relationships."""
+        base_response = self._build_ticket_response(ticket)
+
+        # Add external participants if available
+        invited_users = []
+        if hasattr(ticket, "external_participants") and ticket.external_participants:
+            for participant in ticket.external_participants:
+                invited_users.append(
+                    {
+                        "id": str(participant.id),
+                        "email": participant.email,
+                        "role": participant.role,
+                        "invited_at": participant.invited_at.isoformat()
+                        if participant.invited_at
+                        else None,
+                        "last_accessed_at": participant.last_accessed_at.isoformat()
+                        if participant.last_accessed_at
+                        else None,
+                        "is_active": participant.is_active,
+                        "expires_at": participant.expires_at.isoformat()
+                        if participant.expires_at
+                        else None,
+                    }
+                )
+
+        base_response["invited_users"] = invited_users
+
+        return base_response
