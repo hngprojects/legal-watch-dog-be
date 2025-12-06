@@ -1,6 +1,5 @@
-import uuid
 from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -9,10 +8,10 @@ from app.api.modules.v1.tickets.models.ticket_model import Ticket, TicketPriorit
 from app.api.modules.v1.users.models.users_model import User
 
 if TYPE_CHECKING:
-    from app.api.modules.v1.scraping.models.data_revision import DataRevision
-    from app.api.modules.v1.scraping.models.source_model import Source
     from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
     from app.api.modules.v1.projects.models.project_model import Project
+    from app.api.modules.v1.scraping.models.data_revision import DataRevision
+    from app.api.modules.v1.scraping.models.source_model import Source
     from app.api.modules.v1.scraping.service.diff_service import ChangeDetectionResult
 
 
