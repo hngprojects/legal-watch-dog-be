@@ -33,18 +33,19 @@ class TicketService:
         Maps the risk level detected by AI to the ticket priority.
 
         Args:
-            risk_level (Optional[str]): Risk level string ("LOW", "MEDIUM", "HIGH", "NONE").
+            risk_level (Optional[str]): Risk level string ("LOW", "MEDIUM", "HIGH", "CRITICAL").
 
         Returns:
             TicketPriority: The corresponding ticket priority.
         """
         risk_map = {
-            "HIGH": TicketPriority.CRITICAL,
-            "MEDIUM": TicketPriority.HIGH,
-            "LOW": TicketPriority.MEDIUM,
+            "CRITICAL": TicketPriority.CRITICAL,
+            "HIGH": TicketPriority.HIGH,
+            "MEDIUM": TicketPriority.MEDIUM,
+            "LOW": TicketPriority.LOW,
         }
-        risk_upper = risk_level.upper() if risk_level else "NONE"
-        return risk_map.get(risk_upper, TicketPriority.MEDIUM)
+        risk_upper = risk_level.upper() if risk_level else "LOW"
+        return risk_map.get(risk_upper, TicketPriority.LOW)
 
     async def create_auto_ticket(
         self,
