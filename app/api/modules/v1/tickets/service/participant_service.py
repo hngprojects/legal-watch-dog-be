@@ -72,7 +72,7 @@ class ParticipantService:
             select(Ticket)
             .where(Ticket.id == ticket_id)
             .options(
-                selectinload(Ticket.invited_users),
+                selectinload(Ticket.external_participants),
                 selectinload(Ticket.organization),
                 selectinload(Ticket.project),
             )
@@ -107,7 +107,7 @@ class ParticipantService:
                 "You do not have permission to invite participants to tickets in this organization"
             )
 
-        existing_external_emails = {p.email.lower() for p in ticket.invited_users}
+        existing_external_emails = {p.email.lower() for p in ticket.external_participants}
 
         normalized_emails = [email.strip().lower() for email in emails]
 
