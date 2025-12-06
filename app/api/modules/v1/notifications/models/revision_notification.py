@@ -128,7 +128,9 @@ class Notification(SQLModel, table=True):
         description="When the notification was read",
     )
 
-    user: Optional["User"] = Relationship()
+    user: Optional["User"] = Relationship(
+        back_populates="notifications", sa_relationship_kwargs={"lazy": "joined"}
+    )
 
 
 Index(

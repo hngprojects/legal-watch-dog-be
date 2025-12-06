@@ -25,8 +25,6 @@ async def test_invite_participants_ticket_not_found():
         await service.invite_participants(
             ticket_id=uuid.uuid4(),
             emails=["test@example.com"],
-            role="Consultant",
-            expiry_days=7,
             current_user_id=uuid.uuid4(),
         )
 
@@ -80,7 +78,5 @@ async def test_invite_participants_no_permission():
             await service.invite_participants(
                 ticket_id=ticket_id,
                 emails=["test@example.com"],
-                role="Consultant",
-                expiry_days=7,
                 current_user_id=current_user_id,
             )
