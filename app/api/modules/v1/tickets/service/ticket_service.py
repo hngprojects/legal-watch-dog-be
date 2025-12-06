@@ -3,7 +3,6 @@ Ticket Services
 Business logic for ticket operations with proper database integration.
 """
 
-import json
 import logging
 from typing import Optional
 from uuid import UUID
@@ -151,12 +150,10 @@ class TicketService:
                 f"organization_id={organization_id}, project_id={data.project_id}"
             )
 
-            content_str = json.dumps(auto_content) if auto_content else None
-
             ticket = Ticket(
                 title=auto_title,
                 description=auto_description,
-                content=content_str,
+                content=auto_content,
                 priority=data.priority,
                 status=TicketStatus.OPEN,
                 is_manual=True,
@@ -211,7 +208,7 @@ class TicketService:
                 selectinload(Ticket.created_by_user),
                 selectinload(Ticket.assigned_by_user),
                 selectinload(Ticket.assigned_to_user),
-                selectinload(Ticket.invited_users),
+                selectinload(Ticket.external_participants),
             )
         )
 

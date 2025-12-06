@@ -190,11 +190,24 @@ class TicketListResponse(BaseModel):
     )
 
 
-class TicketDetailResponse(TicketResponse):
-    """Schema for detailed ticket response with invited users."""
+class ExternalParticipantDetail(BaseModel):
+    """Schema for external participant information in ticket responses."""
 
-    invited_users: List[InvitedUserDetail] = Field(
-        default=[], description="Users invited to collaborate on this ticket"
+    id: UUID
+    email: str
+    role: str
+    invited_at: datetime
+    is_active: bool
+    expires_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TicketDetailResponse(TicketResponse):
+    """Schema for detailed ticket response with external participants."""
+
+    external_participants: List[ExternalParticipantDetail] = Field(
+        default=[], description="External participants invited to collaborate on this ticket"
     )
 
     model_config = ConfigDict(from_attributes=True)

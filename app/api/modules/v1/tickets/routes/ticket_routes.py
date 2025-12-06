@@ -3,7 +3,6 @@ Ticket Routes
 API endpoint for manual ticket creation.
 """
 
-import json
 import logging
 from uuid import UUID
 
@@ -17,7 +16,6 @@ from app.api.modules.v1.organization.models.user_organization_model import UserO
 from app.api.modules.v1.tickets.schemas import (
     TicketCreate,
     TicketResponse,
-    UserDetail,
 )
 from app.api.modules.v1.tickets.service import TicketService
 from app.api.modules.v1.users.models.users_model import User
@@ -98,42 +96,10 @@ async def create_manual_ticket(
             user_id=current_user.id,
         )
 
-        content_dict = json.loads(ticket.content) if ticket.content else None
-
-        response_data = TicketResponse(
-            id=ticket.id,
-            title=ticket.title,
-            description=ticket.description,
-            content=content_dict,
-            status=ticket.status,
-            priority=ticket.priority,
-            is_manual=ticket.is_manual,
-            source_id=ticket.source_id,
-            data_revision_id=ticket.data_revision_id,
-            change_diff_id=ticket.change_diff_id,
-            created_by_user_id=ticket.created_by_user_id,
-            assigned_by_user_id=ticket.assigned_by_user_id,
-            assigned_to_user_id=ticket.assigned_to_user_id,
-            organization_id=ticket.organization_id,
-            project_id=ticket.project_id,
-            created_at=ticket.created_at,
-            updated_at=ticket.updated_at,
-            closed_at=ticket.closed_at,
-            created_by_user=_build_user_detail(ticket.created_by_user)
-            if ticket.created_by_user
-            else None,
-            assigned_by_user=_build_user_detail(ticket.assigned_by_user)
-            if ticket.assigned_by_user
-            else None,
-            assigned_to_user=_build_user_detail(ticket.assigned_to_user)
-            if ticket.assigned_to_user
-            else None,
-        )
-
         logger.info(f"Successfully created ticket {ticket.id} for user {current_user.id}")
 
         return success_response(
-            data=response_data,
+            data=ticket,
             message="Ticket created successfully",
             status_code=status.HTTP_201_CREATED,
         )
@@ -150,13 +116,3 @@ async def create_manual_ticket(
             message="An error occurred while creating the ticket",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-
-def _build_user_detail(user: User) -> UserDetail:
-    """Helper function to build UserDetail from User object."""
-    return UserDetail(
-        id=user.id,
-        email=user.email,
-        name=user.name,
-        avatar_url=user.avatar_url,
-    )

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from pydantic import field_validator
 from sqlalchemy import Column, DateTime, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.api.modules.v1.tickets.models.comment_model import Comment
@@ -131,9 +132,9 @@ class Ticket(SQLModel, table=True):
 
     title: str = Field(max_length=255, nullable=False, index=True)
     description: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
-    content: Optional[str] = Field(
+    content: Optional[dict] = Field(
         default=None,
-        sa_column=Column(Text, nullable=True),
+        sa_column=Column(JSONB, nullable=True),
         description="Content from the detected changes or observations",
     )
 
