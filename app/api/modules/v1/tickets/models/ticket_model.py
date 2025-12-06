@@ -7,6 +7,8 @@ from pydantic import field_validator
 from sqlalchemy import Column, DateTime, Text
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.api.modules.v1.tickets.models.comment_model import Comment
+
 
 class ExternalParticipant(SQLModel, table=True):
     """
@@ -81,6 +83,11 @@ class ExternalParticipant(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.invited_by_user_id]"},
     )
 
+    comments: list["Comment"] = Relationship(
+        back_populates="participant",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
 
 if TYPE_CHECKING:
     from app.api.modules.v1.organization.models.organization_model import Organization
@@ -88,6 +95,7 @@ if TYPE_CHECKING:
     from app.api.modules.v1.scraping.models.change_diff import ChangeDiff
     from app.api.modules.v1.scraping.models.data_revision import DataRevision
     from app.api.modules.v1.scraping.models.source_model import Source
+    from app.api.modules.v1.tickets.models.comment_model import Comment
     from app.api.modules.v1.users.models.users_model import User
 
 
@@ -232,6 +240,10 @@ class Ticket(SQLModel, table=True):
     assigned_to_user: Optional["User"] = Relationship(
         back_populates="assigned_tickets",
         sa_relationship_kwargs={"foreign_keys": "[Ticket.assigned_to_user_id]"},
+    )
+    comments: list["Comment"] = Relationship(
+        back_populates="ticket",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     organization: "Organization" = Relationship(back_populates="tickets")
     project: "Project" = Relationship(back_populates="tickets")
