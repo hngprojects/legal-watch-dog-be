@@ -132,6 +132,7 @@ class ScraperService:
 
         diff_patch = {}
         was_change_detected = False
+        change_result = None
 
         if last_revision and last_revision.content_hash == content_hash:
             logger.info(f"Content unchanged (hash: {content_hash[:8]}...). Skipping AI.")
@@ -210,7 +211,8 @@ class ScraperService:
                 logger.info(f"First scrape for source {source.id}. Skipping notification.")
 
             # Create automatic ticket
-            ticket_service = TicketService(self.db)
+            if was_change_detected and change_result is not None and last_revision:
+                ticket_service = TicketService(self.db)
             await ticket_service.create_auto_ticket(
                 revision=new_revision,
                 change_result=change_result,
