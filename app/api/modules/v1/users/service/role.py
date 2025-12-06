@@ -6,12 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.modules.v1.users.models.roles_model import Role
-from app.api.utils.permissions import (
-    ADMIN_PERMISSIONS,
-    MANAGER_PERMISSIONS,
-    OWNER_PERMISSIONS,
-    USER_PERMISSIONS,
-)
+from app.api.modules.v1.users.service.role_template_service import RoleTemplateCRUD
 
 logger = logging.getLogger("app")
 
@@ -20,20 +15,22 @@ class RoleCRUD:
     """CRUD operations for Role model."""
 
     @staticmethod
-    async def create_admin_role(
+    async def create_role_from_template(
         db: AsyncSession,
         organization_id: uuid.UUID,
-        role_name: str = "Admin",
-        description: Optional[str] = "Administrator with full permissions",
+        template_name: str,
+        role_name: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> Role:
         """
-        Create an admin role for an organization.
+        Create a role from template (JSON or hardcoded).
 
         Args:
             db: Async database session
             organization_id: UUID of the organization
-            role_name: Name of the role (default: "Admin")
-            description: Role description (optional)
+            template_name: Name of the template ('owner', 'admin', etc.)
+            custom_name: Optional custom name override
+            custom_description: Optional custom description
 
         Returns:
             Role: Created role object
@@ -42,11 +39,19 @@ class RoleCRUD:
             Exception: If database operation fails
         """
         try:
+            template = await RoleTemplateCRUD.get_template_by_name(db, template_name)
+            if not template:
+                raise ValueError(f"Role template '{template_name}' not found")
+
+            final_name = role_name or template.display_name
+            final_description = description or template.description
             role = Role(
-                name=role_name,
+                name=final_name,
                 organization_id=organization_id,
-                description=description,
-                permissions=ADMIN_PERMISSIONS,
+                description=final_description,
+                permissions=template.permissions.copy(),
+                template_name=template_name,
+                hierarchy_level=template.hierarchy_level,
             )
 
             db.add(role)
@@ -54,22 +59,28 @@ class RoleCRUD:
             await db.refresh(role)
 
             logger.info(
-                "Created admin role: id=%s, name=%s, organization_id=%s",
+                "Created role from template: id=%s, name=%s, template=%s, org_id=%s, hierarchy=%s",
                 role.id,
                 role.name,
-                role.organization_id,
+                template_name,
+                organization_id,
+                role.hierarchy_level,
             )
 
             return role
 
+        except ValueError:
+            raise
+
         except Exception as e:
             logger.error(
-                "Failed to create admin role for organization_id=%s: %s",
+                "Failed to create role from template %s for organization_id=%s: %s",
+                template_name,
                 organization_id,
                 str(e),
                 exc_info=True,
             )
-            raise Exception("Failed to create admin role")
+            raise Exception(f"Failed to create role from template '{template_name}'")
 
     @staticmethod
     async def create_owner_role(
@@ -84,112 +95,41 @@ class RoleCRUD:
         Args:
             db: Async database session
             organization_id: UUID of the organization
-            role_name: Name of the role (default: "Admin")
+            role_name: Name of the role (default: "Owner")
             description: Role description (optional)
 
         Returns:
             Role: Created role object
 
         Raises:
+            ValueError: If owner role already exists for this organization
             Exception: If database operation fails
         """
-        try:
-            role = Role(
-                name=role_name,
-                organization_id=organization_id,
-                description=description,
-                permissions=OWNER_PERMISSIONS,
-            )
-
-            db.add(role)
-            await db.flush()
-            await db.refresh(role)
-
-            logger.info(
-                "Created owner role: id=%s, name=%s, organization_id=%s",
-                role.id,
-                role.name,
-                role.organization_id,
-            )
-
-            return role
-
-        except Exception as e:
-            logger.error(
-                "Failed to create owner role for organization_id=%s: %s",
-                organization_id,
-                str(e),
-                exc_info=True,
-            )
-            raise Exception("Failed to create owner role")
+        return await RoleCRUD.create_role_from_template(
+            db=db,
+            organization_id=organization_id,
+            template_name="owner",
+            role_name=role_name,
+            description=description or "Organization owner with full permissions",
+        )
 
     @staticmethod
-    async def get_default_user_role(
+    async def create_admin_role(
         db: AsyncSession,
         organization_id: uuid.UUID,
-        role_name: str = "Member",
-        description: Optional[str] = "Organization Member with basic permissions",
+        role_name: str = "Admin",
+        description: Optional[str] = "Administrator with full permissions",
     ) -> Role:
         """
-        Get or create a default user role for an organization.
-
-        This function retrieves an existing 'Member' role for a given organization.
-        If it doesn't exist, it creates a new one with predefined user permissions.
-
-        Args:
-            db (AsyncSession): The active database session.
-            organization_id: UUID of the organization for which to get/create the role.
-            role_name (str, optional): Name of the role to get or create. Defaults to "Member".
-            description (str, optional): Description of the role. Defaults to
-            "Organization Member with basic permissions".
-
-        Returns:
-            Role: The existing or newly created role instance.
-
-        Raises:
-            Exception: If the role creation or database operation fails.
+        Create an admin role using templates
         """
-
-        try:
-            existing_role = await RoleCRUD.get_role_by_name_and_organization(
-                db, role_name, organization_id
-            )
-
-            if existing_role:
-                logger.info(
-                    "Retrieved existing user role: id=%s, name=%s, organization_id=%s",
-                    existing_role.id,
-                    existing_role.name,
-                    existing_role.organization_id,
-                )
-                return existing_role
-
-            role = Role(
-                name=role_name,
-                organization_id=organization_id,
-                description=description,
-                permissions=USER_PERMISSIONS,
-            )
-            logger.info(
-                "Created user role: id=%s, name=%s, organization_id=%s",
-                role.id,
-                role.name,
-                role.organization_id,
-            )
-
-            db.add(role)
-            await db.flush()
-            await db.refresh(role)
-            return role
-
-        except Exception as e:
-            logger.error(
-                "Failed to get or create user role for organization_id=%s: %s",
-                organization_id,
-                str(e),
-                exc_info=True,
-            )
-            raise Exception("Failed to get or create user role")
+        return await RoleCRUD.create_role_from_template(
+            db=db,
+            organization_id=organization_id,
+            template_name="admin",
+            role_name=role_name,
+            description=description or "Administrator with full permissions",
+        )
 
     @staticmethod
     async def create_manager_role(
@@ -213,47 +153,57 @@ class RoleCRUD:
         Raises:
             Exception: If database operation fails
         """
+        return await RoleCRUD.create_role_from_template(
+            db=db,
+            organization_id=organization_id,
+            template_name="manager",
+            role_name=role_name,
+            description=description or "Team manager with elevated project management permissions",
+        )
+
+    @staticmethod
+    async def get_default_user_role(
+        db: AsyncSession,
+        organization_id: uuid.UUID,
+        role_name: str = "Member",
+        description: Optional[str] = "Organization Member with basic permissions",
+    ) -> Role:
+        """
+        Get or create a default user role for an organization.
+        """
+
         try:
             existing_role = await RoleCRUD.get_role_by_name_and_organization(
                 db, role_name, organization_id
             )
+
             if existing_role:
                 logger.info(
-                    "Manager role already exists: id=%s, name=%s, organization_id=%s",
+                    "Retrieved existing user role: id=%s, name=%s, organization_id=%s",
                     existing_role.id,
                     existing_role.name,
                     existing_role.organization_id,
                 )
                 return existing_role
 
-            role = Role(
-                name=role_name,
+            role = await RoleCRUD.create_role_from_template(
+                db=db,
                 organization_id=organization_id,
-                description=description,
-                permissions=MANAGER_PERMISSIONS,
-            )
-
-            db.add(role)
-            await db.flush()
-            await db.refresh(role)
-
-            logger.info(
-                "Created manager role: id=%s, name=%s, organization_id=%s",
-                role.id,
-                role.name,
-                role.organization_id,
+                template_name="member",
+                role_name=role_name,
+                description=description or "Organization member with basic permissions",
             )
 
             return role
 
         except Exception as e:
             logger.error(
-                "Failed to create manager role for organization_id=%s: %s",
+                "Failed to get or create user role for organization_id=%s: %s",
                 organization_id,
                 str(e),
                 exc_info=True,
             )
-            raise Exception("Failed to create manager role")
+            raise Exception("Failed to get or create user role")
 
     @staticmethod
     async def get_role_by_name_and_organization(

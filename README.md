@@ -215,6 +215,25 @@ uv run python main.py --reload
 
 ---
 
+## **Realtime Websocket Updates**
+
+1. **Start Redis** so pub/sub channels are available (`REDIS_URL` is reused for realtime traffic).
+2. **Enable the feature flag** by setting the following variables in `.env`:
+
+   ```env
+   ENABLE_REALTIME_WEBSOCKETS=true
+   REALTIME_WEBSOCKET_PATH=/ws
+   REALTIME_NOTIFICATIONS_CHANNEL=events:notifications
+   REALTIME_SCRAPE_CHANNEL=events:scrape_jobs
+   REALTIME_HEARTBEAT_INTERVAL=30
+   ```
+
+3. **Run the API** (e.g., `uvicorn main:app --reload`). The websocket router is mounted automatically when the flag is `true`, and the application lifespan starts a Redis -> websocket relay bridge.
+4. **Connect from the frontend** using `ws://<host>:<port>/ws?token=<JWT>`. The `token` query parameter must contain a valid user access token; connections without it are rejected.
+5. **Subscribe/receive events.** After database commits, notification and scrape job services emit domain events that the bridge broadcasts only to the intended recipients. Clients can also send lightweight subscription messages over the socket to control which topics they receive.
+
+---
+
 ## **Database Setup**
 
 ### Step 1: Create a Database User
@@ -422,7 +441,7 @@ act -v pull_request
 To start the Celery server locally on Linux or macOS, run the following commands:
 
 ```bash
-celery -A app.celery_app:celery_app worker -l info
+celery -A app.celery_app:celery_app worker --pool=prefork --concurrency=10 -l info
 ```
 and
 ```bash
@@ -433,7 +452,7 @@ in two different terminal windows.
 If you're on Windows, you may need to run the following commands:
 
 ```bash
-python -m celery -A app.celery_app:celery_app worker -P gevent -l info
+python -m celery -A app.celery_app:celery_app worker --pool=threads --concurrency=10 -l info
 ```
 and
 ```bash

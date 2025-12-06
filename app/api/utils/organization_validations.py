@@ -78,4 +78,4 @@ async def check_user_permission(
     if not role:
         return False
 
-    return role.permissions.get(permission, False)
+    return role.permissions.get(permission, False) is True

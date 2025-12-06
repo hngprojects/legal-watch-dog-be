@@ -170,9 +170,17 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
-          
+
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+
+
+          # API Keys configuration
+          API_KEY_MAX_EXPIRATION_DAYS=${{ vars.API_KEY_MAX_EXPIRATION_DAYS || 60 }}
+          API_KEY_DEFAULT_EXPIRATION_DAYS=${{ vars.API_KEY_DEFAULT_EXPIRATION_DAYS || 15 }}
+          API_KEY_ROTATION_WINDOW_DAYS=${{ vars.API_KEY_ROTATION_WINDOW_DAYS || 3 }}
+          API_KEY_FRONTEND_URL=${{ vars.API_KEY_FRONTEND_URL || 'legalwatch.dog/keys/view' }}
+          WEB_SECRET_KEY=${{ secrets.WEB_SECRET_KEY }}
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
@@ -194,7 +202,7 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-prod"
+            REMOTE_DIR="/home/watchdog/apps/backend/legal-watch-dog-be-prod"
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
             BRANCH="main"
             ENVIRONMENT="production"
@@ -407,9 +415,16 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
-          
+
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+
+          # API Keys configuration
+          API_KEY_MAX_EXPIRATION_DAYS=${{ vars.API_KEY_MAX_EXPIRATION_DAYS || 60 }}
+          API_KEY_DEFAULT_EXPIRATION_DAYS=${{ vars.API_KEY_DEFAULT_EXPIRATION_DAYS || 15 }}
+          API_KEY_ROTATION_WINDOW_DAYS=${{ vars.API_KEY_ROTATION_WINDOW_DAYS || 3 }}
+          API_KEY_FRONTEND_URL=${{ vars.API_KEY_FRONTEND_URL || 'legalwatch.dog/keys/view' }}
+          WEB_SECRET_KEY=${{ secrets.WEB_SECRET_KEY }}
 
           EOF
 
@@ -432,7 +447,7 @@ jobs:
           sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP << 'EOF'
             set -e
 
-            REMOTE_DIR="/home/ifeanyinw/apps/backend/legal-watch-dog-be-staging"
+            REMOTE_DIR="/home/watchdog/apps/backend/legal-watch-dog-be-staging"
             REPO_URL="https://github.com/hngprojects/legal-watch-dog-be"
             BRANCH="staging"
             ENVIRONMENT="staging"

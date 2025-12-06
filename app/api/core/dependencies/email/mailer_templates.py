@@ -14,5 +14,6 @@ email_templates.env.globals["SOCIAL_INSTAGRAM"] = settings.SOCIAL_INSTAGRAM
 email_templates.env.globals["SOCIAL_LINKEDIN"] = settings.SOCIAL_LINKEDIN
 email_templates.env.globals["SOCIAL_YOUTUBE"] = settings.SOCIAL_YOUTUBE
 email_templates.env.globals["current_year"] = datetime.now().year
+email_templates.env.globals["API_URL"] = settings.LEGAL_WATCH_DOG_BASE_URL
 email_templates.env.globals["APP_URL"] = settings.APP_URL
 email_templates.env.globals["APP_NAME"] = settings.APP_NAME
