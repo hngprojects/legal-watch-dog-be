@@ -59,11 +59,7 @@ async def get_ticket_notifications(
         select(func.count())
         .select_from(TicketNotification)
         # .where(TicketNotification.user_id == current_user.id, TicketNotification.is_read == False)
-        .where(
-            TicketNotification.user_id == current_user.id,
-            not TicketNotification.is_read
-        )
-
+        .where(TicketNotification.user_id == current_user.id, not TicketNotification.is_read)
     )
     unread_count = unread_result.scalar_one()
 
