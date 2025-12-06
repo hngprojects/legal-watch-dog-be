@@ -19,10 +19,49 @@ async def test_create_manual_ticket_success():
     org_id = uuid4()
     user_id = uuid4()
     project_id = uuid4()
+    source_id = uuid4()
+    revision_id = uuid4()
+    jurisdiction_id = uuid4()
 
     mock_project = MagicMock()
     mock_project.id = project_id
     mock_project.org_id = org_id
+
+    mock_source = MagicMock()
+    mock_source.id = source_id
+    mock_source.project_id = project_id
+    mock_source.organization_id = org_id
+    mock_source.jurisdiction_id = jurisdiction_id
+    mock_source.name = "Test Source"
+    mock_source.url = "https://test.com"
+
+    mock_revision = MagicMock()
+    mock_revision.id = revision_id
+    mock_revision.source_id = source_id
+    mock_revision.ai_summary = "Test summary"
+    mock_revision.content_hash = "abc123"
+    mock_revision.scraped_at = MagicMock()
+    mock_revision.scraped_at.isoformat.return_value = "2025-12-06T10:00:00"
+    mock_revision.ai_confidence_score = 0.8
+    mock_revision.change_diffs = []
+
+    mock_jurisdiction = MagicMock()
+    mock_jurisdiction.name = "Test Jurisdiction"
+
+    source_result = MagicMock()
+    source_result.scalar_one_or_none.return_value = mock_source
+
+    revision_result = MagicMock()
+    revision_result.scalar_one_or_none.return_value = mock_revision
+
+    jurisdiction_result = MagicMock()
+    jurisdiction_result.scalar_one_or_none.return_value = mock_jurisdiction
+
+    mock_db.execute = AsyncMock(side_effect=[source_result, revision_result, jurisdiction_result])
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.refresh = AsyncMock()
 
     with (
         patch(
@@ -35,29 +74,24 @@ async def test_create_manual_ticket_success():
         ),
     ):
         ticket_data = TicketCreate(
-            title="Test Ticket",
-            description="Test description",
-            content={"type": "test"},
+            source_id=source_id,
+            revision_id=revision_id,
             priority=TicketPriority.HIGH,
-            project_id=project_id,
         )
-
-        mock_db.add = MagicMock()
-        mock_db.flush = AsyncMock()
-        mock_db.commit = AsyncMock()
-        mock_db.refresh = AsyncMock()
 
         service = TicketService(db=mock_db)
         ticket = await service.create_manual_ticket(
             data=ticket_data, organization_id=org_id, user_id=user_id
         )
 
-        assert ticket.title == "Test Ticket"
+        assert ticket.title == "[Test Jurisdiction] Test Source - Change Detected"
         assert ticket.priority == TicketPriority.HIGH
         assert ticket.status == TicketStatus.OPEN
         assert ticket.is_manual is True
         assert ticket.organization_id == org_id
         assert ticket.created_by_user_id == user_id
+        assert ticket.source_id == source_id
+        assert ticket.data_revision_id == revision_id
         mock_db.add.assert_called_once()
         mock_db.flush.assert_awaited_once()
         mock_db.commit.assert_awaited_once()
@@ -69,16 +103,26 @@ async def test_create_manual_ticket_project_not_found():
     mock_db = AsyncMock()
     org_id = uuid4()
     user_id = uuid4()
+    source_id = uuid4()
+    revision_id = uuid4()
     project_id = uuid4()
+
+    mock_source = MagicMock()
+    mock_source.id = source_id
+    mock_source.project_id = project_id
+
+    source_result = MagicMock()
+    source_result.scalar_one_or_none.return_value = mock_source
+    mock_db.execute = AsyncMock(return_value=source_result)
 
     with patch(
         "app.api.modules.v1.tickets.service.ticket_service.get_project_by_id",
         return_value=None,
     ):
         ticket_data = TicketCreate(
-            title="Test Ticket",
+            source_id=source_id,
+            revision_id=revision_id,
             priority=TicketPriority.MEDIUM,
-            project_id=project_id,
         )
 
         service = TicketService(db=mock_db)
@@ -95,11 +139,21 @@ async def test_create_manual_ticket_user_not_member():
     mock_db = AsyncMock()
     org_id = uuid4()
     user_id = uuid4()
+    source_id = uuid4()
+    revision_id = uuid4()
     project_id = uuid4()
 
     mock_project = MagicMock()
     mock_project.id = project_id
     mock_project.org_id = org_id
+
+    mock_source = MagicMock()
+    mock_source.id = source_id
+    mock_source.project_id = project_id
+
+    source_result = MagicMock()
+    source_result.scalar_one_or_none.return_value = mock_source
+    mock_db.execute = AsyncMock(return_value=source_result)
 
     with (
         patch(
@@ -112,9 +166,9 @@ async def test_create_manual_ticket_user_not_member():
         ),
     ):
         ticket_data = TicketCreate(
-            title="Test Ticket",
+            source_id=source_id,
+            revision_id=revision_id,
             priority=TicketPriority.LOW,
-            project_id=project_id,
         )
 
         service = TicketService(db=mock_db)

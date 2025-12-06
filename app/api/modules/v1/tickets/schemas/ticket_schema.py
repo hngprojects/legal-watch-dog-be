@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.modules.v1.tickets.models.ticket_model import TicketPriority, TicketStatus
 
@@ -15,61 +15,27 @@ from app.api.modules.v1.tickets.models.ticket_model import TicketPriority, Ticke
 class TicketBase(BaseModel):
     """Base schema for ticket creation and updates."""
 
-    title: str = Field(
+    source_id: UUID = Field(
         ...,
-        min_length=1,
-        max_length=255,
-        description="Ticket title",
-        examples=["Review legislative change in Section 4.2"],
+        description="Source ID (required) - identifies the source being tracked",
     )
-    description: Optional[str] = Field(
-        None,
-        description="Detailed description of the issue or observation",
-        examples=["New regulation requires immediate compliance review"],
-    )
-    content: Optional[dict] = Field(
-        None,
-        description="Structured data about detected changes or observations",
-        examples=[{"section": "4.2", "change_type": "amendment", "details": "..."}],
-    )
-    priority: TicketPriority = Field(
-        default=TicketPriority.MEDIUM,
-        description="Ticket priority level (low, medium, high, critical)",
-    )
-    source_id: Optional[UUID] = Field(
-        None,
-        description="Optional source ID where the change was detected",
-    )
-    data_revision_id: Optional[UUID] = Field(
-        None,
-        description="Optional data revision ID that triggered this ticket",
-    )
-    change_diff_id: Optional[UUID] = Field(
-        None,
-        description="Optional change diff ID linking to the detected change",
-    )
-    assigned_to_user_id: Optional[UUID] = Field(
-        None,
-        description="User ID to assign this ticket to",
-    )
-    project_id: UUID = Field(
+    revision_id: UUID = Field(
         ...,
-        description="Project ID this ticket belongs to",
+        description="Data Revision ID (required) - specific revision that triggered this ticket",
+    )
+    priority: Optional[TicketPriority] = Field(
+        None,
+        description=(
+            "Ticket priority (optional): low, medium, high, or critical. "
+            "If not provided, will be inferred from AI confidence scores"
+        ),
     )
 
 
 class TicketCreate(TicketBase):
     """Schema for creating a new ticket."""
 
-    @field_validator(
-        "source_id", "data_revision_id", "change_diff_id", "assigned_to_user_id", mode="before"
-    )
-    @classmethod
-    def empty_str_to_none(cls, v):
-        """Convert empty strings to None for optional UUID fields."""
-        if v == "" or v is None:
-            return None
-        return v
+    pass
 
 
 class TicketUpdate(BaseModel):

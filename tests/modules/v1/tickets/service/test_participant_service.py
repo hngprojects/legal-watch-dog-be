@@ -46,6 +46,7 @@ async def test_invite_participants_no_permission():
         status=TicketStatus.OPEN,
     )
     ticket.organization = Organization(id=org_id, name="Test Org")
+    ticket.external_participants = []
 
     current_user = User(id=current_user_id, email="user@example.com")
 
