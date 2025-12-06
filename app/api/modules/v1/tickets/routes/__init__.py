@@ -9,4 +9,9 @@ from app.api.modules.v1.tickets.routes.ticket_routes import (
 )
 from app.api.modules.v1.tickets.routes.ticket_routes import router
 
-__all__ = ["router", "participant_router", "guest_access_router", "ticket_org_router",]
+__all__ = [
+    "router",
+    "participant_router",
+    "guest_access_router",
+    "ticket_org_router",
+]

@@ -85,17 +85,14 @@ class TicketService:
             ValueError: If user lacks permission or project not found
         """
         try:
-            
             project = await get_project_by_id(self.db, data.project_id, organization_id)
             if not project:
                 raise ValueError("Project not found or does not belong to this organization")
 
-            
             is_project_member = await check_project_user_exists(self.db, data.project_id, user_id)
             if not is_project_member:
                 raise ValueError("You must be a member of the project to create tickets")
 
-            
             change_diff_data = None
             auto_title = data.title
             auto_description = data.description
@@ -103,7 +100,6 @@ class TicketService:
             source_id = data.source_id
             revision_id = data.data_revision_id
 
-            
             if data.change_diff_id:
                 logger.info(f"Fetching ChangeDiff {data.change_diff_id} for auto-population")
 
@@ -116,7 +112,6 @@ class TicketService:
                 if not change_diff:
                     raise ValueError("ChangeDiff not found")
 
-               
                 revision_query = select(DataRevision).where(
                     DataRevision.id == change_diff.new_revision_id
                 )
@@ -126,7 +121,6 @@ class TicketService:
                 if not new_revision:
                     raise ValueError("Data revision not found")
 
-                
                 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
                 from app.api.modules.v1.scraping.models.source_model import Source
 
@@ -148,17 +142,14 @@ class TicketService:
                 source_id = new_revision.source_id
                 revision_id = change_diff.new_revision_id
 
-                
                 if not data.title or data.title.strip() == "":
                     auto_title = (
                         f"Change detected in {source.name}" if source else "Change detected"
                     )
 
-                
                 if not data.description and new_revision.ai_summary:
                     auto_description = new_revision.ai_summary
 
-                
                 if not data.content:
                     auto_content = {
                         "change_summary": new_revision.ai_summary,
@@ -253,12 +244,11 @@ class TicketService:
         Raises:
             ValueError: If project not found or user not a member
         """
-        
+
         project = await get_project_by_id(self.db, project_id, organization_id)
         if not project:
             raise ValueError("Project not found or does not belong to this organization")
 
-        
         is_project_member = await check_project_user_exists(self.db, project_id, user_id)
         if not is_project_member:
             raise ValueError("You must be a member of the project to view tickets")
@@ -275,7 +265,6 @@ class TicketService:
             },
         )
 
-        
         statement = (
             select(Ticket)
             .where(
@@ -291,7 +280,6 @@ class TicketService:
             )
         )
 
-       
         if status:
             statement = statement.where(Ticket.status == status)
 
@@ -311,26 +299,20 @@ class TicketService:
             )
             statement = statement.where(search_filter)
 
-        
         count_statement = select(func.count()).select_from(statement.subquery())
         total_result = await self.db.execute(count_statement)
         total = total_result.scalar() or 0
 
-        
         statement = statement.order_by(desc(Ticket.created_at))
 
-        
         offset = (page - 1) * limit
         statement = statement.offset(offset).limit(limit)
 
-        
         result = await self.db.execute(statement)
         tickets = result.scalars().all()
 
-        
         total_pages = math.ceil(total / limit) if total > 0 else 0
 
-       
         tickets_data = [self._build_ticket_response(ticket) for ticket in tickets]
 
         return {
@@ -363,12 +345,11 @@ class TicketService:
         Raises:
             ValueError: If ticket not found or user doesn't have access
         """
-        
+
         is_project_member = await check_project_user_exists(self.db, project_id, user_id)
         if not is_project_member:
             raise ValueError("You must be a member of the project to view this ticket")
 
-        
         statement = (
             select(Ticket)
             .where(
@@ -422,12 +403,11 @@ class TicketService:
         Raises:
             ValueError: If ticket not found or user doesn't have access
         """
-        
+
         is_project_member = await check_project_user_exists(self.db, project_id, user_id)
         if not is_project_member:
             raise ValueError("You must be a member of the project to view this ticket")
 
-        
         statement = (
             select(Ticket)
             .where(
@@ -454,7 +434,6 @@ class TicketService:
         if not ticket:
             raise ValueError(f"Ticket with id {ticket_id} not found")
 
-       
         external_participants = []
         if ticket.external_participants:
             for participant in ticket.external_participants:
@@ -477,13 +456,11 @@ class TicketService:
                     }
                 )
 
-        
         invited_users = []
         if ticket.invited_users:
             for user in ticket.invited_users:
                 invited_users.append(self._build_user_detail(user))
 
-        
         unique_user_ids = set()
         if ticket.created_by_user_id:
             unique_user_ids.add(ticket.created_by_user_id)
@@ -535,7 +512,7 @@ class TicketService:
         Raises:
             ValueError: If user is not a member of the organization
         """
-        
+
         await self._verify_organization_membership(user_id, organization_id)
 
         logger.info(
@@ -549,7 +526,6 @@ class TicketService:
             },
         )
 
-        
         statement = (
             select(Ticket)
             .where(Ticket.organization_id == organization_id)
@@ -560,7 +536,6 @@ class TicketService:
             )
         )
 
-        
         if status:
             statement = statement.where(Ticket.status == status)
 
@@ -570,26 +545,20 @@ class TicketService:
         if project_id:
             statement = statement.where(Ticket.project_id == project_id)
 
-        
         count_statement = select(func.count()).select_from(statement.subquery())
         total_result = await self.db.execute(count_statement)
         total = total_result.scalar() or 0
 
-        
         statement = statement.order_by(desc(Ticket.created_at))
 
-       
         offset = (page - 1) * limit
         statement = statement.offset(offset).limit(limit)
 
-       
         result = await self.db.execute(statement)
         tickets = result.scalars().all()
 
-        
         total_pages = math.ceil(total / limit) if total > 0 else 0
 
-       
         tickets_data = [self._build_ticket_response(ticket) for ticket in tickets]
 
         return {
@@ -630,7 +599,7 @@ class TicketService:
         Returns:
             Dictionary with ticket data
         """
-        
+
         content_dict = None
         if ticket.content:
             try:
@@ -681,7 +650,6 @@ class TicketService:
         """
         base_response = self._build_ticket_response(ticket)
 
-       
         external_participants = []
         if ticket.external_participants:
             for participant in ticket.external_participants:
@@ -704,7 +672,6 @@ class TicketService:
                     }
                 )
 
-        
         invited_users = []
         if ticket.invited_users:
             for user in ticket.invited_users:
