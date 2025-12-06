@@ -48,15 +48,15 @@ async def invite_participants(
     - Email example: "john@yourcompany.com"
 
     **For External Participants (not in system):**
-    - Creates guest access record
-    - Generates secure JWT magic link
+    - Creates guest access record with role "Guest"
+    - Generates secure JWT magic link (expires in 2 days)
     - Sends email with magic link (/guest/access?token=xyz)
-    - No login required, expires after expiry_days
+    - No login required
     - Email example: "counsel@lawfirm.com"
 
     Args:
         ticket_id: UUID of the ticket
-        payload: Request body with emails, role (for external), and expiry_days (for external)
+        payload: Request body with emails to invite
         current_user: Authenticated user (injected)
         db: Database session (injected)
 
@@ -88,8 +88,6 @@ async def invite_participants(
         result = await service.invite_participants(
             ticket_id=ticket_id,
             emails=payload.emails,
-            role=payload.role,
-            expiry_days=payload.expiry_days,
             current_user_id=current_user.id,
         )
 

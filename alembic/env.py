@@ -28,6 +28,7 @@ from app.api.modules.v1.notifications.models.revision_notification import Notifi
 from app.api.modules.v1.api_access.models.api_key_model import APIKey
 from app.api.modules.v1.api_access.models.api_key_token import APIKeyOnboardingToken
 from app.api.modules.v1.tickets.models.ticket_model import Ticket, ExternalParticipant, TicketStatus
+from app.api.modules.v1.tickets.models.comment_model import Comment
 
 
 
