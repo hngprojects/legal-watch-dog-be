@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.core.dependencies.auth import get_current_user
 from app.api.db.database import get_db
+from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.organization.models.user_organization_model import UserOrganization
+from app.api.modules.v1.projects.models.project_model import Project
 from app.api.modules.v1.tickets.schemas import (
     TicketCreate,
     TicketResponse,
@@ -64,13 +66,31 @@ async def create_manual_ticket(
         source_result = await db.execute(select(Source).where(Source.id == data.source_id))
         source = source_result.scalar_one_or_none()
 
-        if not source:
+        jurisdiction_result = await db.execute(
+            select(Jurisdiction).where(Jurisdiction.id == source.jurisdiction_id)
+        )
+        jurisdiction = jurisdiction_result.scalar_one_or_none()
+
+        if not jurisdiction:
             return error_response(
-                message="Source not found",
+                message="Jurisdiction not found for this source",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        organization_id = source.organization_id
+        # Get project from jurisdiction
+        project_result = await db.execute(
+            select(Project).where(Project.id == jurisdiction.project_id)
+        )
+        project = project_result.scalar_one_or_none()
+
+        if not project:
+            return error_response(
+                message="Project not found for this jurisdiction",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Get organization from project
+        organization_id = project.org_id
 
         result = await db.execute(
             select(UserOrganization)
