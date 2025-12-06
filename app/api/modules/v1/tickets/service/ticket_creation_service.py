@@ -41,15 +41,8 @@ class TicketService:
             Ticket: The newly created ticket.
         """
 
-        query = (
-            select(User)
-            .where(
-                User.organization_id == organization_id,
-                User.is_active.is_(True),
-                User.is_superuser.is_(True),
-            )
-            .limit(1)
-        )
+        query = select(User).where(User.is_active.is_(True)).limit(1)
+
 
         result = await self.db.execute(query)
         admin_user: Optional[User] = result.scalars().first()
