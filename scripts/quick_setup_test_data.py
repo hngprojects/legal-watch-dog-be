@@ -56,6 +56,10 @@ async def setup_test_data():
             password = "Test123!"
             hashed_pw = hash_password(password)
 
+            # Delete in order to respect foreign key constraints
+            await db.execute(
+                text("DELETE FROM tickets WHERE created_by_user_id = :uid"), {"uid": user_id}
+            )
             await db.execute(
                 text("DELETE FROM project_users WHERE user_id = :uid"), {"uid": user_id}
             )
