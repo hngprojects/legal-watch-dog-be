@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.api.modules.v1.organization.models.organization_model import Organization
-from app.api.modules.v1.users.models.users_model import User
+if TYPE_CHECKING:
+    from app.api.modules.v1.organization.models.organization_model import Organization
+    from app.api.modules.v1.users.models.users_model import User
 
 
 class APIKey(SQLModel, table=True):
@@ -43,5 +44,11 @@ class APIKey(SQLModel, table=True):
     )
 
     organization: "Organization" = Relationship(back_populates="api_keys")
-    user: Optional["User"] = Relationship(back_populates="owned_api_keys")
-    generated_by_user: Optional["User"] = Relationship(back_populates="generated_api_keys")
+    owner_user: Optional["User"] = Relationship(
+        back_populates="owned_api_keys",
+        sa_relationship_kwargs={"foreign_keys": "api_keys.user_id"},
+    )
+    generated_by_user: Optional["User"] = Relationship(
+        back_populates="generated_api_keys",
+        sa_relationship_kwargs={"foreign_keys": "api_keys.generated_by"},
+    )
