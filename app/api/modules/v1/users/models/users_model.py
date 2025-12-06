@@ -82,10 +82,20 @@ class User(SQLModel, table=True):
 
     owned_api_keys: list["APIKey"] = Relationship(
         back_populates="owner_user",
-        sa_relationship_kwargs={"foreign_keys": "[api_keys.c.user_id]"},
+        sa_relationship_kwargs={
+            "foreign_keys": (
+                "[app.api.modules.v1.api_access.models.api_key_model."
+                "APIKey.user_id]"
+            ),
+        },
     )
     generated_api_keys: list["APIKey"] = Relationship(
         back_populates="generated_by_user",
-        sa_relationship_kwargs={"foreign_keys": "[api_keys.c.generated_by]"},
+        sa_relationship_kwargs={
+            "foreign_keys": (
+                "[app.api.modules.v1.api_access.models.api_key_model."
+                "APIKey.generated_by]"
+            ),
+        },
     )
     notifications: list["Notification"] = Relationship(back_populates="user")
