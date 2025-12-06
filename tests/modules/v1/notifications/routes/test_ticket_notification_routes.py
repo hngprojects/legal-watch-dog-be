@@ -24,4 +24,4 @@ async def test_trigger_ticket_notification_route():
         assert response.status_code == 200
         assert response.json() == {"detail": "Notification task queued"}
 
-        mocked_task.delay.assert_called_once_with("123", "hello")
+        mocked_task.assert_called_once_with("123", "hello")
