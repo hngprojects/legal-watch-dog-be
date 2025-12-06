@@ -25,8 +25,6 @@ async def test_invite_participants_ticket_not_found():
 
     payload = InviteParticipantsRequest(
         emails=["test@example.com"],
-        role="Consultant",
-        expiry_days=7,
     )
 
     db = AsyncMock()
@@ -71,8 +69,6 @@ async def test_invite_participants_no_permission():
 
     payload = InviteParticipantsRequest(
         emails=["test@example.com"],
-        role="Consultant",
-        expiry_days=7,
     )
 
     db = AsyncMock()
