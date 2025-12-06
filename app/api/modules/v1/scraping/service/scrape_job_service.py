@@ -11,7 +11,10 @@ from datetime import datetime, timezone
 
 from sqlmodel import select
 
+from app.api.core.config import settings
 from app.api.db.database import AsyncSessionLocal
+from app.api.events.builders import build_scrape_job_event
+from app.api.events.factory import get_event_publisher
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
 from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 
@@ -46,6 +49,7 @@ class ScrapeJobService:
                 job.status = ScrapeJobStatus.IN_PROGRESS
                 job.started_at = datetime.now(timezone.utc)
                 await db.commit()
+                await ScrapeJobService._publish_scrape_job_update(job)
 
                 try:
                     service = ScraperService(db)
@@ -82,6 +86,7 @@ class ScrapeJobService:
                     job.completed_at = datetime.now(timezone.utc)
 
                 await db.commit()
+                await ScrapeJobService._publish_scrape_job_update(job)
 
         except Exception as e:
             logger.error(
@@ -108,3 +113,26 @@ class ScrapeJobService:
             if t.exception()
             else None
         )
+
+    @staticmethod
+    async def _publish_scrape_job_update(job: ScrapeJob) -> None:
+        """Publish scrape job updates over websockets when enabled.
+
+        Args:
+            job (ScrapeJob): The job instance that changed state.
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If the event publisher cannot be created.
+
+        Examples:
+            >>> await ScrapeJobService._publish_scrape_job_update(job)
+        """
+
+        if not settings.ENABLE_REALTIME_WEBSOCKETS:
+            return
+        publisher = await get_event_publisher()
+        event = build_scrape_job_event(job)
+        await publisher.publish(event)

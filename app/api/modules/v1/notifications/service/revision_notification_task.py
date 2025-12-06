@@ -11,6 +11,8 @@ from sqlalchemy.orm import joinedload
 from app.api.core.config import settings
 from app.api.core.dependencies.send_mail import send_email
 from app.api.db.database import AsyncSessionLocal
+from app.api.events.builders import build_notification_events
+from app.api.events.factory import get_event_publisher
 from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
 from app.api.modules.v1.notifications.models.revision_notification import (
     Notification,
@@ -97,6 +99,7 @@ async def send_revision_notifications(revision_id: str):
             notifications_skipped = 0
             notifications_failed = 0
             has_changes = False
+            notifications_to_publish: dict[UUID, Notification] = {}
 
             existing_result = await session.execute(
                 select(Notification).where(
@@ -142,6 +145,7 @@ async def send_revision_notifications(revision_id: str):
                         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     )
                     new_notifications.append(notification)
+                    notifications_to_publish[notification.notification_id] = notification
 
             # Batch insert all new notifications
             if new_notifications:
@@ -207,10 +211,17 @@ async def send_revision_notifications(revision_id: str):
 
                 notification.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 session.add(notification)
+                notifications_to_publish[notification.notification_id] = notification
                 has_changes = True
 
             if has_changes:
                 await session.commit()
+
+            if settings.ENABLE_REALTIME_WEBSOCKETS and notifications_to_publish:
+                publisher = await get_event_publisher()
+                events = build_notification_events(notifications_to_publish.values())
+                for event in events:
+                    await publisher.publish(event)
 
             logger.info(
                 f"Notification summary for revision {revision_id}: "
