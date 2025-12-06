@@ -12,6 +12,9 @@ from datetime import datetime, timezone
 from sqlmodel import select
 
 from app.api.db.database import AsyncSessionLocal
+from app.api.modules.v1.notifications.service.scrape_failure_notification_task import (
+    send_scrape_failure_notifications_task,
+)
 from app.api.modules.v1.scraping.models.scrape_job import ScrapeJob, ScrapeJobStatus
 from app.api.modules.v1.scraping.service.scraper_service import ScraperService
 
@@ -80,6 +83,26 @@ class ScrapeJobService:
                         "if the issue persists."
                     )
                     job.completed_at = datetime.now(timezone.utc)
+                    try:
+                        send_scrape_failure_notifications_task.delay(
+                            source_id=str(source_id),
+                            job_id=str(job_id),
+                            error_message=str(e)[:500],
+                        )
+                        logger.info(
+                            "Triggered scrape failure notifications for source %s, job %s",
+                            source_id,
+                            job_id,
+                        )
+
+                    except Exception as notify_error:
+                        logger.error(
+                            "Failed to trigger scrape failure notifications "
+                            "for source %s, job %s: %s",
+                            source_id,
+                            job_id,
+                            notify_error,
+                        )
 
                 await db.commit()
 
@@ -104,7 +127,9 @@ class ScrapeJobService:
             ScrapeJobService.execute_scrape_job_background(job_id, source_id)
         )
         task.add_done_callback(
-            lambda t: logger.error("Exception in background scrape job", exc_info=t.exception())
-            if t.exception()
-            else None
+            lambda t: (
+                logger.error("Exception in background scrape job", exc_info=t.exception())
+                if t.exception()
+                else None
+            )
         )

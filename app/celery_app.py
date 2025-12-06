@@ -10,6 +10,7 @@ celery_app = Celery(
     include=[
         "app.api.modules.v1.scraping.service.tasks",
         "app.api.modules.v1.notifications.service.revision_notification_task",
+        "app.api.modules.v1.notifications.service.scrape_failure_notification_task",
     ],
 )
 

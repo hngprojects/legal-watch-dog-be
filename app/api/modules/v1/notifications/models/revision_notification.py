@@ -56,7 +56,8 @@ class Notification(SQLModel, table=True):
     # SQLModel handles the UUID primary key automatically
     notification_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    revision_id: uuid.UUID = Field(
+    revision_id: Optional[uuid.UUID] = Field(
+        default=None,
         foreign_key="data_revisions.id",
         index=True,
         description="Link to data revision if applicable",
@@ -76,6 +77,12 @@ class Notification(SQLModel, table=True):
         foreign_key="sources.id",
         index=True,
         description="Link to source if applicable",
+    )
+    scrape_job_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="scrape_jobs.id",
+        index=True,
+        description="Link to scrape job (used for SCRAPE_FAILED notifications)",
     )
 
     notification_type: NotificationType = Field(
@@ -130,6 +137,12 @@ class Notification(SQLModel, table=True):
 
     user: Optional["User"] = Relationship()
 
+
+Index(
+    "ix_notifications_scrape_job",
+    Notification.scrape_job_id,
+    postgresql_where=Notification.scrape_job_id.is_not(None),
+)
 
 Index(
     "ix_notifications_user_status",
