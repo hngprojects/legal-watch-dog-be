@@ -44,6 +44,35 @@ class TicketService:
         """
         self.db = db
 
+    def _infer_priority_from_confidence(self, confidence_score: Optional[float]) -> TicketPriority:
+        """
+        Infer ticket priority from AI confidence score.
+
+        Priority mapping:
+        - 0.85 - 1.0  → CRITICAL (very high confidence in significant change)
+        - 0.6 - 0.85  → HIGH (high confidence)
+        - 0.3 - 0.6   → MEDIUM (moderate confidence)
+        - 0.0 - 0.3   → LOW (low confidence)
+        - None        → MEDIUM (default fallback)
+
+        Args:
+            confidence_score: AI confidence score (0.0 to 1.0)
+
+        Returns:
+            TicketPriority enum value
+        """
+        if confidence_score is None:
+            return TicketPriority.MEDIUM
+
+        if confidence_score >= 0.85:
+            return TicketPriority.CRITICAL
+        elif confidence_score >= 0.6:
+            return TicketPriority.HIGH
+        elif confidence_score >= 0.3:
+            return TicketPriority.MEDIUM
+        else:
+            return TicketPriority.LOW
+
     async def create_manual_ticket(
         self,
         data: TicketCreate,
@@ -51,120 +80,121 @@ class TicketService:
         user_id: UUID,
     ) -> Ticket:
         """
-        Create a new manual ticket.
+        Create a new manual ticket from source and revision data.
 
         Args:
-            data: Ticket creation data
+            data: Ticket creation data (source_id, revision_id, priority)
             organization_id: Organization UUID
             user_id: User UUID creating the ticket
 
         Returns:
-            Created Ticket object
+            Created Ticket object with auto-populated title, description, and content
 
         Raises:
-            ValueError: If user doesn't have permission to create tickets or project not found
+            ValueError: If source, revision not found or user lacks permission
         """
         try:
-            project = await get_project_by_id(self.db, data.project_id, organization_id)
+            from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
+            from app.api.modules.v1.scraping.models.source_model import Source
+
+            source_query = select(Source).where(Source.id == data.source_id)
+            source_result = await self.db.execute(source_query)
+            source = source_result.scalar_one_or_none()
+
+            if not source:
+                raise ValueError("Source not found")
+
+            project_id = source.project_id
+
+            project = await get_project_by_id(self.db, project_id, organization_id)
             if not project:
                 raise ValueError("Project not found or does not belong to this organization")
 
-            is_project_member = await check_project_user_exists(self.db, data.project_id, user_id)
+            is_project_member = await check_project_user_exists(self.db, project_id, user_id)
             if not is_project_member:
                 raise ValueError("You must be a member of the project to create tickets")
 
-            change_diff_data = None
-            auto_title = data.title
-            auto_description = data.description
-            auto_content = data.content
-            source_id = data.source_id
-            revision_id = data.data_revision_id
+            revision_query = select(DataRevision).where(DataRevision.id == data.revision_id)
+            revision_result = await self.db.execute(revision_query)
+            revision = revision_result.scalar_one_or_none()
 
-            if data.change_diff_id:
-                logger.info(f"Fetching ChangeDiff {data.change_diff_id} for auto-population")
+            if not revision:
+                raise ValueError("Data revision not found")
 
-                change_diff_query = select(ChangeDiff).where(
-                    ChangeDiff.diff_id == data.change_diff_id
+            if revision.source_id != source.id:
+                raise ValueError("Revision does not belong to the specified source")
+
+            jurisdiction_query = select(Jurisdiction).where(
+                Jurisdiction.id == source.jurisdiction_id
+            )
+            jurisdiction_result = await self.db.execute(jurisdiction_query)
+            jurisdiction = jurisdiction_result.scalar_one_or_none()
+
+            jurisdiction_name = jurisdiction.name if jurisdiction else "Unknown"
+            auto_title = f"[{jurisdiction_name}] {source.name} - Change Detected"
+
+            auto_description = revision.ai_summary or "No summary available"
+
+            auto_content = {
+                "revision_summary": revision.ai_summary,
+                "source_name": source.name,
+                "source_url": source.url,
+                "jurisdiction": jurisdiction_name,
+                "scraped_at": revision.scraped_at.isoformat() if revision.scraped_at else None,
+                "content_hash": revision.content_hash,
+            }
+
+            ticket_priority = data.priority
+            confidence_for_priority = None
+            change_diff = None
+
+            if revision.change_diffs:
+                change_diff_query = (
+                    select(ChangeDiff)
+                    .where(ChangeDiff.new_revision_id == revision.id)
+                    .limit(1)
                 )
                 change_diff_result = await self.db.execute(change_diff_query)
                 change_diff = change_diff_result.scalar_one_or_none()
 
-                if not change_diff:
-                    raise ValueError("ChangeDiff not found")
+                if change_diff:
+                    auto_content["diff_patch"] = change_diff.diff_patch
+                    auto_content["ai_confidence"] = change_diff.ai_confidence
+                    auto_content["change_diff_id"] = str(change_diff.diff_id)
+                    confidence_for_priority = change_diff.ai_confidence
 
-                revision_query = select(DataRevision).where(
-                    DataRevision.id == change_diff.new_revision_id
+            if ticket_priority is None:
+                confidence_score = confidence_for_priority or revision.ai_confidence_score
+                ticket_priority = self._infer_priority_from_confidence(confidence_score)
+                auto_content["priority_inferred_from_ai"] = True
+                auto_content["ai_confidence_used"] = confidence_score
+                logger.info(
+                    f"Priority inferred as {ticket_priority.value} "
+                    f"from AI confidence: {confidence_score}"
                 )
-                revision_result = await self.db.execute(revision_query)
-                new_revision = revision_result.scalar_one_or_none()
-
-                if not new_revision:
-                    raise ValueError("Data revision not found")
-
-                from app.api.modules.v1.jurisdictions.models.jurisdiction_model import Jurisdiction
-                from app.api.modules.v1.scraping.models.source_model import Source
-
-                source_query = (
-                    select(Source)
-                    .join(Jurisdiction, Source.jurisdiction_id == Jurisdiction.id)
-                    .where(Source.id == new_revision.source_id)
-                    .where(Jurisdiction.project_id == data.project_id)
-                )
-                source_result = await self.db.execute(source_query)
-                source = source_result.scalar_one_or_none()
-
-                if not source:
-                    raise ValueError(
-                        "ChangeDiff does not belong to this project or source not found"
-                    )
-
-                change_diff_data = change_diff.diff_patch or {}
-                source_id = new_revision.source_id
-                revision_id = change_diff.new_revision_id
-
-                if not data.title or data.title.strip() == "":
-                    auto_title = (
-                        f"Change detected in {source.name}" if source else "Change detected"
-                    )
-
-                if not data.description and new_revision.ai_summary:
-                    auto_description = new_revision.ai_summary
-
-                if not data.content:
-                    auto_content = {
-                        "change_summary": new_revision.ai_summary,
-                        "diff_patch": change_diff_data,
-                        "confidence": change_diff.ai_confidence,
-                        "source_name": source.name if source else None,
-                    }
-                else:
-                    auto_content = {
-                        **data.content,
-                        "change_summary": new_revision.ai_summary,
-                        "diff_patch": change_diff_data,
-                        "confidence": change_diff.ai_confidence,
-                    }
+            else:
+                auto_content["priority_inferred_from_ai"] = False
 
             logger.info(
                 f"Creating ticket '{auto_title}' for user_id={user_id}, "
-                f"organization_id={organization_id}, project_id={data.project_id}"
+                f"organization_id={organization_id}, project_id={project_id}"
             )
 
             ticket = Ticket(
                 title=auto_title,
                 description=auto_description,
                 content=auto_content,
-                priority=data.priority,
+                priority=ticket_priority,
                 status=TicketStatus.OPEN,
                 is_manual=True,
-                source_id=source_id,
-                data_revision_id=revision_id,
-                change_diff_id=data.change_diff_id,
+                source_id=source.id,
+                data_revision_id=revision.id,
+                change_diff_id=change_diff.id if change_diff else None,
                 created_by_user_id=user_id,
-                assigned_to_user_id=data.assigned_to_user_id,
-                assigned_by_user_id=user_id if data.assigned_to_user_id else None,
+                assigned_to_user_id=None,
+                assigned_by_user_id=None,
                 organization_id=organization_id,
-                project_id=data.project_id,
+                project_id=project_id,
             )
 
             self.db.add(ticket)
@@ -208,7 +238,7 @@ class TicketService:
                 selectinload(Ticket.created_by_user),
                 selectinload(Ticket.assigned_by_user),
                 selectinload(Ticket.assigned_to_user),
-                selectinload(Ticket.external_participants),
+                selectinload(Ticket.invited_users),
             )
         )
 

@@ -4,7 +4,6 @@ API endpoint for manual ticket creation.
 """
 
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -27,15 +26,13 @@ from app.api.utils.response_payloads import (
 logger = logging.getLogger("app")
 
 router = APIRouter(
-    prefix="/organizations/{organization_id}/projects/{project_id}/tickets",
+    prefix="/tickets",
     tags=["Tickets"],
 )
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TicketResponse)
 async def create_manual_ticket(
-    organization_id: UUID,
-    project_id: UUID,
     data: TicketCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -48,26 +45,33 @@ async def create_manual_ticket(
     not just automated change events.
 
     **Requirements:**
-    - User must be a member of the organization
-    - User must have permission to create projects/tickets
-    - Project must exist and belong to the organization
+    - User must be a member of the source's organization
+    - Source must exist and contain organization_id, project_id, jurisdiction_id
 
     **Request Body:**
-    - **title** (required): Ticket title (1-255 characters)
-    - **description** (optional): Detailed description
-    - **content** (optional): JSON data about changes or observations
-    - **priority** (required): Priority level (low, medium, high, critical)
-    - **source_id** (optional): Link to a source if applicable
-    - **data_revision_id** (optional): Link to a data revision if applicable
-    - **assigned_to_user_id** (optional): User to assign the ticket to
-    - **project_id** (required): Project to associate the ticket with
+    - **source_id** (required): Source ID - derives organization, project, jurisdiction
+    - **revision_id** (required): Data Revision ID - specific revision that triggered this ticket
+    - **priority** (optional): Ticket priority - low, medium, high, or critical
 
     **Returns:**
-    - Created ticket with full details including related users
+    - Created ticket with full details
     """
     user_id = str(current_user.id)
 
     try:
+        from app.api.modules.v1.scraping.models.source_model import Source
+
+        source_result = await db.execute(select(Source).where(Source.id == data.source_id))
+        source = source_result.scalar_one_or_none()
+
+        if not source:
+            return error_response(
+                message="Source not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        organization_id = source.organization_id
+
         result = await db.execute(
             select(UserOrganization)
             .where(UserOrganization.user_id == current_user.id)
@@ -78,15 +82,6 @@ async def create_manual_ticket(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User not a member of this organization",
-            )
-
-        if data.project_id != project_id:
-            logger.warning(
-                f"Project ID mismatch: URL={project_id}, Body={data.project_id}, user_id={user_id}"
-            )
-            return error_response(
-                message="Project ID in request body must match URL parameter",
-                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         ticket_service = TicketService(db)

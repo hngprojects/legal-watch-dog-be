@@ -76,7 +76,7 @@ class ExternalParticipant(SQLModel, table=True):
     )
 
     ticket: "Ticket" = Relationship(
-        back_populates="external_participants",
+        back_populates="invited_users",
         sa_relationship_kwargs={"foreign_keys": "[ExternalParticipant.ticket_id]"},
     )
     invited_by_user: "User" = Relationship(
@@ -251,7 +251,7 @@ class Ticket(SQLModel, table=True):
     change_diff: Optional["ChangeDiff"] = Relationship()
     data_revision: Optional["DataRevision"] = Relationship(back_populates="tickets")
     source: Optional["Source"] = Relationship(back_populates="tickets")
-    external_participants: list["ExternalParticipant"] = Relationship(
+    invited_users: list["ExternalParticipant"] = Relationship(
         back_populates="ticket",
         sa_relationship_kwargs={
             "foreign_keys": "[ExternalParticipant.ticket_id]",
