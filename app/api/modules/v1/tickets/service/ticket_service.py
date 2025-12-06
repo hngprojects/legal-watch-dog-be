@@ -150,9 +150,7 @@ class TicketService:
 
             if revision.change_diffs:
                 change_diff_query = (
-                    select(ChangeDiff)
-                    .where(ChangeDiff.new_revision_id == revision.id)
-                    .limit(1)
+                    select(ChangeDiff).where(ChangeDiff.new_revision_id == revision.id).limit(1)
                 )
                 change_diff_result = await self.db.execute(change_diff_query)
                 change_diff = change_diff_result.scalar_one_or_none()
