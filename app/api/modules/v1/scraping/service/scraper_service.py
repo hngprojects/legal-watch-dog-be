@@ -216,8 +216,9 @@ class ScraperService:
             await ticket_service.create_auto_ticket(
                 revision=new_revision,
                 change_result=change_result,
-                project_id=project.id,
-                organization_id=jurisdiction.project.organization_id,
+                source=source,
+                project=project,
+                jurisdiction=jurisdiction,
             )
 
         except Exception as e:
