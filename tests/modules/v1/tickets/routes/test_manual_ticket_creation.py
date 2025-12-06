@@ -81,7 +81,7 @@ async def test_create_manual_ticket_success():
 
         service = TicketService(db=mock_db)
         ticket = await service.create_manual_ticket(
-            data=ticket_data, organization_id=org_id, user_id=user_id
+            data=ticket_data, organization_id=org_id, user_id=user_id, project_id=project_id
         )
 
         assert ticket.title == "[Test Jurisdiction] Test Source - Change Detected"
@@ -129,7 +129,7 @@ async def test_create_manual_ticket_project_not_found():
 
         with pytest.raises(ValueError, match="Project not found"):
             await service.create_manual_ticket(
-                data=ticket_data, organization_id=org_id, user_id=user_id
+                data=ticket_data, organization_id=org_id, user_id=user_id, project_id=project_id
             )
 
 
@@ -175,5 +175,5 @@ async def test_create_manual_ticket_user_not_member():
 
         with pytest.raises(ValueError, match="must be a member of the project"):
             await service.create_manual_ticket(
-                data=ticket_data, organization_id=org_id, user_id=user_id
+                data=ticket_data, organization_id=org_id, user_id=user_id, project_id=project_id
             )
