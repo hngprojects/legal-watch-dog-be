@@ -22,6 +22,7 @@ async def test_set_rotation_endpoint(monkeypatch):
         key_name="k",
         organization=SimpleNamespace(name="org"),
         user=None,
+        owner_user=None,
         receiver_email=None,
         hashed_key="h",
         scope="s",
