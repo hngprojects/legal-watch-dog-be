@@ -32,9 +32,6 @@ async def test_create_auto_ticket_with_admin_user():
         mock_user_class.is_active = MagicMock()
         mock_user_class.is_active.is_ = MagicMock(return_value=True)
 
-        mock_user_class.is_superuser = MagicMock()
-        mock_user_class.is_superuser.is_ = MagicMock(return_value=True)
-
         mock_select_obj = MagicMock()
         mock_select.return_value = mock_select_obj
         mock_where_obj = MagicMock()
@@ -103,8 +100,6 @@ async def test_create_auto_ticket_without_admin_user():
         mock_user_class.organization_id.__eq__ = MagicMock(return_value=True)
         mock_user_class.is_active = MagicMock()
         mock_user_class.is_active.is_ = MagicMock(return_value=True)
-        mock_user_class.is_superuser = MagicMock()
-        mock_user_class.is_superuser.is_ = MagicMock(return_value=True)
 
         mock_select_obj = MagicMock()
         mock_select.return_value = mock_select_obj
