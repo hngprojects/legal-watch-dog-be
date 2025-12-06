@@ -1,7 +1,7 @@
 """change ticket content column from Text to JSONB
 
 Revision ID: 0fcbdabbf412
-Revises: 1f96ba14f37b
+Revises: 2d55398ccd09
 Create Date: 2025-12-06
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '0fcbdabbf412'
-down_revision: Union[str, Sequence[str], None] = '1f96ba14f37b'
+down_revision: Union[str, Sequence[str], None] = '2d55398ccd09'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
