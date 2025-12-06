@@ -170,9 +170,17 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
-          
+
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+
+
+          # API Keys configuration
+          API_KEY_MAX_EXPIRATION_DAYS=${{ vars.API_KEY_MAX_EXPIRATION_DAYS || 60 }}
+          API_KEY_DEFAULT_EXPIRATION_DAYS=${{ vars.API_KEY_DEFAULT_EXPIRATION_DAYS || 15 }}
+          API_KEY_ROTATION_WINDOW_DAYS=${{ vars.API_KEY_ROTATION_WINDOW_DAYS || 3 }}
+          API_KEY_FRONTEND_URL=${{ vars.API_KEY_FRONTEND_URL || 'legalwatch.dog/keys/view' }}
+          WEB_SECRET_KEY=${{ secrets.WEB_SECRET_KEY }}
           EOF
 
       - name: Set up SSH, copy env_file and Deploy
@@ -407,9 +415,16 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REDIRECT_URI=${{ vars.GOOGLE_REDIRECT_URI }}
-          
+
           # Tavily configuration
           TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+
+          # API Keys configuration
+          API_KEY_MAX_EXPIRATION_DAYS=${{ vars.API_KEY_MAX_EXPIRATION_DAYS || 60 }}
+          API_KEY_DEFAULT_EXPIRATION_DAYS=${{ vars.API_KEY_DEFAULT_EXPIRATION_DAYS || 15 }}
+          API_KEY_ROTATION_WINDOW_DAYS=${{ vars.API_KEY_ROTATION_WINDOW_DAYS || 3 }}
+          API_KEY_FRONTEND_URL=${{ vars.API_KEY_FRONTEND_URL || 'legalwatch.dog/keys/view' }}
+          WEB_SECRET_KEY=${{ secrets.WEB_SECRET_KEY }}
 
           EOF
 
