@@ -244,7 +244,7 @@ class TestSourceServiceCreate:
         configure_prompt_validation,
         sample_jurisdiction,
     ):
-        """Test error when jurisdiction prompt is missing."""
+        """Test success when jurisdiction prompt is missing (no longer required)."""
 
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
@@ -254,12 +254,13 @@ class TestSourceServiceCreate:
 
         configure_prompt_validation(mock_db, jurisdiction=jurisdiction)
         mock_db.scalar = AsyncMock(return_value=None)
+        mock_db.add = AsyncMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc_info:
-            await service.create_source(mock_db, sample_source_create)
+        result = await service.create_source(mock_db, sample_source_create)
 
-        assert exc_info.value.status_code == 400
-        assert "jurisdiction prompt" in exc_info.value.detail.lower()
+        assert result.name == sample_source_create.name
 
     @pytest.mark.asyncio
     async def test_create_source_missing_project_prompt(
@@ -268,7 +269,7 @@ class TestSourceServiceCreate:
         configure_prompt_validation,
         sample_project,
     ):
-        """Test error when project master prompt is missing."""
+        """Test success when project master prompt is missing (no longer required)."""
 
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
@@ -278,12 +279,13 @@ class TestSourceServiceCreate:
 
         configure_prompt_validation(mock_db, project=project)
         mock_db.scalar = AsyncMock(return_value=None)
+        mock_db.add = AsyncMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc_info:
-            await service.create_source(mock_db, sample_source_create)
+        result = await service.create_source(mock_db, sample_source_create)
 
-        assert exc_info.value.status_code == 400
-        assert "project instruction" in exc_info.value.detail.lower()
+        assert result.name == sample_source_create.name
 
     @pytest.mark.asyncio
     async def test_create_source_missing_both_prompts(
@@ -293,7 +295,7 @@ class TestSourceServiceCreate:
         sample_project,
         sample_jurisdiction,
     ):
-        """Test error when both project and jurisdiction prompts are blank."""
+        """Test success when both project and jurisdiction prompts are blank (no longer required)."""
 
         mock_db = AsyncMock(spec=AsyncSession)
         service = SourceService()
@@ -307,13 +309,13 @@ class TestSourceServiceCreate:
             project=sample_project,
         )
         mock_db.scalar = AsyncMock(return_value=None)
+        mock_db.add = AsyncMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc_info:
-            await service.create_source(mock_db, sample_source_create)
+        result = await service.create_source(mock_db, sample_source_create)
 
-        assert exc_info.value.status_code == 400
-        assert "project instruction" in exc_info.value.detail.lower()
-        assert "jurisdiction prompt" in exc_info.value.detail.lower()
+        assert result.name == sample_source_create.name
 
     @pytest.mark.asyncio
     async def test_create_source_missing_jurisdiction_record(

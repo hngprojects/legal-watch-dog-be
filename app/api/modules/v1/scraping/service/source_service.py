@@ -68,7 +68,7 @@ class SourceService:
             'Ministry of Justice Website'
         """
         try:
-            await self._ensure_prompt_requirements(db, source_data.jurisdiction_id)
+            await self._ensure_jurisdiction_and_project_exist(db, source_data.jurisdiction_id)
             existing_source = await db.scalar(
                 select(Source).where(
                     Source.url == str(source_data.url),
@@ -145,7 +145,7 @@ class SourceService:
         try:
             unique_jurisdiction_ids = {source.jurisdiction_id for source in sources_data}
             for jurisdiction_id in unique_jurisdiction_ids:
-                await self._ensure_prompt_requirements(db, jurisdiction_id)
+                await self._ensure_jurisdiction_and_project_exist(db, jurisdiction_id)
             created_sources = []
             urls_to_check = [str(source.url) for source in sources_data]
 
@@ -500,6 +500,43 @@ class SourceService:
             has_auth=bool(source.auth_details_encrypted),
             created_at=source.created_at,
         )
+
+    async def _ensure_jurisdiction_and_project_exist(
+        self,
+        db: AsyncSession,
+        jurisdiction_id: uuid.UUID,
+    ) -> None:
+        """Validate that jurisdiction and project exist before source creation.
+
+        Args:
+            db (AsyncSession): Async database session used for lookups.
+            jurisdiction_id (uuid.UUID): Jurisdiction identifier associated with the source.
+
+        Returns:
+            None
+
+        Raises:
+            HTTPException: 404 if jurisdiction or project cannot be located.
+
+        Examples:
+            >>> service = SourceService()
+            >>> await service._ensure_jurisdiction_and_project_exist(db, jurisdiction_id)
+            >>> # Continues without raising when jurisdiction and project exist
+        """
+
+        jurisdiction = await db.get(Jurisdiction, jurisdiction_id)
+        if not jurisdiction or jurisdiction.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Jurisdiction not found",
+            )
+
+        project = await db.get(Project, jurisdiction.project_id)
+        if not project or project.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found for jurisdiction",
+            )
 
     async def _ensure_prompt_requirements(
         self,
