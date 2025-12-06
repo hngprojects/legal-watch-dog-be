@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}
-Join {{ organization_name }} - Legal Watchdog
+You've been invited to a ticket - Legal Watchdog
 {% endblock %}
 
 {% block preheader %}
-You've been invited to join {{ organization_name | default("an organization") }} on Legal WatchDog.
+You've been invited to collaborate on a ticket in {{ organization_name }}.
 {% endblock %}
 
 {% block header %}
@@ -39,17 +39,41 @@ You've been invited to join {{ organization_name | default("an organization") }}
 <tr>
   <td style="padding-bottom: 8px;">
     <p style="margin: 0; font-size: 18px; font-weight: 600; color: #1f1f1f; line-height: 26px;">
-      Hello!
+      Hello {{ recipient_name }}!
     </p>
   </td>
 </tr>
 <tr>
   <td>
     <p style="margin: 0 0 19px; font-size: 15px; color: #3f342d; line-height: 24px;">
-      You've been invited to join <strong>{{ organization_name }}</strong> on Legal WatchDog.
+      <strong>{{ invited_by_name }}</strong> has invited you to collaborate on a ticket in <strong>{{ organization_name }}</strong>.
     </p>
+
+    <div style="background-color: #f5f5f5; border-left: 4px solid #401903; padding: 16px; margin: 24px 0;">
+      <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #401903; line-height: 20px;">
+        Ticket Details
+      </p>
+      <p style="margin: 0 0 4px; font-size: 15px; font-weight: 600; color: #1f1f1f; line-height: 22px;">
+        {{ ticket_title }}
+      </p>
+      {% if ticket_description %}
+      <p style="margin: 8px 0 0; font-size: 14px; color: #3f342d; line-height: 20px;">
+        {{ ticket_description }}
+      </p>
+      {% endif %}
+      <p style="margin: 12px 0 0; font-size: 13px; color: #706C69; line-height: 18px;">
+        <strong>Priority:</strong> <span style="text-transform: capitalize;">{{ ticket_priority }}</span> |
+        <strong>Status:</strong> <span style="text-transform: capitalize;">{{ ticket_status }}</span>
+      </p>
+      {% if project_name %}
+      <p style="margin: 4px 0 0; font-size: 13px; color: #706C69; line-height: 18px;">
+        <strong>Project:</strong> {{ project_name }}
+      </p>
+      {% endif %}
+    </div>
+
     <p style="margin: 0 0 32px; font-size: 15px; color: #3f342d; line-height: 24px;">
-      Click the button below to accept your invitation and get started with your team. This invitation will expire in 24 hours.
+      Log in to your account to view the ticket and start collaborating with your team.
     </p>
   </td>
 </tr>
@@ -58,9 +82,9 @@ You've been invited to join {{ organization_name | default("an organization") }}
 {% block cta_section %}
 <tr>
   <td style="padding-bottom: 32px; text-align: center;">
-    <a href="{{ invitation_link }}" target="_blank" rel="noopener noreferrer" 
+    <a href="{{ ticket_link }}" target="_blank" rel="noopener noreferrer"
         style="display: inline-block; padding: 20px 32px; background-color: #401903; color: #FFFFFF; font-size: 16px; font-weight: 600; border-radius: 8px; text-decoration: none; line-height: 24px;">
-       Accept Invitation
+       View Ticket
     </a>
   </td>
 </tr>
@@ -69,11 +93,11 @@ You've been invited to join {{ organization_name | default("an organization") }}
     <p style="margin: 0 0 8px; font-size: 14px; color: #3f342d; line-height: 22px;">
       Or copy and paste this link in your browser:
     </p>
-    <p style="margin: 0; font-size: 18px; color: #705c4a; line-height: 20px; word-break: break-all;">
-      {{ invitation_link }}
+    <p style="margin: 0; font-size: 14px; color: #705c4a; line-height: 20px; word-break: break-all;">
+      {{ ticket_link }}
     </p>
     <p style="margin: 16px 0 0; font-size: 14px; color: #706C69; line-height: 22px; font-style: italic;">
-      If you didn't expect this invitation, please ignore this email.
+      If you didn't expect this invitation, please contact your administrator.
     </p>
   </td>
 </tr>
