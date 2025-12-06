@@ -16,4 +16,4 @@ class APIKeyOnboardingToken(SQLModel, table=True):
     used: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
-    api_key: "APIKey" = Relationship()
+    api_key: "APIKey" = Relationship(back_populates="onboarding_token")

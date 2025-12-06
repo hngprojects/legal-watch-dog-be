@@ -6,6 +6,7 @@ from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.api.modules.v1.api_access.models.api_key_token import APIKeyOnboardingToken
     from app.api.modules.v1.organization.models.organization_model import Organization
     from app.api.modules.v1.users.models.users_model import User
 
@@ -51,4 +52,7 @@ class APIKey(SQLModel, table=True):
     generated_by_user: Optional["User"] = Relationship(
         back_populates="generated_api_keys",
         sa_relationship_kwargs={"foreign_keys": "api_keys.generated_by"},
+    )
+    onboarding_token: Optional["APIKeyOnboardingToken"] = Relationship(
+        back_populates="api_key", sa_relationship_kwargs={"uselist": False}
     )

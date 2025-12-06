@@ -1,5 +1,10 @@
 from fastapi import APIRouter
 
+from app.api.modules.v1.api_access.routes.api_key_route import router as api_key_router
+from app.api.modules.v1.api_access.routes.external_extracted_data_route import (
+    router as external_extracted_router,
+)
+from app.api.modules.v1.api_access.routes.webhook_route import router as api_webhook_router
 from app.api.modules.v1.auth.routes.apple_auth_route import router as apple_auth_router
 from app.api.modules.v1.auth.routes.auth_routes import router as register_router
 from app.api.modules.v1.auth.routes.login_route import router as auth_router
@@ -50,3 +55,6 @@ router.include_router(billing_router)
 router.include_router(data_revision_search_router)
 router.include_router(participant_router)
 router.include_router(guest_access_router)
+router.include_router(api_key_router)
+router.include_router(external_extracted_router)
+router.include_router(api_webhook_router)
