@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException, status
 
+from app.api.core.config import settings
 from app.api.core.dependencies.billing_guard import require_billing_access
 from app.api.modules.v1.billing.models.billing_account import BillingStatus
 from app.api.modules.v1.jurisdictions.routes import jurisdiction_route as routes
@@ -368,9 +369,11 @@ def test_jurisdictions_router_has_billing_guard():
 
 
 @pytest.mark.asyncio
-async def test_jurisdictions_require_billing_access_allows_active_org():
-    """Billing guard should allow jurisdictions routes when billing is active."""
-    return  # So temporarily disabling the guard as requested
+async def test_jurisdictions_require_billing_access_allows_active_org(monkeypatch):
+    """Billing guard should allow jurisdictions routes when billing is active (on non-dev envs)."""
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "prod")
+
     mock_db = AsyncMock()
     org_id = uuid4()
 
@@ -393,9 +396,10 @@ async def test_jurisdictions_require_billing_access_allows_active_org():
 
 
 @pytest.mark.asyncio
-async def test_jurisdictions_require_billing_access_blocked_org_raises():
-    """Billing guard should block jurisdictions routes when billing is BLOCKED."""
-    return  # So temporarily disabling the guard as requested
+async def test_jurisdictions_require_billing_access_blocked_org_raises(monkeypatch):
+    """Billing guard should block jurisdictions routes when billing is BLOCKED (on non-dev envs)"""
+    monkeypatch.setattr(settings, "ENVIRONMENT", "prod")
+
     mock_db = AsyncMock()
     org_id = uuid4()
 
@@ -416,3 +420,28 @@ async def test_jurisdictions_require_billing_access_blocked_org_raises():
         err = excinfo.value
         assert err.status_code == status.HTTP_403_FORBIDDEN
         assert "blocked" in err.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_billing_guard_bypasses_in_dev(monkeypatch):
+    """In dev ENVIRONMENT, billing guard should *not* block or call is_org_allowed_usage."""
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "dev")
+
+    mock_db = AsyncMock()
+    org_id = uuid4()
+
+    mock_account = MagicMock()
+    mock_account.status = BillingStatus.BLOCKED
+
+    with patch("app.api.core.dependencies.billing_guard.get_billing_service") as mock_get_service:
+        mock_service = MagicMock()
+        mock_service.get_billing_account_by_org = AsyncMock(return_value=mock_account)
+        mock_service.is_org_allowed_usage = AsyncMock(return_value=(False, BillingStatus.BLOCKED))
+        mock_get_service.return_value = mock_service
+
+        result = await require_billing_access(organization_id=org_id, db=mock_db)
+
+        assert result is mock_account
+        mock_service.get_billing_account_by_org.assert_awaited_once_with(org_id)
+        mock_service.is_org_allowed_usage.assert_not_awaited()
